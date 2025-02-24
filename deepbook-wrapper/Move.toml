@@ -1,0 +1,14 @@
+[package]
+name = "deepbook_wrapper"
+version = "0.0.1"
+edition = "2024.beta"
+
+
+[dependencies]
+# Local development
+Sui = { local = "../../sui/crates/sui-framework/packages/sui-framework" }
+# Mainnet version
+# Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet" }
+
+[addresses]
+deepbook_wrapper = "0x0"
