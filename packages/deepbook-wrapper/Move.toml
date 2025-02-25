@@ -9,8 +9,8 @@ edition = "2024.beta"
 # Sui = { local = "../../../sui/crates/sui-framework/packages/sui-framework" }
 # Mainnet version
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
-token = { local = "../token" }
-deepbook = { local = "../deepbook" }
+deepbook = { local = "../deepbook", address = "0x2c8d603bc51326b8c13cef9dd07031a408a48dddb541963357661df5d3204809" }
+token = { local = "../token", address = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270" }
 
 [addresses]
 deepbook_wrapper = "0x0"
