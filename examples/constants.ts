@@ -1,8 +1,7 @@
-// TODO: Update this to actual data.
 // Wrapper package data
-export const WRAPPER_PACKAGE_ID = "";
-export const ADMIN_CAP_OBJECT_ID = "";
-export const WRAPPER_OBJECT_ID = "";
+export const WRAPPER_PACKAGE_ID = "0x5eb7bde18da393cd8c7efc73fbfb92e32a262410625ef6773bed8b752b1d46ba";
+export const ADMIN_CAP_OBJECT_ID = "0xdc3e17022cf4f625943146fd59c071f09127a58518b3665427b207154e45c93f";
+export const WRAPPER_OBJECT_ID = "0xd59dcceb9c950eca3efbef4e5b304512bc503c7489fb47c299358bc050b8cea9";
 
 // Coin types
 export const DEEP_COIN_TYPE = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP";
