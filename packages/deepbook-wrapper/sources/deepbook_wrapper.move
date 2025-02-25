@@ -210,7 +210,6 @@ module deepbook_wrapper::wrapper {
     
     /// Calculate the expected output quantity accounting for both DeepBook fees and wrapper fees
     public fun get_quantity_out<BaseToken, QuoteToken>(
-        wrapper: &DeepBookV3RouterWrapper,
         pool: &Pool<BaseToken, QuoteToken>,
         base_quantity: u64,
         quote_quantity: u64,
@@ -218,7 +217,7 @@ module deepbook_wrapper::wrapper {
     ): (u64, u64, u64) {
         // Get the raw output quantities from DeepBook
         // This method can return zero values in case input quantities don't meet the minimum lot size
-        let (base_out, quote_out, deep_required) = pool::get_quantity_out(
+        let (mut base_out, mut quote_out, deep_required) = pool::get_quantity_out(
             pool,
             base_quantity,
             quote_quantity,
