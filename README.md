@@ -11,7 +11,9 @@ These fees are stored in a `Bag` data structure, organized by token type.
 
 - **Efficiency**: The implementation uses O(1) lookups by token type, avoiding expensive iterations.
 - **Scalability**: The system can handle a large number of token types without performance degradation for regular users.
-- **Admin Operations**: Only the admin (when withdrawing fees) might experience slightly higher gas costs as the number of token types grows significantly.
+- **Fee Storage**: Fees are stored by token type in a Bag data structure
+- **Access Pattern**: Direct access by token type when withdrawing fees
+- **Admin Operations**: Only the admin (when withdrawing fees) might experience slightly higher gas costs as the number of token types grows significantly
 
 ### Future Optimizations
 
