@@ -195,4 +195,39 @@ module deepbook_wrapper::wrapper {
             coin::zero(ctx)
         }
     }
+    
+    /// Calculate the expected output quantity accounting for both DeepBook fees and wrapper fees
+    public fun get_quantity_out<BaseToken, QuoteToken>(
+        wrapper: &DeepBookV3RouterWrapper,
+        pool: &Pool<BaseToken, QuoteToken>,
+        base_quantity: u64,
+        quote_quantity: u64,
+        clock: &Clock,
+    ): (u64, u64, u64) {
+        // Get the raw output quantities from DeepBook
+        let (base_out, quote_out, deep_required) = pool::get_quantity_out(
+            pool,
+            base_quantity,
+            quote_quantity,
+            clock
+        );
+        
+        // Get the fee basis points from the pool
+        let (fee_bps, _, _) = pool::pool_trade_params(pool);
+        
+        // Apply our fee to the output quantities
+        // If base_quantity > 0, we're swapping base for quote, so apply fee to quote_out
+        // If quote_quantity > 0, we're swapping quote for base, so apply fee to base_out
+        if (base_quantity > 0) {
+            // Swapping base for quote, apply fee to quote_out
+            let fee_amount = mul(quote_out, fee_bps);
+            quote_out = quote_out - fee_amount;
+        } else if (quote_quantity > 0) {
+            // Swapping quote for base, apply fee to base_out
+            let fee_amount = mul(base_out, fee_bps);
+            base_out = base_out - fee_amount;
+        };
+        
+        (base_out, quote_out, deep_required)
+    }
 }
