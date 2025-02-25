@@ -27,9 +27,9 @@ module deepbook_wrapper::wrapper {
         wrapper_id: ID,
     }
     
-    // === Errors ===
+    /// Error when trying to use a fund capability with a different wrapper than it was created for
     #[error]
-    const EInvalidFundCap: u64 = 1; // or whatever number isn't used yet
+    const EInvalidFundCap: u64 = 1;
     
     /// Join DEEP coins into the router's reserves
     public fun join(wrapper: &mut DeepBookV3RouterWrapper, deep_coin: Coin<DEEP>) {
