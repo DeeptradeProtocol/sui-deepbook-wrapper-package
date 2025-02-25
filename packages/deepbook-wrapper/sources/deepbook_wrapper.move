@@ -31,6 +31,14 @@ module deepbook_wrapper::wrapper {
     #[error]
     const EInvalidFundCap: u64 = 1;
     
+    /// Define a constant for the fee scaling factor
+    const FEE_SCALING: u64 = 1_000_000_000;
+
+    /// Use the constant in the mul function
+    fun calculate_fee_amount(amount: u64, fee_bps: u64): u64 {
+        ((amount as u128) * (fee_bps as u128) / (FEE_SCALING as u128)) as u64
+    }
+
     /// Join DEEP coins into the router's reserves
     public fun join(wrapper: &mut DeepBookV3RouterWrapper, deep_coin: Coin<DEEP>) {
         balance::join(&mut wrapper.deep_reserves, coin::into_balance(deep_coin));
@@ -39,7 +47,7 @@ module deepbook_wrapper::wrapper {
     fun charge_fee<CoinType>(coin: &mut Coin<CoinType>, fee_bps: u64): Balance<CoinType> {
         let coin_balance = coin::balance_mut(coin);
         let value = balance::value(coin_balance);
-        balance::split(coin_balance, mul(value, fee_bps))
+        balance::split(coin_balance, calculate_fee_amount(value, fee_bps))
     }
     
     /// Create a new fund capability for the router
@@ -80,11 +88,6 @@ module deepbook_wrapper::wrapper {
         } else {
             bag::add(&mut wrapper.charged_fees, key, fee);
         };
-    }
-    
-    /// Helper function to calculate fee amount (with 9 decimal places)
-    fun mul(a: u64, b: u64): u64 {
-        ((a as u128) * (b as u128) / 1000000000) as u64
     }
     
     /// Swap exact base token amount for quote tokens
