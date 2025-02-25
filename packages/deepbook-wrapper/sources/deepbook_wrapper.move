@@ -217,6 +217,7 @@ module deepbook_wrapper::wrapper {
         clock: &Clock,
     ): (u64, u64, u64) {
         // Get the raw output quantities from DeepBook
+        // This method can return zero values in case input quantities don't meet the minimum lot size
         let (base_out, quote_out, deep_required) = pool::get_quantity_out(
             pool,
             base_quantity,
