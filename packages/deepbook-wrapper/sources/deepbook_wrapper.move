@@ -232,11 +232,11 @@ module deepbook_wrapper::wrapper {
         // If quote_quantity > 0, we're swapping quote for base, so apply fee to base_out
         if (base_quantity > 0) {
             // Swapping base for quote, apply fee to quote_out
-            let fee_amount = mul(quote_out, fee_bps);
+            let fee_amount = calculate_fee_amount(quote_out, fee_bps);
             quote_out = quote_out - fee_amount;
         } else if (quote_quantity > 0) {
             // Swapping quote for base, apply fee to base_out
-            let fee_amount = mul(base_out, fee_bps);
+            let fee_amount = calculate_fee_amount(base_out, fee_bps);
             base_out = base_out - fee_amount;
         };
         
