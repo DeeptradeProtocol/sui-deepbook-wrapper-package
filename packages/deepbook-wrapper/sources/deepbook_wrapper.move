@@ -27,19 +27,36 @@ module deepbook_wrapper::wrapper {
         wrapper_id: ID,
     }
     
-    // === Errors ===
+    /// Error when trying to use a fund capability with a different wrapper than it was created for
     #[error]
-    const EInvalidFundCap: u64 = 1; // or whatever number isn't used yet
+    const EInvalidFundCap: u64 = 1;
     
-    /// Join DEEP coins into the router's reserves
-    public fun join(wrapper: &mut DeepBookV3RouterWrapper, deep_coin: Coin<DEEP>) {
-        balance::join(&mut wrapper.deep_reserves, coin::into_balance(deep_coin));
+    /// Define a constant for the fee scaling factor
+    /// This matches DeepBook's FLOAT_SCALING constant (10^9) used for fee calculations
+    /// Fees are expressed in billionths, e.g., 1,000,000 = 0.1% (1,000,000/1,000,000,000)
+    const FEE_SCALING: u64 = 1_000_000_000;
+
+    /// Calculates the fee amount based on the token amount and fee rate
+    /// @param amount - The amount of tokens to calculate fee on
+    /// @param fee_bps - The fee rate in billionths (e.g., 1,000,000 = 0.1%)
+    /// @return The calculated fee amount
+    fun calculate_fee_amount(amount: u64, fee_bps: u64): u64 {
+        ((amount as u128) * (fee_bps as u128) / (FEE_SCALING as u128)) as u64
     }
-    /// Calculate and charge fee from a coin
+    
+    /// Charges a fee on a coin by splitting off a portion based on the fee rate
+    /// @param coin - The coin to charge fee from
+    /// @param fee_bps - The fee rate in billionths (from DeepBook pool parameters)
+    /// @return The fee amount as a Balance
     fun charge_fee<CoinType>(coin: &mut Coin<CoinType>, fee_bps: u64): Balance<CoinType> {
         let coin_balance = coin::balance_mut(coin);
         let value = balance::value(coin_balance);
-        balance::split(coin_balance, mul(value, fee_bps))
+        balance::split(coin_balance, calculate_fee_amount(value, fee_bps))
+    }
+
+    /// Join DEEP coins into the router's reserves
+    public fun join(wrapper: &mut DeepBookV3RouterWrapper, deep_coin: Coin<DEEP>) {
+        balance::join(&mut wrapper.deep_reserves, coin::into_balance(deep_coin));
     }
     
     /// Create a new fund capability for the router
@@ -80,11 +97,6 @@ module deepbook_wrapper::wrapper {
         } else {
             bag::add(&mut wrapper.charged_fees, key, fee);
         };
-    }
-    
-    /// Helper function to calculate fee amount (with 9 decimal places)
-    fun mul(a: u64, b: u64): u64 {
-        ((a as u128) * (b as u128) / 1000000000) as u64
     }
     
     /// Swap exact base token amount for quote tokens
