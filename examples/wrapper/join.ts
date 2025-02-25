@@ -28,7 +28,7 @@ const DEEP_OBJECT_ID = null;
   const tx = new Transaction();
 
   tx.moveCall({
-    target: `${WRAPPER_PACKAGE_ID}::router::join`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::join`,
     arguments: [tx.object(WRAPPER_OBJECT_ID), tx.object(deepTokenId)],
   });
 

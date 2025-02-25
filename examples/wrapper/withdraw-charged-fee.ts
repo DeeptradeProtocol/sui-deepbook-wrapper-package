@@ -10,7 +10,7 @@ const FUND_CUP_OBJECT_ID = "";
   const tx = new Transaction();
 
   tx.moveCall({
-    target: `${WRAPPER_PACKAGE_ID}::router::withdraw_charged_fee`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_charged_fee`,
     typeArguments: [FEE_COIN_TYPE],
     arguments: [tx.object(FUND_CUP_OBJECT_ID), tx.object(WRAPPER_OBJECT_ID)],
   });
