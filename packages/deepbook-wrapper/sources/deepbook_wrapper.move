@@ -91,7 +91,8 @@ module deepbook_wrapper::wrapper {
     public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
         wrapper: &mut DeepBookV3RouterWrapper,
         pool: &mut Pool<BaseToken, QuoteToken>,
-        base_coins: Coin<BaseToken>,
+        base_in: Coin<BaseToken>,
+        min_quote_out: u64,
         clock: &Clock,
         ctx: &mut TxContext
     ): Coin<QuoteToken> {
@@ -108,10 +109,10 @@ module deepbook_wrapper::wrapper {
 
         let (base_remainder, quote_out, deep_remainder) = pool::swap_exact_quantity(
             pool,
-            base_coins,
+            base_in,
             coin::zero(ctx),
             deep_payment,
-            0,
+            min_quote_out,
             clock,
             ctx
         );
@@ -130,7 +131,8 @@ module deepbook_wrapper::wrapper {
     public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
         wrapper: &mut DeepBookV3RouterWrapper,
         pool: &mut Pool<BaseToken, QuoteToken>,
-        quote_coins: Coin<QuoteToken>,
+        quote_in: Coin<QuoteToken>,
+        min_base_out: u64,
         clock: &Clock,
         ctx: &mut TxContext
     ): Coin<BaseToken> {        
@@ -147,9 +149,9 @@ module deepbook_wrapper::wrapper {
         let (base_out, quote_remainder, deep_remainder) = pool::swap_exact_quantity(
             pool,
             coin::zero(ctx),
-            quote_coins,
+            quote_in,
             deep_payment,
-            0,
+            min_base_out,
             clock,
             ctx
         );
