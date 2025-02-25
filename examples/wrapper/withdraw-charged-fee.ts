@@ -1,9 +1,8 @@
 import { Transaction } from "@mysten/sui/transactions";
 import { keypair, provider } from "../common";
-import { NS_COIN_TYPE, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
+import { FUND_CUP_OBJECT_ID, NS_COIN_TYPE, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
 
 const FEE_COIN_TYPE = NS_COIN_TYPE;
-const FUND_CUP_OBJECT_ID = "";
 
 // yarn ts-node examples/wrapper/withdraw-charged-fee.ts > withdraw-charged-fee.log 2>&1
 (async () => {
