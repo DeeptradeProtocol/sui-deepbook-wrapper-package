@@ -7,7 +7,7 @@ import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../c
   const tx = new Transaction();
 
   tx.moveCall({
-    target: `${WRAPPER_PACKAGE_ID}::router::create_fund_cap`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::create_fund_cap`,
     arguments: [tx.object(ADMIN_CAP_OBJECT_ID), tx.object(WRAPPER_OBJECT_ID)],
   });
 
