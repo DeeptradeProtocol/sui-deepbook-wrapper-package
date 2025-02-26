@@ -107,7 +107,7 @@ module deepbook_wrapper::wrapper {
         min_quote_out: u64,
         clock: &Clock,
         ctx: &mut TxContext
-    ): Coin<QuoteToken> {
+    ): (Coin<BaseToken>, Coin<QuoteToken>) {
         
         let deep_payment = if (pool::whitelisted(pool)) {
             coin::zero(ctx)
@@ -131,12 +131,11 @@ module deepbook_wrapper::wrapper {
 
         let mut result_quote = quote_out;
         join(wrapper, deep_remainder);
-        transfer_if_nonzero(base_remainder, tx_context::sender(ctx));
 
         let (fee_bps, _, _) = pool::pool_trade_params(pool);
         join_fee(wrapper, charge_fee(&mut result_quote, fee_bps));
         
-        result_quote
+        (base_remainder, result_quote)
     }
     
     /// Swap exact quote token amount for base tokens
@@ -147,7 +146,7 @@ module deepbook_wrapper::wrapper {
         min_base_out: u64,
         clock: &Clock,
         ctx: &mut TxContext
-    ): Coin<BaseToken> {        
+    ): (Coin<BaseToken>, Coin<QuoteToken>) {  
         let deep_payment = if (pool::whitelisted(pool)) {
             coin::zero(ctx)
         } else {
@@ -170,22 +169,13 @@ module deepbook_wrapper::wrapper {
 
         let mut result_base = base_out;
         join(wrapper, deep_remainder);
-        transfer_if_nonzero(quote_remainder, tx_context::sender(ctx));
 
         let (fee_bps, _, _) = pool::pool_trade_params(pool);
         join_fee(wrapper, charge_fee(&mut result_base, fee_bps));
         
-        result_base
+        (result_base, quote_remainder)
     }
     
-    /// Helper function to transfer non-zero coins or destroy zero coins
-    fun transfer_if_nonzero<CoinType>(coins: Coin<CoinType>, recipient: address) {
-        if (coin::value(&coins) > 0) {
-            transfer::public_transfer(coins, recipient);
-        } else {
-            coin::destroy_zero(coins);
-        };
-    }
     
     /// Withdraw collected fees for a specific coin type
     public fun withdraw_charged_fee<CoinType>(
