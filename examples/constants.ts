@@ -7,3 +7,6 @@ export const FUND_CUP_OBJECT_ID = "0x75d5048c7894cbee04c91db487fba45ac74bd006f3f
 // Coin types
 export const DEEP_COIN_TYPE = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP";
 export const NS_COIN_TYPE = "0x5145494a5f5100e645e4b0aa950fa6b68f614e8c59e17bc5ded3495123a79178::ns::NS";
+
+// Decimals
+export const DEEP_DECIMALS = 6;
