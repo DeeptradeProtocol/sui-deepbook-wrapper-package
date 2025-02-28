@@ -41,21 +41,9 @@ module deepbook_wrapper::wrapper {
     #[error]
     const EInsufficientFeeOrInput: u64 = 3;
 
-    /// Error when the order size is too small
-    #[error]
-    const EOrderTooSmall: u64 = 4;
-
-    /// Error when the lot size constraint is not met
-    #[error]
-    const EInvalidLotSize: u64 = 5;
-
-    /// Error when the tick size constraint is not met
-    #[error]
-    const EInvalidTickSize: u64 = 6;
-
     /// Error when the caller is not the owner of the balance manager
     #[error]
-    const EInvalidOwner: u64 = 7;
+    const EInvalidOwner: u64 = 4;
     
     /// Define a constant for the fee scaling factor
     /// This matches DeepBook's FLOAT_SCALING constant (10^9) used for fee calculations
@@ -318,9 +306,6 @@ module deepbook_wrapper::wrapper {
         // Verify the caller owns the balance manager
         assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
         
-        // Validate order parameters
-        validate_order_parameters(pool, quantity, price);
-        
         // Deposit DEEP tokens
         deposit_deep_for_order(wrapper, pool, balance_manager, quantity, price, ctx);
         
@@ -371,19 +356,6 @@ module deepbook_wrapper::wrapper {
         
         // Return order info and remaining coins
         (order_info, base_coin, quote_coin)
-    }
-    
-    /// Validate order parameters against pool constraints
-    fun validate_order_parameters<BaseToken, QuoteToken>(
-        pool: &Pool<BaseToken, QuoteToken>,
-        quantity: u64,
-        price: u64
-    ) {
-        let (tick_size, lot_size, min_size) = pool::pool_book_params(pool);
-        
-        assert!(quantity >= min_size, EOrderTooSmall);
-        assert!(quantity % lot_size == 0, EInvalidLotSize);
-        assert!(price % tick_size == 0, EInvalidTickSize);
     }
     
     /// Get fee basis points from pool parameters
