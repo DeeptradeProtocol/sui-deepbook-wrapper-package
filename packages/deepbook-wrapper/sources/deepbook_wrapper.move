@@ -288,7 +288,7 @@ module deepbook_wrapper::wrapper {
     }
 
     /// Create a limit order using DEEP from the wrapper's reserves
-    /// Returns the order info and remaining coins
+    /// Returns the order info
     public fun create_limit_order<BaseToken, QuoteToken>(
         wrapper: &mut DeepBookV3RouterWrapper,
         pool: &mut Pool<BaseToken, QuoteToken>,
@@ -302,7 +302,7 @@ module deepbook_wrapper::wrapper {
         client_order_id: u64,
         clock: &Clock,
         ctx: &mut TxContext
-    ): (deepbook::order_info::OrderInfo, Coin<BaseToken>, Coin<QuoteToken>) {
+    ): (deepbook::order_info::OrderInfo) {
         // Verify the caller owns the balance manager
         assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
         
@@ -335,6 +335,10 @@ module deepbook_wrapper::wrapper {
             balance_manager::deposit(balance_manager, order_payment, ctx);
         };
         
+        // Transfer remaining coins to the caller
+        transfer_if_nonzero(base_coin, tx_context::sender(ctx));
+        transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
+        
         // Generate proof and place order
         let proof = balance_manager::generate_proof_as_owner(balance_manager, ctx);
         
@@ -354,8 +358,8 @@ module deepbook_wrapper::wrapper {
             ctx
         );
         
-        // Return order info and remaining coins
-        (order_info, base_coin, quote_coin)
+        // Return order info
+        order_info
     }
     
     /// Get fee basis points from pool parameters
@@ -389,5 +393,14 @@ module deepbook_wrapper::wrapper {
         balance_manager::deposit(balance_manager, deep_payment, ctx);
         
         deep_required
+    }
+
+    /// Helper function to transfer non-zero coins or destroy zero coins
+    fun transfer_if_nonzero<CoinType>(coins: Coin<CoinType>, recipient: address) {
+        if (coin::value(&coins) > 0) {
+            transfer::public_transfer(coins, recipient);
+        } else {
+            coin::destroy_zero(coins);
+        };
     }
 }
