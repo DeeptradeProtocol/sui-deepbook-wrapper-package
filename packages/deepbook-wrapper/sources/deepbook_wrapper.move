@@ -3,7 +3,6 @@ module deepbook_wrapper::wrapper {
     use sui::coin::{Self, Coin};
     use sui::bag::{Self, Bag};
     use sui::clock::Clock;
-    use sui::event;
     
     // Import from other packages
     use token::deep::DEEP;
@@ -30,18 +29,6 @@ module deepbook_wrapper::wrapper {
         wrapper_id: ID,
     }
 
-    /// Event emitted when an order is created using DEEP from reserves
-    public struct OrderCreatedWithDeep has copy, drop {
-        order_id: u128,
-        pool_id: ID,
-        client_order_id: u64,
-        is_bid: bool,
-        owner: address,
-        quantity: u64,
-        price: u64,
-        deep_amount: u64
-    }
-    
     /// Error when trying to use a fund capability with a different wrapper than it was created for
     #[error]
     const EInvalidFundCap: u64 = 1;
@@ -335,7 +322,7 @@ module deepbook_wrapper::wrapper {
         validate_order_parameters(pool, quantity, price);
         
         // Deposit DEEP tokens
-        let deep_required = deposit_deep_for_order(wrapper, pool, balance_manager, quantity, price, ctx);
+        deposit_deep_for_order(wrapper, pool, balance_manager, quantity, price, ctx);
         
         // Handle the specific order type preparation
         if (is_bid) {
@@ -380,18 +367,6 @@ module deepbook_wrapper::wrapper {
             expire_timestamp,
             clock,
             ctx
-        );
-        
-        // Emit event
-        emit_order_created_event(
-            pool, 
-            order_info.order_id(), 
-            client_order_id, 
-            is_bid, 
-            ctx, 
-            quantity, 
-            price, 
-            deep_required
         );
         
         // Return order info and remaining coins
@@ -442,28 +417,5 @@ module deepbook_wrapper::wrapper {
         balance_manager::deposit(balance_manager, deep_payment, ctx);
         
         deep_required
-    }
-    
-    /// Emit order created event
-    fun emit_order_created_event<BaseToken, QuoteToken>(
-        pool: &Pool<BaseToken, QuoteToken>,
-        order_id: u128,
-        client_order_id: u64,
-        is_bid: bool,
-        ctx: &TxContext,
-        quantity: u64,
-        price: u64,
-        deep_amount: u64
-    ) {
-        event::emit(OrderCreatedWithDeep {
-            order_id,
-            pool_id: object::id(pool),
-            client_order_id,
-            is_bid,
-            owner: tx_context::sender(ctx),
-            quantity,
-            price,
-            deep_amount
-        });
     }
 }
