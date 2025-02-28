@@ -3,11 +3,14 @@ module deepbook_wrapper::wrapper {
     use sui::coin::{Self, Coin};
     use sui::bag::{Self, Bag};
     use sui::clock::Clock;
+    use sui::event;
     
     // Import from other packages
     use token::deep::DEEP;
     use deepbook_wrapper::admin::AdminCap;
+    use deepbook_wrapper::math;
     use deepbook::pool::{Self, Pool};
+    use deepbook::balance_manager::{Self, BalanceManager};
 
     /// Main router wrapper struct for DeepBook V3
     public struct DeepBookV3RouterWrapper has store, key {
@@ -26,10 +29,46 @@ module deepbook_wrapper::wrapper {
         id: UID,
         wrapper_id: ID,
     }
+
+    /// Event emitted when an order is created using DEEP from reserves
+    public struct OrderCreatedWithDeep has copy, drop {
+        order_id: u128,
+        pool_id: ID,
+        client_order_id: u64,
+        is_bid: bool,
+        owner: address,
+        quantity: u64,
+        price: u64,
+        deep_amount: u64
+    }
     
     /// Error when trying to use a fund capability with a different wrapper than it was created for
     #[error]
     const EInvalidFundCap: u64 = 1;
+    
+    /// Error when trying to use deep from reserves but there is not enough available
+    #[error]
+    const EInsufficientDeepReserves: u64 = 2;
+
+    /// Error when the input amount is insufficient after fees
+    #[error]
+    const EInsufficientFeeOrInput: u64 = 3;
+
+    /// Error when the order size is too small
+    #[error]
+    const EOrderTooSmall: u64 = 4;
+
+    /// Error when the lot size constraint is not met
+    #[error]
+    const EInvalidLotSize: u64 = 5;
+
+    /// Error when the tick size constraint is not met
+    #[error]
+    const EInvalidTickSize: u64 = 6;
+
+    /// Error when the caller is not the owner of the balance manager
+    #[error]
+    const EInvalidOwner: u64 = 7;
     
     /// Define a constant for the fee scaling factor
     /// This matches DeepBook's FLOAT_SCALING constant (10^9) used for fee calculations
@@ -231,5 +270,200 @@ module deepbook_wrapper::wrapper {
         };
         
         (base_out, quote_out, deep_required)
+    }
+
+    /// Estimate order requirements for a limit order
+    /// Returns whether the order can be created, DEEP required, and estimated fee
+    public fun estimate_order_requirements<BaseToken, QuoteToken>(
+        wrapper: &DeepBookV3RouterWrapper,
+        pool: &Pool<BaseToken, QuoteToken>,
+        quantity: u64,
+        price: u64,
+        is_bid: bool,
+        input_amount: u64
+    ): (bool, u64, u64) {
+        // Calculate DEEP required
+        let (deep_required, _deep_required_maker) = pool::get_order_deep_required(pool, quantity, price);
+        
+        // Check if the wrapper has enough DEEP
+        let has_enough_deep = balance::value(&wrapper.deep_reserves) >= deep_required;
+        
+        // Calculate fee
+        let (fee_bps, _, _) = pool::pool_trade_params(pool);
+        let fee_estimate = calculate_fee_amount(input_amount, fee_bps);
+        
+        // Validate order parameters
+        let (tick_size, lot_size, min_size) = pool::pool_book_params(pool);
+        
+        let valid_params = 
+            quantity >= min_size && 
+            quantity % lot_size == 0 && 
+            price % tick_size == 0;
+        
+        // Verify sufficient input after fee
+        let sufficient_input = if (is_bid) {
+            // For bid orders, check if remaining quote tokens can cover the order
+            (input_amount - fee_estimate) >= math::mul(quantity, price)
+        } else {
+            // For ask orders, check if remaining base tokens can meet the quantity
+            (input_amount - fee_estimate) >= quantity
+        };
+        
+        (has_enough_deep && valid_params && sufficient_input, deep_required, fee_estimate)
+    }
+
+    /// Create a limit order using DEEP from the wrapper's reserves
+    /// Returns the order info and remaining coins
+    public fun create_limit_order<BaseToken, QuoteToken>(
+        wrapper: &mut DeepBookV3RouterWrapper,
+        pool: &mut Pool<BaseToken, QuoteToken>,
+        balance_manager: &mut BalanceManager,
+        mut base_coin: Coin<BaseToken>,
+        mut quote_coin: Coin<QuoteToken>,
+        price: u64,
+        quantity: u64,
+        is_bid: bool,
+        expire_timestamp: u64,
+        client_order_id: u64,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ): (deepbook::order_info::OrderInfo, Coin<BaseToken>, Coin<QuoteToken>) {
+        // Verify the caller owns the balance manager
+        assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+        
+        // Validate order parameters
+        validate_order_parameters(pool, quantity, price);
+        
+        // Deposit DEEP tokens
+        let deep_required = deposit_deep_for_order(wrapper, pool, balance_manager, quantity, price, ctx);
+        
+        // Handle the specific order type preparation
+        if (is_bid) {
+            // Handle bid-specific logic (buy BaseToken using QuoteToken)
+            let order_value = math::mul(quantity, price);
+            
+            // Process the input coin, charging fees and preparing payment
+            let fee = charge_fee(&mut quote_coin, get_fee_bps(pool));
+            join_fee(wrapper, fee);
+            
+            let remaining_value = coin::value(&quote_coin);
+            assert!(remaining_value >= order_value, EInsufficientFeeOrInput);
+            
+            let order_payment = coin::split(&mut quote_coin, order_value, ctx);
+            balance_manager::deposit(balance_manager, order_payment, ctx);
+        } else {
+            // Handle ask-specific logic (sell BaseToken for QuoteToken)
+            let fee = charge_fee(&mut base_coin, get_fee_bps(pool));
+            join_fee(wrapper, fee);
+            
+            let remaining_quantity = coin::value(&base_coin);
+            assert!(remaining_quantity >= quantity, EInsufficientFeeOrInput);
+            
+            let order_payment = coin::split(&mut base_coin, quantity, ctx);
+            balance_manager::deposit(balance_manager, order_payment, ctx);
+        };
+        
+        // Generate proof and place order
+        let proof = balance_manager::generate_proof_as_owner(balance_manager, ctx);
+        
+        let order_info = pool::place_limit_order(
+            pool,
+            balance_manager,
+            &proof,
+            client_order_id,
+            0, // default order type (limit)
+            0, // default self matching option
+            price,
+            quantity,
+            is_bid,
+            true, // pay_with_deep
+            expire_timestamp,
+            clock,
+            ctx
+        );
+        
+        // Emit event
+        emit_order_created_event(
+            pool, 
+            order_info.order_id(), 
+            client_order_id, 
+            is_bid, 
+            ctx, 
+            quantity, 
+            price, 
+            deep_required
+        );
+        
+        // Return order info and remaining coins
+        (order_info, base_coin, quote_coin)
+    }
+    
+    /// Validate order parameters against pool constraints
+    fun validate_order_parameters<BaseToken, QuoteToken>(
+        pool: &Pool<BaseToken, QuoteToken>,
+        quantity: u64,
+        price: u64
+    ) {
+        let (tick_size, lot_size, min_size) = pool::pool_book_params(pool);
+        
+        assert!(quantity >= min_size, EOrderTooSmall);
+        assert!(quantity % lot_size == 0, EInvalidLotSize);
+        assert!(price % tick_size == 0, EInvalidTickSize);
+    }
+    
+    /// Get fee basis points from pool parameters
+    fun get_fee_bps<BaseToken, QuoteToken>(pool: &Pool<BaseToken, QuoteToken>): u64 {
+        let (fee_bps, _, _) = pool::pool_trade_params(pool);
+        fee_bps
+    }
+    
+    /// Deposit DEEP tokens for an order and return amount used
+    fun deposit_deep_for_order<BaseToken, QuoteToken>(
+        wrapper: &mut DeepBookV3RouterWrapper,
+        pool: &Pool<BaseToken, QuoteToken>,
+        balance_manager: &mut BalanceManager,
+        quantity: u64,
+        price: u64,
+        ctx: &mut TxContext
+    ): u64 {
+        // Calculate DEEP required
+        let (deep_required, _) = pool::get_order_deep_required(pool, quantity, price);
+        
+        // Check if the wrapper has enough DEEP
+        assert!(balance::value(&wrapper.deep_reserves) >= deep_required, EInsufficientDeepReserves);
+        
+        // Handle DEEP deposit
+        let deep_payment = coin::from_balance(
+            balance::split(&mut wrapper.deep_reserves, deep_required),
+            ctx
+        );
+        
+        // Add DEEP to balance manager - will be used to pay fees
+        balance_manager::deposit(balance_manager, deep_payment, ctx);
+        
+        deep_required
+    }
+    
+    /// Emit order created event
+    fun emit_order_created_event<BaseToken, QuoteToken>(
+        pool: &Pool<BaseToken, QuoteToken>,
+        order_id: u128,
+        client_order_id: u64,
+        is_bid: bool,
+        ctx: &TxContext,
+        quantity: u64,
+        price: u64,
+        deep_amount: u64
+    ) {
+        event::emit(OrderCreatedWithDeep {
+            order_id,
+            pool_id: object::id(pool),
+            client_order_id,
+            is_bid,
+            owner: tx_context::sender(ctx),
+            quantity,
+            price,
+            deep_amount
+        });
     }
 }
