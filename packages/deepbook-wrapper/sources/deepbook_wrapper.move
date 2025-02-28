@@ -257,17 +257,29 @@ module deepbook_wrapper::wrapper {
         is_bid: bool,
         input_amount: u64
     ): (bool, u64, u64) {
-        // Calculate DEEP required
-        let (deep_required, _deep_required_maker) = pool::get_order_deep_required(pool, quantity, price);
+        // Check if pool is whitelisted
+        let is_whitelisted = pool::whitelisted(pool);
         
-        // Check if the wrapper has enough DEEP
-        let has_enough_deep = balance::value(&wrapper.deep_reserves) >= deep_required;
+        // For whitelisted pools, we don't need DEEP or fees
+        let deep_required = if (is_whitelisted) {
+            0
+        } else {
+            let (deep_req, _) = pool::get_order_deep_required(pool, quantity, price);
+            deep_req
+        };
         
-        // Calculate fee
-        let (fee_bps, _, _) = pool::pool_trade_params(pool);
-        let fee_estimate = calculate_fee_amount(input_amount, fee_bps);
+        // Check if the wrapper has enough DEEP (only matters for non-whitelisted pools)
+        let has_enough_deep = is_whitelisted || balance::value(&wrapper.deep_reserves) >= deep_required;
         
-        // Validate order parameters
+        // Calculate fee (0 for whitelisted pools)
+        let fee_estimate = if (is_whitelisted) {
+            0
+        } else {
+            let (fee_bps, _, _) = pool::pool_trade_params(pool);
+            calculate_fee_amount(input_amount, fee_bps)
+        };
+        
+        // Validate order parameters - this is always required regardless of whitelist status
         let (tick_size, lot_size, min_size) = pool::pool_book_params(pool);
         
         let valid_params = 
@@ -287,7 +299,7 @@ module deepbook_wrapper::wrapper {
         (has_enough_deep && valid_params && sufficient_input, deep_required, fee_estimate)
     }
 
-    /// Create a limit order using DEEP from the wrapper's reserves
+    /// Create a limit order using DEEP from the wrapper's reserves if needed
     /// Returns the order info
     public fun create_limit_order<BaseToken, QuoteToken>(
         wrapper: &mut DeepBookV3RouterWrapper,
@@ -306,17 +318,24 @@ module deepbook_wrapper::wrapper {
         // Verify the caller owns the balance manager
         assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
         
-        // Deposit DEEP tokens
-        deposit_deep_for_order(wrapper, pool, balance_manager, quantity, price, ctx);
+        // Check if pool is whitelisted
+        let is_whitelisted = pool::whitelisted(pool);
+        
+        // Only deposit DEEP if the pool is not whitelisted
+        if (!is_whitelisted) {
+            deposit_deep_for_order(wrapper, pool, balance_manager, quantity, price, ctx);
+        };
         
         // Handle the specific order type preparation
         if (is_bid) {
             // Handle bid-specific logic (buy BaseToken using QuoteToken)
             let order_value = math::mul(quantity, price);
             
-            // Process the input coin, charging fees and preparing payment
-            let fee = charge_fee(&mut quote_coin, get_fee_bps(pool));
-            join_fee(wrapper, fee);
+            // Process the input coin, charging fees only if not whitelisted
+            if (!is_whitelisted) {
+                let fee = charge_fee(&mut quote_coin, get_fee_bps(pool));
+                join_fee(wrapper, fee);
+            };
             
             let remaining_value = coin::value(&quote_coin);
             assert!(remaining_value >= order_value, EInsufficientFeeOrInput);
@@ -325,8 +344,10 @@ module deepbook_wrapper::wrapper {
             balance_manager::deposit(balance_manager, order_payment, ctx);
         } else {
             // Handle ask-specific logic (sell BaseToken for QuoteToken)
-            let fee = charge_fee(&mut base_coin, get_fee_bps(pool));
-            join_fee(wrapper, fee);
+            if (!is_whitelisted) {
+                let fee = charge_fee(&mut base_coin, get_fee_bps(pool));
+                join_fee(wrapper, fee);
+            };
             
             let remaining_quantity = coin::value(&base_coin);
             assert!(remaining_quantity >= quantity, EInsufficientFeeOrInput);
@@ -352,7 +373,7 @@ module deepbook_wrapper::wrapper {
             price,
             quantity,
             is_bid,
-            true, // pay_with_deep
+            !is_whitelisted, // pay_with_deep is true only if not whitelisted
             expire_timestamp,
             clock,
             ctx
