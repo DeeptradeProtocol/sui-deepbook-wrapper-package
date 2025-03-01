@@ -247,72 +247,111 @@ module deepbook_wrapper::wrapper {
         (base_out, quote_out, deep_required)
     }
 
-    /// Estimate order requirements for a limit order
-    /// Returns whether the order can be created, DEEP required, and estimated fee
-    public fun estimate_order_requirements<BaseToken, QuoteToken>(
-        wrapper: &DeepBookV3RouterWrapper,
+    /// Determines if a pool is whitelisted
+    /// Whitelisted pools don't require DEEP tokens and don't charge fees
+    public fun is_pool_whitelisted<BaseToken, QuoteToken>(
+        pool: &Pool<BaseToken, QuoteToken>
+    ): bool {
+        pool::whitelisted(pool)
+    }
+    
+    /// Calculates the total amount of DEEP required for an order
+    /// Returns 0 for whitelisted pools
+    public fun calculate_deep_required<BaseToken, QuoteToken>(
         pool: &Pool<BaseToken, QuoteToken>,
-        balance_manager: &BalanceManager,
-        deep_in_wallet: u64,
-        base_in_wallet: u64,
-        quote_in_wallet: u64,
         quantity: u64,
-        price: u64,
-        is_bid: bool
-    ): (bool, u64, u64) {
-        // Check if pool is whitelisted
-        let is_whitelisted = pool::whitelisted(pool);
-        
-        // Calculate required DEEP (0 for whitelisted pools)
-        let deep_required = if (is_whitelisted) {
+        price: u64
+    ): u64 {
+        if (is_pool_whitelisted(pool)) {
             0
         } else {
             let (deep_req, _) = pool::get_order_deep_required(pool, quantity, price);
             deep_req
+        }
+    }
+    
+    /// Determines if wrapper DEEP will be needed for this order
+    /// Also checks if the wrapper has enough DEEP to cover the needs
+    /// Returns (will_use_wrapper_deep, has_enough_deep)
+    public fun will_use_wrapper_deep<BaseToken, QuoteToken>(
+        wrapper: &DeepBookV3RouterWrapper,
+        pool: &Pool<BaseToken, QuoteToken>,
+        balance_manager: &BalanceManager,
+        deep_in_wallet: u64,
+        quantity: u64,
+        price: u64
+    ): (bool, bool) {
+        // If pool is whitelisted, we don't need any DEEP
+        if (is_pool_whitelisted(pool)) {
+            return (false, true)
         };
         
-        // For non-whitelisted pools, check if there's enough DEEP across all sources
-        let mut will_use_wrapper_deep = false;
+        // Calculate how much DEEP is required
+        let deep_required = calculate_deep_required(pool, quantity, price);
         
-        if (!is_whitelisted) {
-            // Check DEEP from balance manager
-            let deep_in_manager = balance_manager::balance<DEEP>(balance_manager);
-            
-            // Total DEEP from user's sources
-            let user_deep_total = deep_in_manager + deep_in_wallet;
-            
-            if (user_deep_total < deep_required) {
-                // Need to use wrapper DEEP
-                let additional_deep_needed = deep_required - user_deep_total;
-                will_use_wrapper_deep = true;
-                
-                // Check if wrapper has enough DEEP
-                if (balance::value(&wrapper.deep_reserves) < additional_deep_needed) {
-                    return (false, deep_required, 0) // Not enough DEEP, can't place order
-                }
-            }
+        // Check DEEP from balance manager
+        let deep_in_manager = balance_manager::balance<DEEP>(balance_manager);
+        
+        // Total DEEP from user's sources
+        let user_deep_total = deep_in_manager + deep_in_wallet;
+        
+        // If user has enough DEEP, we don't need wrapper DEEP
+        if (user_deep_total >= deep_required) {
+            return (false, true)
         };
         
-        // Calculate fee, but only if we're using wrapper DEEP
-        let fee_bps = get_fee_bps(pool);
-        let fee_estimate = if (is_whitelisted || !will_use_wrapper_deep) {
+        // Need to use wrapper DEEP
+        let additional_deep_needed = deep_required - user_deep_total;
+        let wrapper_has_enough = balance::value(&wrapper.deep_reserves) >= additional_deep_needed;
+        
+        (true, wrapper_has_enough)
+    }
+    
+    /// Calculates the order amount in tokens (quote for bid, base for ask)
+    public fun calculate_order_amount(
+        quantity: u64,
+        price: u64,
+        is_bid: bool
+    ): u64 {
+        if (is_bid) {
+            math::mul(quantity, price) // Quote tokens for bid
+        } else {
+            quantity // Base tokens for ask
+        }
+    }
+    
+    /// Calculate fee estimate for an order
+    /// Returns 0 for whitelisted pools or when user provides all DEEP
+    public fun calculate_fee_estimate<BaseToken, QuoteToken>(
+        pool: &Pool<BaseToken, QuoteToken>,
+        will_use_wrapper_deep: bool,
+        quantity: u64,
+        price: u64,
+        is_bid: bool
+    ): u64 {
+        if (is_pool_whitelisted(pool) || !will_use_wrapper_deep) {
             0 // No fee for whitelisted pools or when user provides all DEEP
         } else {
-            // Calculate fee based on the order amount
-            let order_amount = if (is_bid) {
-                math::mul(quantity, price) // Quote tokens for bid
-            } else {
-                quantity // Base tokens for ask
-            };
+            // Calculate order amount
+            let order_amount = calculate_order_amount(quantity, price, is_bid);
             
-            calculate_fee_amount(order_amount, fee_bps)
-        };
-        
-        // Validate order parameters - always required regardless of whitelist status
-        let valid_params = validate_pool_params(pool, quantity, price);
-        
-        // Verify sufficient tokens from all sources
-        let sufficient_tokens = if (is_bid) {
+            // Calculate fee based on order amount
+            calculate_fee_amount(order_amount, get_fee_bps(pool))
+        }
+    }
+    
+    /// Checks if the user has sufficient tokens for the order
+    public fun has_sufficient_tokens<BaseToken, QuoteToken>(
+        balance_manager: &BalanceManager,
+        base_in_wallet: u64,
+        quote_in_wallet: u64,
+        quantity: u64,
+        price: u64,
+        will_use_wrapper_deep: bool,
+        fee_estimate: u64,
+        is_bid: bool
+    ): bool {
+        if (is_bid) {
             // For bid orders, check if user has enough quote tokens
             let quote_required = math::mul(quantity, price);
             let quote_in_manager = balance_manager::balance<QuoteToken>(balance_manager);
@@ -335,9 +374,65 @@ module deepbook_wrapper::wrapper {
             } else {
                 total_base_available >= quantity
             }
+        }
+    }
+    
+    /// Estimate order requirements for a limit order
+    /// Returns whether the order can be created, DEEP required, and estimated fee
+    public fun estimate_order_requirements<BaseToken, QuoteToken>(
+        wrapper: &DeepBookV3RouterWrapper,
+        pool: &Pool<BaseToken, QuoteToken>,
+        balance_manager: &BalanceManager,
+        deep_in_wallet: u64,
+        base_in_wallet: u64,
+        quote_in_wallet: u64,
+        quantity: u64,
+        price: u64,
+        is_bid: bool
+    ): (bool, u64, u64) {
+        // Calculate required DEEP
+        let deep_required = calculate_deep_required(pool, quantity, price);
+        
+        // Check if we'll need to use wrapper DEEP
+        let (will_use_wrapper_deep, has_enough_deep) = will_use_wrapper_deep(
+            wrapper, 
+            pool, 
+            balance_manager, 
+            deep_in_wallet, 
+            quantity, 
+            price
+        );
+        
+        // Early return if wrapper doesn't have enough DEEP
+        if (will_use_wrapper_deep && !has_enough_deep) {
+            return (false, deep_required, 0)
         };
         
-        (valid_params && sufficient_tokens, deep_required, fee_estimate)
+        // Calculate fee
+        let fee_estimate = calculate_fee_estimate(
+            pool,
+            will_use_wrapper_deep,
+            quantity,
+            price,
+            is_bid
+        );
+        
+        // Validate order parameters
+        let valid_params = validate_pool_params(pool, quantity, price);
+        
+        // Check if user has sufficient tokens
+        let sufficient_tokens = has_sufficient_tokens<BaseToken, QuoteToken>(
+            balance_manager,
+            base_in_wallet,
+            quote_in_wallet,
+            quantity,
+            price,
+            will_use_wrapper_deep,
+            fee_estimate,
+            is_bid
+        );
+        
+        (valid_params && sufficient_tokens && has_enough_deep, deep_required, fee_estimate)
     }
     
     /// Helper function to validate pool parameters
