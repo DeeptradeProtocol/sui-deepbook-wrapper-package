@@ -29,6 +29,30 @@ module deepbook_wrapper::wrapper {
         wrapper_id: ID,
     }
 
+    /// Data structure to represent DEEP token requirements for an order
+    public struct DeepRequirementPlan has copy, drop {
+        use_wrapper_deep: bool,
+        take_from_wallet: u64,
+        take_from_wrapper: u64,
+        has_sufficient_resources: bool
+    }
+    
+    /// Data structure to represent fee collection plan
+    public struct FeeCollectionPlan has copy, drop {
+        token_type: u8,     // 0 for no fee, 1 for base token, 2 for quote token
+        fee_amount: u64,
+        take_from_wallet: u64,
+        take_from_balance_manager: u64,
+        has_sufficient_resources: bool
+    }
+    
+    /// Data structure to represent token deposit requirements
+    public struct TokenDepositPlan has copy, drop {
+        amount_needed: u64,
+        take_from_wallet: u64,
+        has_sufficient_resources: bool
+    }
+
     /// Error when trying to use a fund capability with a different wrapper than it was created for
     #[error]
     const EInvalidFundCap: u64 = 1;
@@ -247,27 +271,372 @@ module deepbook_wrapper::wrapper {
         (base_out, quote_out, deep_required)
     }
 
-    /// Determines if a pool is whitelisted
-    /// Whitelisted pools don't require DEEP tokens and don't charge fees
-    public fun is_pool_whitelisted<BaseToken, QuoteToken>(
-        pool: &Pool<BaseToken, QuoteToken>
-    ): bool {
-        pool::whitelisted(pool)
+    /// Estimate order requirements for a limit order
+    /// Returns whether the order can be created, DEEP required, and estimated fee
+    public fun estimate_order_requirements<BaseToken, QuoteToken>(
+        wrapper: &DeepBookV3RouterWrapper,
+        pool: &Pool<BaseToken, QuoteToken>,
+        balance_manager: &BalanceManager,
+        deep_in_wallet: u64,
+        base_in_wallet: u64,
+        quote_in_wallet: u64,
+        quantity: u64,
+        price: u64,
+        is_bid: bool
+    ): (bool, u64, u64) {
+        // Get wrapper deep reserves
+        let wrapper_deep_reserves = balance::value(&wrapper.deep_reserves);
+        
+        // Check if pool is whitelisted
+        let is_pool_whitelisted = pool::whitelisted(pool);
+        
+        // Get pool parameters
+        let (pool_fee_bps, _, _) = pool::pool_trade_params(pool);
+        let (pool_tick_size, pool_lot_size, pool_min_size) = pool::pool_book_params(pool);
+        
+        // Get balance manager balances
+        let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
+        let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
+        let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
+        
+        // Calculate DEEP required
+        let deep_required = calculate_deep_required(pool, quantity, price);
+        
+        // Call the core logic function
+        estimate_order_requirements_core(
+            wrapper_deep_reserves,
+            is_pool_whitelisted,
+            pool_fee_bps,
+            pool_tick_size,
+            pool_lot_size,
+            pool_min_size,
+            balance_manager_deep,
+            balance_manager_base,
+            balance_manager_quote,
+            deep_in_wallet,
+            base_in_wallet,
+            quote_in_wallet,
+            quantity,
+            price,
+            is_bid,
+            deep_required
+        )
+    }
+
+    /// Create a limit order using tokens from various sources
+    /// Returns the order info
+    public fun create_limit_order<BaseToken, QuoteToken>(
+        wrapper: &mut DeepBookV3RouterWrapper,
+        pool: &mut Pool<BaseToken, QuoteToken>,
+        balance_manager: &mut BalanceManager,
+        mut base_coin: Coin<BaseToken>,
+        mut quote_coin: Coin<QuoteToken>,
+        mut deep_coin: Coin<DEEP>,
+        price: u64,
+        quantity: u64,
+        is_bid: bool,
+        expire_timestamp: u64,
+        client_order_id: u64,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ): (deepbook::order_info::OrderInfo) {
+        // Verify the caller owns the balance manager
+        assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+        
+        // Extract all the data we need from DeepBook objects
+        let is_pool_whitelisted = pool::whitelisted(pool);
+        let deep_required = calculate_deep_required(pool, quantity, price);
+        let fee_bps = get_fee_bps(pool);
+        
+        // Get balances from balance manager
+        let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
+        let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
+        let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
+        
+        // Get balances from wallet coins
+        let deep_in_wallet = coin::value(&deep_coin);
+        let base_in_wallet = coin::value(&base_coin);
+        let quote_in_wallet = coin::value(&quote_coin);
+        
+        // Get wrapper deep reserves
+        let wrapper_deep_reserves = balance::value(&wrapper.deep_reserves);
+        
+        // Get the order plans from the core logic
+        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+            is_pool_whitelisted,
+            deep_required,
+            balance_manager_deep,
+            balance_manager_base,
+            balance_manager_quote,
+            deep_in_wallet,
+            base_in_wallet,
+            quote_in_wallet,
+            wrapper_deep_reserves,
+            quantity,
+            price,
+            is_bid,
+            fee_bps
+        );
+        
+        // Step 1: Execute DEEP token plan
+        execute_deep_collection(wrapper, balance_manager, &mut deep_coin, &deep_plan, ctx);
+        
+        // Step 2: Execute fee collection plan
+        execute_fee_collection(
+            wrapper,
+            balance_manager,
+            &mut base_coin,
+            &mut quote_coin,
+            &fee_plan,
+            ctx
+        );
+        
+        // Step 3: Execute token deposit plan
+        execute_token_deposit(
+            balance_manager,
+            &mut base_coin,
+            &mut quote_coin,
+            &token_plan,
+            is_bid,
+            ctx
+        );
+        
+        // Return unused tokens to the caller
+        transfer_if_nonzero(base_coin, tx_context::sender(ctx));
+        transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
+        transfer_if_nonzero(deep_coin, tx_context::sender(ctx));
+        
+        // Step 4: Generate proof and place order
+        let proof = balance_manager::generate_proof_as_owner(balance_manager, ctx);
+        
+        pool::place_limit_order(
+            pool,
+            balance_manager,
+            &proof,
+            client_order_id,
+            0, // default order type (limit)
+            0, // default self matching option
+            price,
+            quantity,
+            is_bid,
+            !is_pool_whitelisted, // pay_with_deep is true only if not whitelisted
+            expire_timestamp,
+            clock,
+            ctx
+        )
+    }
+
+    /// Helper function to collect fees based on token type
+    fun execute_fee_collection<BaseToken, QuoteToken>(
+        wrapper: &mut DeepBookV3RouterWrapper,
+        balance_manager: &mut BalanceManager, 
+        base_coin: &mut Coin<BaseToken>,
+        quote_coin: &mut Coin<QuoteToken>,
+        fee_plan: &FeeCollectionPlan,
+        ctx: &mut TxContext
+    ) {
+        // Verify there are enough tokens to cover the fee
+        if (fee_plan.fee_amount > 0) {
+            assert!(
+                fee_plan.has_sufficient_resources, 
+                EInsufficientFeeOrInput
+            );
+        };
+        
+        // Collect fee from wallet if needed
+        if (fee_plan.take_from_wallet > 0) {
+            if (fee_plan.token_type == 1) { // Base token
+                let fee_coin = coin::split(base_coin, fee_plan.take_from_wallet, ctx);
+                join_fee(wrapper, coin::into_balance(fee_coin));
+            } else if (fee_plan.token_type == 2) { // Quote token
+                let fee_coin = coin::split(quote_coin, fee_plan.take_from_wallet, ctx);
+                join_fee(wrapper, coin::into_balance(fee_coin));
+            };
+        };
+        
+        // Collect fee from balance manager if needed
+        if (fee_plan.take_from_balance_manager > 0) {
+            if (fee_plan.token_type == 1) { // Base token
+                let fee_coin = balance_manager::withdraw<BaseToken>(
+                    balance_manager,
+                    fee_plan.take_from_balance_manager,
+                    ctx
+                );
+                join_fee(wrapper, coin::into_balance(fee_coin));
+            } else if (fee_plan.token_type == 2) { // Quote token
+                let fee_coin = balance_manager::withdraw<QuoteToken>(
+                    balance_manager,
+                    fee_plan.take_from_balance_manager,
+                    ctx
+                );
+                join_fee(wrapper, coin::into_balance(fee_coin));
+            };
+        };
     }
     
-    /// Calculates the total amount of DEEP required for an order
-    /// Returns 0 for whitelisted pools
-    public fun calculate_deep_required<BaseToken, QuoteToken>(
+    /// Helper function to collect DEEP tokens from wallet and wrapper according to the plan
+    fun execute_deep_collection(
+        wrapper: &mut DeepBookV3RouterWrapper,
+        balance_manager: &mut BalanceManager,
+        deep_coin: &mut Coin<DEEP>,
+        deep_plan: &DeepRequirementPlan,
+        ctx: &mut TxContext
+    ) {
+        // Check if there are sufficient resources
+        if (deep_plan.use_wrapper_deep) {
+            assert!(deep_plan.has_sufficient_resources, EInsufficientDeepReserves);
+        };
+        
+        // Take DEEP from wallet if needed
+        if (deep_plan.take_from_wallet > 0) {
+            let payment = coin::split(deep_coin, deep_plan.take_from_wallet, ctx);
+            balance_manager::deposit(balance_manager, payment, ctx);
+        };
+        
+        // Take DEEP from wrapper reserves if needed
+        if (deep_plan.take_from_wrapper > 0) {
+            let reserve_payment = coin::from_balance(
+                balance::split(&mut wrapper.deep_reserves, deep_plan.take_from_wrapper),
+                ctx
+            );
+            
+            balance_manager::deposit(balance_manager, reserve_payment, ctx);
+        };
+    }
+
+    /// Helper function to deposit tokens according to the token plan
+    fun execute_token_deposit<BaseToken, QuoteToken>(
+        balance_manager: &mut BalanceManager,
+        base_coin: &mut Coin<BaseToken>,
+        quote_coin: &mut Coin<QuoteToken>,
+        token_plan: &TokenDepositPlan,
+        is_bid: bool,
+        ctx: &mut TxContext
+    ) {
+        // Verify there are enough tokens to satisfy the deposit requirements
+        if (token_plan.amount_needed > 0) {
+            assert!(
+                token_plan.has_sufficient_resources,
+                EInsufficientFeeOrInput
+            );
+        };
+        
+        // Deposit tokens from wallet if needed
+        if (token_plan.take_from_wallet > 0) {
+            if (is_bid) { // Quote tokens for bid
+                let payment = coin::split(quote_coin, token_plan.take_from_wallet, ctx);
+                balance_manager::deposit(balance_manager, payment, ctx);
+            } else { // Base tokens for ask
+                let payment = coin::split(base_coin, token_plan.take_from_wallet, ctx);
+                balance_manager::deposit(balance_manager, payment, ctx);
+            };
+        };
+    }
+
+    /// Calculates the fee estimate for an order
+    /// Returns 0 for whitelisted pools or when user provides all DEEP
+    public fun calculate_fee_estimate<BaseToken, QuoteToken>(
+        pool: &Pool<BaseToken, QuoteToken>,
+        will_use_wrapper_deep: bool,
+        quantity: u64,
+        price: u64,
+        is_bid: bool
+    ): u64 {
+        // Check if pool is whitelisted
+        let is_pool_whitelisted = pool::whitelisted(pool);
+        
+        // Get pool fee basis points
+        let (pool_fee_bps, _, _) = pool::pool_trade_params(pool);
+        
+        // Call the core logic function
+        calculate_fee_estimate_core(
+            is_pool_whitelisted,
+            will_use_wrapper_deep,
+            quantity,
+            price,
+            is_bid,
+            pool_fee_bps
+        )
+    }
+    
+    /// Checks if the user has sufficient tokens for the order
+    public fun has_sufficient_tokens<BaseToken, QuoteToken>(
+        balance_manager: &BalanceManager,
+        base_in_wallet: u64,
+        quote_in_wallet: u64,
+        quantity: u64,
+        price: u64,
+        will_use_wrapper_deep: bool,
+        fee_estimate: u64,
+        is_bid: bool
+    ): bool {
+        // Get balance manager balances
+        let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
+        let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
+        
+        // Call the core logic function
+        has_sufficient_tokens_core(
+            balance_manager_base,
+            balance_manager_quote,
+            base_in_wallet,
+            quote_in_wallet,
+            quantity,
+            price,
+            will_use_wrapper_deep,
+            fee_estimate,
+            is_bid
+        )
+    }
+
+    /// Determines if wrapper DEEP will be needed for this order
+    /// Also checks if the wrapper has enough DEEP to cover the needs
+    /// Returns (will_use_wrapper_deep, has_enough_deep)
+    public fun will_use_wrapper_deep<BaseToken, QuoteToken>(
+        wrapper: &DeepBookV3RouterWrapper,
+        pool: &Pool<BaseToken, QuoteToken>,
+        balance_manager: &BalanceManager,
+        deep_in_wallet: u64,
+        quantity: u64,
+        price: u64
+    ): (bool, bool) {
+        // Get wrapper deep reserves
+        let wrapper_deep_reserves = balance::value(&wrapper.deep_reserves);
+        
+        // Check if pool is whitelisted
+        let is_pool_whitelisted = pool::whitelisted(pool);
+        
+        // Calculate how much DEEP is required
+        let deep_required = calculate_deep_required(pool, quantity, price);
+        
+        // Check DEEP from balance manager
+        let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
+        
+        // Call the core logic function
+        will_use_wrapper_deep_core(
+            wrapper_deep_reserves,
+            is_pool_whitelisted,
+            balance_manager_deep,
+            deep_in_wallet,
+            deep_required
+        )
+    }
+
+    /// Helper function to validate pool parameters
+    public fun validate_pool_params<BaseToken, QuoteToken>(
         pool: &Pool<BaseToken, QuoteToken>,
         quantity: u64,
         price: u64
-    ): u64 {
-        if (is_pool_whitelisted(pool)) {
-            0
-        } else {
-            let (deep_req, _) = pool::get_order_deep_required(pool, quantity, price);
-            deep_req
-        }
+    ): bool {
+        let (tick_size, lot_size, min_size) = pool::pool_book_params(pool);
+        
+        // Call the core logic function
+        validate_pool_params_core(
+            quantity,
+            price,
+            tick_size,
+            lot_size,
+            min_size
+        )
     }
     
     /// Estimate order requirements for a limit order - core logic function that doesn't require DeepBook objects
@@ -437,56 +806,274 @@ module deepbook_wrapper::wrapper {
         }
     }
     
-    /// Estimate order requirements for a limit order
-    /// Returns whether the order can be created, DEEP required, and estimated fee
-    public fun estimate_order_requirements<BaseToken, QuoteToken>(
-        wrapper: &DeepBookV3RouterWrapper,
-        pool: &Pool<BaseToken, QuoteToken>,
-        balance_manager: &BalanceManager,
+    /// Determine the DEEP token requirements for an order - core logic
+    public fun determine_deep_requirements_core(
+        is_pool_whitelisted: bool,
+        deep_required: u64,
+        balance_manager_deep: u64,
+        deep_in_wallet: u64,
+        wrapper_deep_reserves: u64
+    ): DeepRequirementPlan {
+        // If pool is whitelisted, no DEEP is needed
+        if (is_pool_whitelisted) {
+            return DeepRequirementPlan {
+                use_wrapper_deep: false,
+                take_from_wallet: 0,
+                take_from_wrapper: 0,
+                has_sufficient_resources: true
+            }
+        };
+        
+        // Calculate how much DEEP the user has available
+        let user_deep_total = balance_manager_deep + deep_in_wallet;
+        
+        if (user_deep_total >= deep_required) {
+            // User has enough DEEP
+            // Determine how much to take from wallet based on what's available
+            let from_wallet = deep_required - balance_manager_deep;
+            
+            return DeepRequirementPlan {
+                use_wrapper_deep: false,
+                take_from_wallet: from_wallet,
+                take_from_wrapper: 0,
+                has_sufficient_resources: true
+            }
+        } else {
+            // Need wrapper DEEP since user doesn't have enough
+            let from_wallet = deep_in_wallet;  // Take all from wallet
+            let still_needed = deep_required - user_deep_total;
+            
+            // Verify wrapper has enough DEEP
+            let take_from_wrapper = if (wrapper_deep_reserves >= still_needed) {
+                still_needed
+            } else {
+                0  // Not enough, will cause a failure later
+            };
+            
+            return DeepRequirementPlan {
+                use_wrapper_deep: true,
+                take_from_wallet: from_wallet,
+                take_from_wrapper: take_from_wrapper,
+                has_sufficient_resources: wrapper_deep_reserves >= still_needed
+            }
+        }
+    }
+    
+    /// Determine fee collection requirements - core logic
+    /// For bid orders, fees are collected in quote tokens
+    /// For ask orders, fees are collected in base tokens
+    /// Returns a plan for fee collection
+    public fun determine_fee_collection_core(
+        use_wrapper_deep: bool,
+        is_pool_whitelisted: bool,
+        pool_fee_bps: u64,
+        order_amount: u64,
+        is_bid: bool,
+        wallet_balance: u64,
+        balance_manager_balance: u64
+    ): FeeCollectionPlan {
+        // No fee for whitelisted pools or when not using wrapper DEEP
+        if (is_pool_whitelisted || !use_wrapper_deep) {
+            return FeeCollectionPlan {
+                token_type: 0,  // No fee
+                fee_amount: 0,
+                take_from_wallet: 0,
+                take_from_balance_manager: 0,
+                has_sufficient_resources: true
+            }
+        };
+        
+        // Calculate fee based on order amount
+        let fee_amount = calculate_fee_amount(order_amount, pool_fee_bps);
+        
+        // If no fee, return early
+        if (fee_amount == 0) {
+            return FeeCollectionPlan {
+                token_type: if (is_bid) 2 else 1,  // 1 for base, 2 for quote
+                fee_amount: 0,
+                take_from_wallet: 0,
+                take_from_balance_manager: 0,
+                has_sufficient_resources: true
+            }
+        };
+        
+        // Determine how much to take from wallet vs balance manager
+        let from_wallet = if (wallet_balance >= fee_amount) {
+            fee_amount
+        } else {
+            wallet_balance
+        };
+        
+        let from_balance_manager = if (from_wallet < fee_amount) {
+            let remaining = fee_amount - from_wallet;
+            if (balance_manager_balance >= remaining) {
+                remaining
+            } else {
+                0  // Not enough, will set the flag below and cause a failure later
+            }
+        } else {
+            0
+        };
+        
+        // Check if we have sufficient resources
+        let has_sufficient = from_wallet + from_balance_manager >= fee_amount;
+        
+        FeeCollectionPlan {
+            token_type: if (is_bid) 2 else 1,  // 1 for base, 2 for quote
+            fee_amount,
+            take_from_wallet: from_wallet,
+            take_from_balance_manager: from_balance_manager,
+            has_sufficient_resources: has_sufficient
+        }
+    }
+    
+    /// Determine token deposit requirements - core logic
+    /// For bid orders, calculate how many quote tokens are needed
+    /// For ask orders, calculate how many base tokens are needed
+    public fun determine_token_deposit_core(
+        required_amount: u64,
+        wallet_balance: u64,
+        balance_manager_balance: u64
+    ): TokenDepositPlan {
+        // Check if we already have enough in the balance manager
+        if (balance_manager_balance >= required_amount) {
+            return TokenDepositPlan {
+                amount_needed: required_amount,
+                take_from_wallet: 0,
+                has_sufficient_resources: true
+            }
+        };
+        
+        // Calculate how much more is needed
+        let additional_needed = required_amount - balance_manager_balance;
+        
+        // Determine how much to take from wallet
+        let from_wallet = if (wallet_balance >= additional_needed) {
+            additional_needed
+        } else {
+            0  // Not enough, will set the flag below and cause a failure later
+        };
+        
+        // Check if we have sufficient resources
+        let has_sufficient = from_wallet >= additional_needed;
+        
+        TokenDepositPlan {
+            amount_needed: required_amount,
+            take_from_wallet: from_wallet,
+            has_sufficient_resources: has_sufficient
+        }
+    }
+    
+    /// Create a limit order using tokens from various sources - core logic function
+    /// This is a skeleton that orchestrates the process
+    public fun create_limit_order_core(
+        is_pool_whitelisted: bool,
+        deep_required: u64,
+        balance_manager_deep: u64,
+        balance_manager_base: u64,
+        balance_manager_quote: u64,
         deep_in_wallet: u64,
         base_in_wallet: u64,
         quote_in_wallet: u64,
+        wrapper_deep_reserves: u64,
         quantity: u64,
         price: u64,
-        is_bid: bool
-    ): (bool, u64, u64) {
-        // Get wrapper deep reserves
-        let wrapper_deep_reserves = balance::value(&wrapper.deep_reserves);
-        
-        // Check if pool is whitelisted
-        let is_pool_whitelisted = pool::whitelisted(pool);
-        
-        // Get pool parameters
-        let (pool_fee_bps, _, _) = pool::pool_trade_params(pool);
-        let (pool_tick_size, pool_lot_size, pool_min_size) = pool::pool_book_params(pool);
-        
-        // Get balance manager balances
-        let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
-        let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
-        let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
-        
-        // Calculate DEEP required
-        let deep_required = calculate_deep_required(pool, quantity, price);
-        
-        // Call the core logic function
-        estimate_order_requirements_core(
-            wrapper_deep_reserves,
+        is_bid: bool,
+        pool_fee_bps: u64
+    ): (DeepRequirementPlan, FeeCollectionPlan, TokenDepositPlan) {
+        // Step 1: Determine DEEP requirements
+        let deep_plan = determine_deep_requirements_core(
             is_pool_whitelisted,
-            pool_fee_bps,
-            pool_tick_size,
-            pool_lot_size,
-            pool_min_size,
+            deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
-            quantity,
-            price,
-            is_bid,
-            deep_required
-        )
+            wrapper_deep_reserves
+        );
+        
+        // Step 2: Calculate order amount based on order type
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        
+        // Step 3: Determine fee collection based on order type
+        let fee_plan = if (is_bid) {
+            // For bid orders, fees are in quote tokens
+            determine_fee_collection_core(
+                deep_plan.use_wrapper_deep,
+                is_pool_whitelisted,
+                pool_fee_bps,
+                order_amount,
+                is_bid,
+                quote_in_wallet,
+                balance_manager_quote
+            )
+        } else {
+            // For ask orders, fees are in base tokens
+            determine_fee_collection_core(
+                deep_plan.use_wrapper_deep,
+                is_pool_whitelisted,
+                pool_fee_bps,
+                order_amount,
+                is_bid,
+                base_in_wallet,
+                balance_manager_base
+            )
+        };
+        
+        // Step 4: Determine token deposit requirements
+        let token_plan = if (is_bid) {
+            // For bid orders, we need quote tokens
+            determine_token_deposit_core(
+                order_amount,
+                quote_in_wallet - fee_plan.take_from_wallet,  // Account for fees already taken
+                balance_manager_quote - fee_plan.take_from_balance_manager
+            )
+        } else {
+            // For ask orders, we need base tokens
+            determine_token_deposit_core(
+                quantity,
+                base_in_wallet - fee_plan.take_from_wallet,  // Account for fees already taken
+                balance_manager_base - fee_plan.take_from_balance_manager
+            )
+        };
+        
+        (deep_plan, fee_plan, token_plan)
+    }
+
+    /// Get fee basis points from pool parameters
+    fun get_fee_bps<BaseToken, QuoteToken>(pool: &Pool<BaseToken, QuoteToken>): u64 {
+        let (fee_bps, _, _) = pool::pool_trade_params(pool);
+        fee_bps
+    }
+     
+    /// Helper function to transfer non-zero coins or destroy zero coins
+    fun transfer_if_nonzero<CoinType>(coins: Coin<CoinType>, recipient: address) {
+        if (coin::value(&coins) > 0) {
+            transfer::public_transfer(coins, recipient);
+        } else {
+            coin::destroy_zero(coins);
+        };
+    }
+
+    /// Determines if a pool is whitelisted
+    /// Whitelisted pools don't require DEEP tokens and don't charge fees
+    public fun is_pool_whitelisted<BaseToken, QuoteToken>(
+        pool: &Pool<BaseToken, QuoteToken>
+    ): bool {
+        pool::whitelisted(pool)
+    }
+    
+    /// Calculates the total amount of DEEP required for an order
+    /// Returns 0 for whitelisted pools
+    public fun calculate_deep_required<BaseToken, QuoteToken>(
+        pool: &Pool<BaseToken, QuoteToken>,
+        quantity: u64,
+        price: u64
+    ): u64 {
+        if (is_pool_whitelisted(pool)) {
+            0
+        } else {
+            let (deep_req, _) = pool::get_order_deep_required(pool, quantity, price);
+            deep_req
+        }
     }
 
     /// Calculates the order amount in tokens (quote for bid, base for ask)
@@ -500,395 +1087,5 @@ module deepbook_wrapper::wrapper {
         } else {
             quantity // Base tokens for ask
         }
-    }
-    
-    /// Calculates the fee estimate for an order
-    /// Returns 0 for whitelisted pools or when user provides all DEEP
-    public fun calculate_fee_estimate<BaseToken, QuoteToken>(
-        pool: &Pool<BaseToken, QuoteToken>,
-        will_use_wrapper_deep: bool,
-        quantity: u64,
-        price: u64,
-        is_bid: bool
-    ): u64 {
-        // Check if pool is whitelisted
-        let is_pool_whitelisted = pool::whitelisted(pool);
-        
-        // Get pool fee basis points
-        let (pool_fee_bps, _, _) = pool::pool_trade_params(pool);
-        
-        // Call the core logic function
-        calculate_fee_estimate_core(
-            is_pool_whitelisted,
-            will_use_wrapper_deep,
-            quantity,
-            price,
-            is_bid,
-            pool_fee_bps
-        )
-    }
-    
-    /// Checks if the user has sufficient tokens for the order
-    public fun has_sufficient_tokens<BaseToken, QuoteToken>(
-        balance_manager: &BalanceManager,
-        base_in_wallet: u64,
-        quote_in_wallet: u64,
-        quantity: u64,
-        price: u64,
-        will_use_wrapper_deep: bool,
-        fee_estimate: u64,
-        is_bid: bool
-    ): bool {
-        // Get balance manager balances
-        let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
-        let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
-        
-        // Call the core logic function
-        has_sufficient_tokens_core(
-            balance_manager_base,
-            balance_manager_quote,
-            base_in_wallet,
-            quote_in_wallet,
-            quantity,
-            price,
-            will_use_wrapper_deep,
-            fee_estimate,
-            is_bid
-        )
-    }
-
-    /// Determines if wrapper DEEP will be needed for this order
-    /// Also checks if the wrapper has enough DEEP to cover the needs
-    /// Returns (will_use_wrapper_deep, has_enough_deep)
-    public fun will_use_wrapper_deep<BaseToken, QuoteToken>(
-        wrapper: &DeepBookV3RouterWrapper,
-        pool: &Pool<BaseToken, QuoteToken>,
-        balance_manager: &BalanceManager,
-        deep_in_wallet: u64,
-        quantity: u64,
-        price: u64
-    ): (bool, bool) {
-        // Get wrapper deep reserves
-        let wrapper_deep_reserves = balance::value(&wrapper.deep_reserves);
-        
-        // Check if pool is whitelisted
-        let is_pool_whitelisted = pool::whitelisted(pool);
-        
-        // Calculate how much DEEP is required
-        let deep_required = calculate_deep_required(pool, quantity, price);
-        
-        // Check DEEP from balance manager
-        let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
-        
-        // Call the core logic function
-        will_use_wrapper_deep_core(
-            wrapper_deep_reserves,
-            is_pool_whitelisted,
-            balance_manager_deep,
-            deep_in_wallet,
-            deep_required
-        )
-    }
-
-    /// Helper function to validate pool parameters
-    public fun validate_pool_params<BaseToken, QuoteToken>(
-        pool: &Pool<BaseToken, QuoteToken>,
-        quantity: u64,
-        price: u64
-    ): bool {
-        let (tick_size, lot_size, min_size) = pool::pool_book_params(pool);
-        
-        // Call the core logic function
-        validate_pool_params_core(
-            quantity,
-            price,
-            tick_size,
-            lot_size,
-            min_size
-        )
-    }
-
-    /// Create a limit order using tokens from various sources
-    /// Returns the order info
-    public fun create_limit_order<BaseToken, QuoteToken>(
-        wrapper: &mut DeepBookV3RouterWrapper,
-        pool: &mut Pool<BaseToken, QuoteToken>,
-        balance_manager: &mut BalanceManager,
-        mut base_coin: Coin<BaseToken>,
-        mut quote_coin: Coin<QuoteToken>,
-        mut deep_coin: Coin<DEEP>,
-        price: u64,
-        quantity: u64,
-        is_bid: bool,
-        expire_timestamp: u64,
-        client_order_id: u64,
-        clock: &Clock,
-        ctx: &mut TxContext
-    ): (deepbook::order_info::OrderInfo) {
-        // Verify the caller owns the balance manager
-        assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
-        
-        // Check if pool is whitelisted
-        let is_whitelisted = pool::whitelisted(pool);
-        
-        // Handle DEEP requirements (only if not whitelisted)
-        // This returns whether wrapper DEEP was used
-        let used_wrapper_deep = if (!is_whitelisted) {
-            ensure_deep_for_order(wrapper, pool, balance_manager, &mut deep_coin, quantity, price, ctx)
-        } else {
-            false
-        };
-        
-        let fee_bps = get_fee_bps(pool);
-        
-        // Handle input coin requirements and fees based on order type
-        if (is_bid) {
-            // For bid orders, calculate the quote token amount needed
-            let order_value = math::mul(quantity, price);
-            
-            // First collect fees if wrapper DEEP was used (do this before any deposits)
-            if (used_wrapper_deep) {
-                // For bids, fee is based on the quote tokens being spent (order_value)
-                collect_fee_for_amount<QuoteToken>(
-                    wrapper,
-                    balance_manager,
-                    &mut quote_coin,
-                    order_value,
-                    fee_bps,
-                    ctx
-                );
-            };
-            
-            // Then ensure enough tokens for the order
-            ensure_quote_for_order<QuoteToken>(
-                balance_manager,
-                &mut quote_coin,
-                order_value,
-                ctx
-            );
-        } else {
-            // For ask orders, we need to ensure base tokens and potentially charge fees
-            // First collect fees if wrapper DEEP was used (do this before any deposits)
-            if (used_wrapper_deep) {
-                // For asks, fee is based on the base tokens being spent (quantity)
-                collect_fee_for_amount<BaseToken>(
-                    wrapper, 
-                    balance_manager,
-                    &mut base_coin,
-                    quantity,
-                    fee_bps,
-                    ctx
-                );
-            };
-            
-            // Then ensure enough tokens for the order
-            ensure_base_for_order<BaseToken>(
-                balance_manager,
-                &mut base_coin,
-                quantity,
-                ctx
-            );
-        };
-        
-        // Return unused tokens to the caller
-        transfer_if_nonzero(base_coin, tx_context::sender(ctx));
-        transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
-        transfer_if_nonzero(deep_coin, tx_context::sender(ctx));
-        
-        // Generate proof and place order
-        let proof = balance_manager::generate_proof_as_owner(balance_manager, ctx);
-        
-        pool::place_limit_order(
-            pool,
-            balance_manager,
-            &proof,
-            client_order_id,
-            0, // default order type (limit)
-            0, // default self matching option
-            price,
-            quantity,
-            is_bid,
-            !is_whitelisted, // pay_with_deep is true only if not whitelisted
-            expire_timestamp,
-            clock,
-            ctx
-        )
-    }
-    
-    /// Collect fee for a specific amount rather than the entire balance
-    /// This ensures fees are calculated only on the amount used in the order
-    fun collect_fee_for_amount<TokenType>(
-        wrapper: &mut DeepBookV3RouterWrapper,
-        balance_manager: &mut BalanceManager,
-        input_coin: &mut Coin<TokenType>,
-        order_value: u64,
-        fee_bps: u64,
-        ctx: &mut TxContext
-    ) {
-        // Calculate fee based on the specific amount, not the entire balance
-        let fee_amount = calculate_fee_amount(order_value, fee_bps);
-        
-        if (fee_amount == 0) {
-            return // No fee to collect
-        };
-        
-        // Check wallet first
-        let wallet_balance = coin::value(input_coin);
-        
-        if (wallet_balance >= fee_amount) {
-            // Wallet has enough to cover the fee
-            let wallet_fee = coin::split(input_coin, fee_amount, ctx);
-            join_fee(wrapper, coin::into_balance(wallet_fee));
-            return
-        };
-        
-        // Use whatever we can from wallet
-        let from_wallet = if (wallet_balance > 0) {
-            let wallet_fee = coin::split(input_coin, wallet_balance, ctx);
-            join_fee(wrapper, coin::into_balance(wallet_fee));
-            wallet_balance
-        } else {
-            0
-        };
-        
-        // If we still need more fee, try to get it from balance manager
-        if (from_wallet < fee_amount) {
-            let remaining_fee = fee_amount - from_wallet;
-            let manager_balance = balance_manager::balance<TokenType>(balance_manager);
-            
-            assert!(manager_balance >= remaining_fee, EInsufficientFeeOrInput);
-            
-            // Withdraw from balance manager to collect the rest of the fee
-            let manager_fee = balance_manager::withdraw<TokenType>(
-                balance_manager,
-                remaining_fee,
-                ctx
-            );
-            join_fee(wrapper, coin::into_balance(manager_fee));
-        };
-    }
-
-    /// Ensure sufficient quote tokens for an order, depositing from wallet if needed
-    fun ensure_quote_for_order<QuoteToken>(
-        balance_manager: &mut BalanceManager,
-        quote_coin: &mut Coin<QuoteToken>,
-        required_amount: u64,
-        ctx: &mut TxContext
-    ) {
-        // Check balance manager for quote tokens
-        let quote_in_manager = balance_manager::balance<QuoteToken>(balance_manager);
-        
-        if (quote_in_manager < required_amount) {
-            // Calculate how much more is needed
-            let additional_quote_needed = required_amount - quote_in_manager;
-            
-            // Check wallet for quote tokens
-            let quote_in_wallet = coin::value(quote_coin);
-            assert!(quote_in_wallet >= additional_quote_needed, EInsufficientFeeOrInput);
-            
-            // Split required tokens from wallet and deposit to balance manager
-            let order_payment = coin::split(quote_coin, additional_quote_needed, ctx);
-            balance_manager::deposit(balance_manager, order_payment, ctx);
-        };
-    }
-
-    /// Ensure sufficient base tokens for an order, depositing from wallet if needed
-    fun ensure_base_for_order<BaseToken>(
-        balance_manager: &mut BalanceManager,
-        base_coin: &mut Coin<BaseToken>,
-        required_amount: u64,
-        ctx: &mut TxContext
-    ) {
-        // Check balance manager for base tokens
-        let base_in_manager = balance_manager::balance<BaseToken>(balance_manager);
-        
-        if (base_in_manager < required_amount) {
-            // Calculate how much more is needed
-            let additional_base_needed = required_amount - base_in_manager;
-            
-            // Check wallet for base tokens
-            let base_in_wallet = coin::value(base_coin);
-            assert!(base_in_wallet >= additional_base_needed, EInsufficientFeeOrInput);
-            
-            // Split required tokens from wallet and deposit to balance manager
-            let order_payment = coin::split(base_coin, additional_base_needed, ctx);
-            balance_manager::deposit(balance_manager, order_payment, ctx);
-        };
-    }
-
-    /// Ensure sufficient DEEP for the order, using multiple sources
-    /// Returns whether wrapper DEEP was used
-    fun ensure_deep_for_order<BaseToken, QuoteToken>(
-        wrapper: &mut DeepBookV3RouterWrapper,
-        pool: &Pool<BaseToken, QuoteToken>,
-        balance_manager: &mut BalanceManager,
-        deep_coin: &mut Coin<DEEP>,
-        quantity: u64,
-        price: u64,
-        ctx: &mut TxContext
-    ): bool {
-        // Calculate DEEP required
-        let (deep_required, _) = pool::get_order_deep_required(pool, quantity, price);
-        
-        // First, check balance manager for DEEP
-        let deep_in_manager = balance_manager::balance<DEEP>(balance_manager);
-        
-        if (deep_in_manager >= deep_required) {
-            // Balance manager already has enough DEEP
-            return false // Didn't use wrapper DEEP
-        };
-        
-        // Need additional DEEP - calculate how much
-        let additional_deep_needed = deep_required - deep_in_manager;
-        
-        // Check if user's wallet has enough DEEP
-        let deep_in_wallet = coin::value(deep_coin);
-        
-        if (deep_in_wallet >= additional_deep_needed) {
-            // User has enough DEEP in wallet, deposit the needed amount
-            let payment = coin::split(deep_coin, additional_deep_needed, ctx);
-            balance_manager::deposit(balance_manager, payment, ctx);
-            return false // Didn't use wrapper DEEP
-        };
-        
-        // User doesn't have enough DEEP combined, use wrapper reserves and charge fees
-        let deep_from_user = if (deep_in_wallet > 0) {
-            // Take whatever DEEP user has in wallet
-            let payment = coin::split(deep_coin, deep_in_wallet, ctx);
-            balance_manager::deposit(balance_manager, payment, ctx);
-            deep_in_wallet
-        } else {
-            0
-        };
-        
-        // Use wrapper reserves for the remaining DEEP
-        let still_needed = deep_required - deep_in_manager - deep_from_user;
-        
-        assert!(balance::value(&wrapper.deep_reserves) >= still_needed, EInsufficientDeepReserves);
-        
-        let reserve_payment = coin::from_balance(
-            balance::split(&mut wrapper.deep_reserves, still_needed),
-            ctx
-        );
-        
-        balance_manager::deposit(balance_manager, reserve_payment, ctx);
-        
-        // Used wrapper DEEP
-        true
-    }
-
-    /// Get fee basis points from pool parameters
-    fun get_fee_bps<BaseToken, QuoteToken>(pool: &Pool<BaseToken, QuoteToken>): u64 {
-        let (fee_bps, _, _) = pool::pool_trade_params(pool);
-        fee_bps
-    }
-    
-    /// Helper function to transfer non-zero coins or destroy zero coins
-    fun transfer_if_nonzero<CoinType>(coins: Coin<CoinType>, recipient: address) {
-        if (coin::value(&coins) > 0) {
-            transfer::public_transfer(coins, recipient);
-        } else {
-            coin::destroy_zero(coins);
-        };
     }
 }
