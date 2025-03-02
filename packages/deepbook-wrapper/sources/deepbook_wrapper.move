@@ -830,7 +830,11 @@ module deepbook_wrapper::wrapper {
         if (user_deep_total >= deep_required) {
             // User has enough DEEP
             // Determine how much to take from wallet based on what's available
-            let from_wallet = deep_required - balance_manager_deep;
+            let from_wallet = if (balance_manager_deep >= deep_required) {
+                0 // Nothing needed from wallet if balance manager has enough
+            } else {
+                deep_required - balance_manager_deep
+            };
             
             return DeepRequirementPlan {
                 use_wrapper_deep: false,
@@ -1087,5 +1091,19 @@ module deepbook_wrapper::wrapper {
         } else {
             quantity // Base tokens for ask
         }
+    }
+
+    #[test_only]
+    public fun assert_deep_plan_eq(
+        actual: DeepRequirementPlan,
+        expected_use_wrapper: bool,
+        expected_from_wallet: u64,
+        expected_from_wrapper: u64,
+        expected_sufficient: bool
+    ) {
+        assert!(actual.use_wrapper_deep == expected_use_wrapper, 0);
+        assert!(actual.take_from_wallet == expected_from_wallet, 0);
+        assert!(actual.take_from_wrapper == expected_from_wrapper, 0);
+        assert!(actual.has_sufficient_resources == expected_sufficient, 0);
     }
 }
