@@ -1106,4 +1106,32 @@ module deepbook_wrapper::wrapper {
         assert!(actual.take_from_wrapper == expected_from_wrapper, 0);
         assert!(actual.has_sufficient_resources == expected_sufficient, 0);
     }
+
+    #[test_only]
+    public fun assert_fee_plan_eq(
+        actual: FeeCollectionPlan,
+        expected_token_type: u8,
+        expected_fee_amount: u64,
+        expected_take_from_wallet: u64,
+        expected_take_from_balance_manager: u64,
+        expected_sufficient: bool
+    ) {
+        assert!(actual.token_type == expected_token_type, 0);
+        assert!(actual.fee_amount == expected_fee_amount, 0);
+        assert!(actual.take_from_wallet == expected_take_from_wallet, 0);
+        assert!(actual.take_from_balance_manager == expected_take_from_balance_manager, 0);
+        assert!(actual.has_sufficient_resources == expected_sufficient, 0);
+    }
+
+    #[test_only]
+    public fun assert_token_plan_eq(
+        actual: TokenDepositPlan,
+        expected_amount_needed: u64,
+        expected_take_from_wallet: u64,
+        expected_sufficient: bool
+    ) {
+        assert!(actual.amount_needed == expected_amount_needed, 0);
+        assert!(actual.take_from_wallet == expected_take_from_wallet, 0);
+        assert!(actual.has_sufficient_resources == expected_sufficient, 0);
+    }
 }
