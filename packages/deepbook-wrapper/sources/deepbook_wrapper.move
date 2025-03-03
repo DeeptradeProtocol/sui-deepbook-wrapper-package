@@ -352,11 +352,13 @@ module deepbook_wrapper::wrapper {
         let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
         let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
         let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
+        let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
         
         // Get balances from wallet coins
         let deep_in_wallet = coin::value(&deep_coin);
         let base_in_wallet = coin::value(&base_coin);
         let quote_in_wallet = coin::value(&quote_coin);
+        let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
         
         // Get wrapper deep reserves
         let wrapper_deep_reserves = balance::value(&wrapper.deep_reserves);
@@ -366,11 +368,9 @@ module deepbook_wrapper::wrapper {
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -982,11 +982,9 @@ module deepbook_wrapper::wrapper {
         is_pool_whitelisted: bool,
         deep_required: u64,
         balance_manager_deep: u64,
-        balance_manager_base: u64,
-        balance_manager_quote: u64,
+        balance_manager_input_coin: u64,
         deep_in_wallet: u64,
-        base_in_wallet: u64,
-        quote_in_wallet: u64,
+        wallet_input_coin: u64,
         wrapper_deep_reserves: u64,
         quantity: u64,
         price: u64,
@@ -1004,48 +1002,24 @@ module deepbook_wrapper::wrapper {
         
         // Step 2: Calculate order amount based on order type
         let order_amount = calculate_order_amount(quantity, price, is_bid);
-        
+
         // Step 3: Determine fee collection based on order type
-        let fee_plan = if (is_bid) {
-            // For bid orders, fees are in quote tokens
-            determine_fee_collection_core(
-                deep_plan.use_wrapper_deep_reserves,
-                is_pool_whitelisted,
-                pool_fee_bps,
-                order_amount,
-                is_bid,
-                quote_in_wallet,
-                balance_manager_quote
-            )
-        } else {
-            // For ask orders, fees are in base tokens
-            determine_fee_collection_core(
-                deep_plan.use_wrapper_deep_reserves,
-                is_pool_whitelisted,
-                pool_fee_bps,
-                order_amount,
-                is_bid,
-                base_in_wallet,
-                balance_manager_base
-            )
-        };
-        
+        let fee_plan = determine_fee_collection_core(
+            deep_plan.use_wrapper_deep_reserves,
+            is_pool_whitelisted,
+            pool_fee_bps,
+            order_amount,
+            is_bid,
+            wallet_input_coin,
+            balance_manager_input_coin
+        );
+
         // Step 4: Determine token deposit requirements
-        let token_plan = if (is_bid) {
-            // For bid orders, we need quote tokens
-            determine_token_deposit_core(
-                order_amount,
-                quote_in_wallet - fee_plan.take_from_wallet,  // Account for fees already taken
-                balance_manager_quote - fee_plan.take_from_balance_manager
-            )
-        } else {
-            // For ask orders, we need base tokens
-            determine_token_deposit_core(
-                quantity,
-                base_in_wallet - fee_plan.take_from_wallet,  // Account for fees already taken
-                balance_manager_base - fee_plan.take_from_balance_manager
-            )
-        };
+        let token_plan = determine_token_deposit_core(
+            order_amount,
+            wallet_input_coin - fee_plan.take_from_wallet,
+            balance_manager_input_coin - fee_plan.take_from_balance_manager
+        );
         
         (deep_plan, fee_plan, token_plan)
     }

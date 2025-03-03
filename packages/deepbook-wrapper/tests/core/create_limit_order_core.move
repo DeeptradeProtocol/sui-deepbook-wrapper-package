@@ -96,11 +96,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = AMOUNT_SMALL / 2;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
-        let balance_manager_quote = AMOUNT_LARGE;
-        let quote_in_wallet = AMOUNT_LARGE;
+        let balance_manager_input_coin = AMOUNT_LARGE;
+        let wallet_input_coin = AMOUNT_LARGE;
         
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 2_000_000_000
@@ -114,11 +111,9 @@ module deepbook_wrapper::create_limit_order_core_tests {
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -143,7 +138,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
             true,                   // expected_fee_sufficient
             // TokenDepositPlan
             order_amount,           // expected_amount_needed
-            quote_in_wallet,        // expected_deposit_from_wallet
+            wallet_input_coin,      // expected_deposit_from_wallet
             true                    // expected_deposit_sufficient
         );
     }
@@ -162,16 +157,15 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let balance_manager_deep = AMOUNT_SMALL;
         let deep_in_wallet = AMOUNT_SMALL;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
-        
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
-        let balance_manager_quote = 75_000_000;
-        let quote_in_wallet = 80_000_000;
+
+        let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 150_000_000
         let fee_amount = calculate_fee_amount(order_amount, pool_fee_bps); // 150_000
+        
+        let balance_manager_input_coin = 75_000_000;
+        let wallet_input_coin = 80_000_000;
         
         // For this test case we expect:
         // 1. DEEP: All from wallet and balance manager + some from wrapper
@@ -179,21 +173,17 @@ module deepbook_wrapper::create_limit_order_core_tests {
         // 3. Token deposit: Remaining from wallet (after fees)
         
         let deep_from_wallet = deep_in_wallet;
-        let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         let fee_from_wallet = fee_amount;
         let fee_from_balance_manager = 0;
-
-        let deposit_from_wallet = order_amount - balance_manager_quote;
+        let deposit_from_wallet = order_amount - balance_manager_input_coin;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -238,11 +228,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = 0;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let balance_manager_input_coin = AMOUNT_MEDIUM;
+        let wallet_input_coin = AMOUNT_MEDIUM;
         
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid);
@@ -256,11 +243,9 @@ module deepbook_wrapper::create_limit_order_core_tests {
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -307,27 +292,22 @@ module deepbook_wrapper::create_limit_order_core_tests {
 
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
         // Set up a scenario where fees need to come from both sources
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 2_000_000_000
         let fee_amount = calculate_fee_amount(order_amount, pool_fee_bps); // 2_000_000
         let fee_from_wallet = fee_amount / 2;
         let fee_from_balance_manager = fee_amount - fee_from_wallet;
         
-        let quote_in_wallet = fee_from_wallet;  // Half of fees
-        let balance_manager_quote = fee_from_balance_manager + order_amount;  // Half of order amount + half of fees
+        let wallet_input_coin = fee_from_wallet;  // Half of fees
+        let balance_manager_input_coin = fee_from_balance_manager + order_amount;  // Half of order amount + half of fees
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -377,13 +357,10 @@ module deepbook_wrapper::create_limit_order_core_tests {
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 10_000
         let fee_amount = calculate_fee_amount(order_amount, pool_fee_bps); // 10
-
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
         
         // Set up a scenario where there's not enough for the order and fees
-        let quote_in_wallet = order_amount / 2;
-        let balance_manager_quote = order_amount / 2;
+        let wallet_input_coin = order_amount / 2;
+        let balance_manager_input_coin = order_amount / 2;
 
         let fee_from_wallet = fee_amount;
         let fee_from_balance_manager = 0;
@@ -392,11 +369,9 @@ module deepbook_wrapper::create_limit_order_core_tests {
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -442,11 +417,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = AMOUNT_SMALL;
         let wrapper_deep_reserves = AMOUNT_SMALL;  // Not enough DEEP in wrapper
         
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
-        let balance_manager_quote = AMOUNT_LARGE;
-        let quote_in_wallet = AMOUNT_LARGE;
+        let balance_manager_input_coin = AMOUNT_LARGE;
+        let wallet_input_coin = AMOUNT_LARGE;
 
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 150_000_000
@@ -459,11 +431,9 @@ module deepbook_wrapper::create_limit_order_core_tests {
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -482,7 +452,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
             false,                  // expected_deep_sufficient (not enough DEEP)
             // FeeCollectionPlan
             TOKEN_TYPE_QUOTE,       // expected_token_type
-            fee_amount,             // expected_fee_amount (0 because of insufficient resources)
+            fee_amount,             // expected_fee_amount
             fee_from_wallet,        // expected_fee_from_wallet
             fee_from_balance_manager, // expected_fee_from_balance_manager
             true,                   // expected_fee_sufficient
@@ -508,24 +478,19 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = 0;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 2_000_000_000
         
         // All quote tokens in balance manager, none in wallet
-        let balance_manager_quote = order_amount; // No need to add fee_amount since there are no fees
-        let quote_in_wallet = 0;
+        let balance_manager_input_coin = order_amount; // No need to add fee_amount since there are no fees
+        let wallet_input_coin = 0;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -578,11 +543,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
 
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         
-        let balance_manager_base = AMOUNT_LARGE;
-        let base_in_wallet = AMOUNT_LARGE;
-        
-        let balance_manager_quote = 0;
-        let quote_in_wallet = order_amount + fee_amount;
+        let balance_manager_input_coin = 0;
+        let wallet_input_coin = order_amount + fee_amount;
 
         let fee_from_wallet = fee_amount;
         let fee_from_balance_manager = 0;
@@ -591,11 +553,9 @@ module deepbook_wrapper::create_limit_order_core_tests {
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -641,24 +601,19 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = AMOUNT_SMALL / 2;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
         let order_amount = calculate_order_amount(quantity, price, is_bid);
         
         // Split order amount between wallet and balance manager
-        let balance_manager_quote = order_amount / 2;
-        let quote_in_wallet = order_amount / 2;
+        let balance_manager_input_coin = order_amount / 2;
+        let wallet_input_coin = order_amount / 2;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -683,7 +638,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
             true,                   // expected_fee_sufficient
             // TokenDepositPlan
             order_amount,           // expected_amount_needed
-            quote_in_wallet,        // expected_deposit_from_wallet
+            wallet_input_coin,      // expected_deposit_from_wallet
             true                    // expected_deposit_sufficient
         );
     }
@@ -703,25 +658,20 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = deep_required;  // Exact amount in wallet
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        let balance_manager_base = 0;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 10_000_000
         
         // Exact resources in wallet for token deposit
-        let quote_in_wallet = order_amount;
-        let balance_manager_quote = 0;
+        let wallet_input_coin = order_amount;
+        let balance_manager_input_coin = 0;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -771,11 +721,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
 
         let deep_from_wallet = deep_required - balance_manager_deep;
         
-        let balance_manager_base = 100_000_000_000;
-        let base_in_wallet = 100_000_000_000;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let balance_manager_input_coin = 100_000_000_000;
+        let wallet_input_coin = 100_000_000_000;
         
         // For this test case we expect:
         // 1. DEEP: Half from wallet, half from balance manager
@@ -786,11 +733,9 @@ module deepbook_wrapper::create_limit_order_core_tests {
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -835,11 +780,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = 0;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let balance_manager_input_coin = AMOUNT_MEDIUM;
+        let wallet_input_coin = AMOUNT_MEDIUM;
         
         // For this test case we expect:
         // 1. DEEP: None needed (whitelisted pool)
@@ -850,11 +792,9 @@ module deepbook_wrapper::create_limit_order_core_tests {
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -902,21 +842,16 @@ module deepbook_wrapper::create_limit_order_core_tests {
         // For ask orders, we need base tokens (the token being sold)
         let fee_amount = calculate_fee_amount(quantity, pool_fee_bps);
         
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
-        let balance_manager_quote = 0;
-        let quote_in_wallet = 0;
+        let balance_manager_input_coin = AMOUNT_MEDIUM;
+        let wallet_input_coin = AMOUNT_MEDIUM;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -967,21 +902,16 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let fee_amount = calculate_fee_amount(quantity, pool_fee_bps);
         
         // All base tokens in balance manager, none in wallet
-        let base_in_wallet = 0;
-        let balance_manager_base = quantity + fee_amount;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let wallet_input_coin = 0;
+        let balance_manager_input_coin = quantity + fee_amount;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -1033,21 +963,16 @@ module deepbook_wrapper::create_limit_order_core_tests {
 
         let deep_from_wrapper = deep_required - deep_in_wallet;
         
-        let balance_manager_base = 0;
-        let base_in_wallet = quantity + fee_amount;  // Exact amount needed
-        
-        let balance_manager_quote = AMOUNT_LARGE;
-        let quote_in_wallet = AMOUNT_LARGE;
+        let balance_manager_input_coin = 0;
+        let wallet_input_coin = quantity + fee_amount;  // Exact amount needed
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -1094,21 +1019,16 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
         // Split base tokens between wallet and balance manager
-        let balance_manager_base = quantity / 2;
-        let base_in_wallet = quantity / 2;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let balance_manager_input_coin = quantity / 2;
+        let wallet_input_coin = quantity / 2;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -1133,7 +1053,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
             true,                   // expected_fee_sufficient
             // TokenDepositPlan
             quantity,               // expected_amount_needed
-            base_in_wallet,         // expected_deposit_from_wallet
+            wallet_input_coin,      // expected_deposit_from_wallet
             true                    // expected_deposit_sufficient
         );
     }
@@ -1154,21 +1074,16 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let wrapper_deep_reserves = 0;
         
         // For ask orders, we need exact base tokens
-        let balance_manager_base = 0;
-        let base_in_wallet = quantity; // Exactly what's needed
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let balance_manager_input_coin = 0;
+        let wallet_input_coin = quantity; // Exactly what's needed
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -1212,21 +1127,16 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = deep_required / 2;
         let wrapper_deep_reserves = deep_required;
         
-        let base_in_wallet = 700_000;
-        let balance_manager_base = 1_300_000;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let wallet_input_coin = 700_000;
+        let balance_manager_input_coin = 1_300_000;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -1251,7 +1161,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
             true,                   // expected_fee_sufficient
             // TokenDepositPlan
             quantity,               // expected_amount_needed
-            base_in_wallet,         // expected_deposit_from_wallet
+            wallet_input_coin,      // expected_deposit_from_wallet
             true                    // expected_deposit_sufficient
         );
     }
@@ -1276,21 +1186,16 @@ module deepbook_wrapper::create_limit_order_core_tests {
         
         // Not enough base tokens after accounting for fees
         // Wallet has enough for fees but not enough for the deposit
-        let base_in_wallet = fee_amount + AMOUNT_SMALL;
-        let balance_manager_base = quantity - AMOUNT_SMALL - 1;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let wallet_input_coin = fee_amount + AMOUNT_SMALL;
+        let balance_manager_input_coin = quantity - AMOUNT_SMALL - 1;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -1338,11 +1243,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = AMOUNT_SMALL;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        let balance_manager_base = 15_000;
-        let base_in_wallet = 100_000;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let balance_manager_input_coin = 15_000;
+        let wallet_input_coin = 100_000;
         
         // Calculate expected values
         let fee_amount = calculate_fee_amount(quantity, pool_fee_bps);
@@ -1356,17 +1258,15 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         let fee_from_wallet = fee_amount;
         let fee_from_balance_manager = 0;
-        let deposit_from_wallet = quantity - balance_manager_base;
+        let deposit_from_wallet = quantity - balance_manager_input_coin;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -1419,21 +1319,16 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let fee_from_wallet = fee_amount / 3;  // 1/3 of fee in wallet 
         let fee_from_balance_manager = fee_amount - fee_from_wallet;  // 2/3 of fee in balance manager
         
-        let base_in_wallet = fee_from_wallet;
-        let balance_manager_base = fee_from_balance_manager + quantity;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let wallet_input_coin = fee_from_wallet;
+        let balance_manager_input_coin = fee_from_balance_manager + quantity;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -1486,21 +1381,16 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = 0;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let balance_manager_input_coin = AMOUNT_MEDIUM;
+        let wallet_input_coin = AMOUNT_MEDIUM;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
@@ -1546,21 +1436,16 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = 0;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        let balance_manager_base = AMOUNT_MEDIUM;
-        let base_in_wallet = AMOUNT_MEDIUM;
-        
-        let balance_manager_quote = AMOUNT_MEDIUM;
-        let quote_in_wallet = AMOUNT_MEDIUM;
+        let balance_manager_input_coin = AMOUNT_MEDIUM;
+        let wallet_input_coin = AMOUNT_MEDIUM;
         
         let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
-            balance_manager_base,
-            balance_manager_quote,
+            balance_manager_input_coin,
             deep_in_wallet,
-            base_in_wallet,
-            quote_in_wallet,
+            wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
