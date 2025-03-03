@@ -29,9 +29,9 @@ module deepbook_wrapper::wrapper {
         wrapper_id: ID,
     }
 
-    /// Data structure to represent DEEP token requirements for an order
+    /// Data structure to represent DEEP requirements for an order
     public struct DeepRequirementPlan has copy, drop {
-        use_wrapper_deep: bool,
+        use_wrapper_deep_reserves: bool,
         take_from_wallet: u64,
         take_from_wrapper: u64,
         has_sufficient_resources: bool
@@ -483,7 +483,7 @@ module deepbook_wrapper::wrapper {
         ctx: &mut TxContext
     ) {
         // Check if there are sufficient resources
-        if (deep_plan.use_wrapper_deep) {
+        if (deep_plan.use_wrapper_deep_reserves) {
             assert!(deep_plan.has_sufficient_resources, EInsufficientDeepReserves);
         };
         
@@ -817,7 +817,7 @@ module deepbook_wrapper::wrapper {
         // If pool is whitelisted, no DEEP is needed
         if (is_pool_whitelisted) {
             return DeepRequirementPlan {
-                use_wrapper_deep: false,
+                use_wrapper_deep_reserves: false,
                 take_from_wallet: 0,
                 take_from_wrapper: 0,
                 has_sufficient_resources: true
@@ -837,7 +837,7 @@ module deepbook_wrapper::wrapper {
             };
             
             return DeepRequirementPlan {
-                use_wrapper_deep: false,
+                use_wrapper_deep_reserves: false,
                 take_from_wallet: from_wallet,
                 take_from_wrapper: 0,
                 has_sufficient_resources: true
@@ -850,7 +850,7 @@ module deepbook_wrapper::wrapper {
 
             if (!has_sufficient) {
                 return DeepRequirementPlan {
-                    use_wrapper_deep: true,
+                    use_wrapper_deep_reserves: true,
                     take_from_wallet: 0,
                     take_from_wrapper: 0,
                     has_sufficient_resources: false
@@ -858,7 +858,7 @@ module deepbook_wrapper::wrapper {
             };
 
             return DeepRequirementPlan {
-                use_wrapper_deep: true,
+                use_wrapper_deep_reserves: true,
                 take_from_wallet: from_wallet,
                 take_from_wrapper: still_needed,
                 has_sufficient_resources: true
@@ -871,7 +871,7 @@ module deepbook_wrapper::wrapper {
     /// For ask orders, fees are collected in base tokens
     /// Returns a plan for fee collection
     public fun determine_fee_collection_core(
-        use_wrapper_deep: bool,
+        use_wrapper_deep_reserves: bool,
         is_pool_whitelisted: bool,
         pool_fee_bps: u64,
         order_amount: u64,
@@ -880,7 +880,7 @@ module deepbook_wrapper::wrapper {
         balance_manager_balance: u64
     ): FeeCollectionPlan {
         // No fee for whitelisted pools or when not using wrapper DEEP
-        if (is_pool_whitelisted || !use_wrapper_deep) {
+        if (is_pool_whitelisted || !use_wrapper_deep_reserves) {
             return FeeCollectionPlan {
                 token_type: 0,  // No fee
                 fee_amount: 0,
@@ -1009,7 +1009,7 @@ module deepbook_wrapper::wrapper {
         let fee_plan = if (is_bid) {
             // For bid orders, fees are in quote tokens
             determine_fee_collection_core(
-                deep_plan.use_wrapper_deep,
+                deep_plan.use_wrapper_deep_reserves,
                 is_pool_whitelisted,
                 pool_fee_bps,
                 order_amount,
@@ -1020,7 +1020,7 @@ module deepbook_wrapper::wrapper {
         } else {
             // For ask orders, fees are in base tokens
             determine_fee_collection_core(
-                deep_plan.use_wrapper_deep,
+                deep_plan.use_wrapper_deep_reserves,
                 is_pool_whitelisted,
                 pool_fee_bps,
                 order_amount,
@@ -1109,7 +1109,7 @@ module deepbook_wrapper::wrapper {
         expected_from_wrapper: u64,
         expected_sufficient: bool
     ) {
-        assert!(actual.use_wrapper_deep == expected_use_wrapper, 0);
+        assert!(actual.use_wrapper_deep_reserves == expected_use_wrapper, 0);
         assert!(actual.take_from_wallet == expected_from_wallet, 0);
         assert!(actual.take_from_wrapper == expected_from_wrapper, 0);
         assert!(actual.has_sufficient_resources == expected_sufficient, 0);

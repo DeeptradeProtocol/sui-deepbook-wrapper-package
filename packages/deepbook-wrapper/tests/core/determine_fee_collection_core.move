@@ -32,7 +32,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_whitelisted_pool_requires_no_fee() {
         let is_pool_whitelisted = true;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_MEDIUM;
         let is_bid = true;
@@ -40,7 +40,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = 1000;
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -63,7 +63,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_not_using_wrapper_deep_requires_no_fee() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = false;  // Not using wrapper DEEP
+        let use_wrapper_deep_reserves = false;  // Not using wrapper DEEP
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_MEDIUM;
         let is_bid = true;
@@ -71,7 +71,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = 1000;
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -94,7 +94,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_zero_order_amount_has_zero_fee() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = 0;  // Zero order amount
         let is_bid = true;
@@ -102,7 +102,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = 1000;
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -125,7 +125,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_zero_fee_rate_has_zero_fee() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_ZERO;  // Zero fee rate
         let order_amount = ORDER_MEDIUM;
         let is_bid = false;
@@ -133,7 +133,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = 1000;
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -158,7 +158,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_bid_order_uses_quote_token_fee() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_MEDIUM;
         let is_bid = true;  // Bid order
@@ -168,7 +168,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let fee_amount = calculate_fee_amount(order_amount, pool_fee_bps);
         
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -191,7 +191,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_ask_order_uses_base_token_fee() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_MEDIUM;
         let is_bid = false;  // Ask order
@@ -201,7 +201,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let fee_amount = calculate_fee_amount(order_amount, pool_fee_bps);
         
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -226,7 +226,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_fee_from_wallet_only() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_MEDIUM;
         let is_bid = true;
@@ -236,7 +236,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = 0;      // Nothing in balance manager
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -259,7 +259,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_fee_from_balance_manager_only() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_MEDIUM;
         let is_bid = true;
@@ -269,7 +269,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = fee_amount * 2;  // Plenty in balance manager
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -292,7 +292,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_fee_split_between_wallet_and_balance_manager() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_MEDIUM;
         let is_bid = true;
@@ -304,7 +304,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = balance_manager_part;
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -329,7 +329,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_insufficient_fee_resources() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_LARGE;
         let is_bid = true;
@@ -340,7 +340,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         // Total available is 50% of required fee
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -363,7 +363,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_almost_sufficient_fee_resources() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_MEDIUM;
         let is_bid = false;
@@ -374,7 +374,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         // Total available is 1 less than required fee
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -399,7 +399,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_exact_fee_match_with_wallet() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_MEDIUM;
         let is_bid = true;
@@ -409,7 +409,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = 0;  // Nothing in balance manager
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -432,7 +432,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_exact_fee_match_with_balance_manager() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_MEDIUM;
         let is_bid = false;
@@ -442,7 +442,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = fee_amount;  // Exact match
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -465,7 +465,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_exact_fee_match_combined() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_HIGH;
         let order_amount = ORDER_LARGE;
         let is_bid = true;
@@ -475,7 +475,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = fee_amount - wallet_balance;  // Rest in balance manager
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -500,7 +500,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_huge_order_with_high_fee_rate() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MAX;
         let order_amount = ORDER_HUGE;
         let is_bid = true;
@@ -510,7 +510,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = fee_amount - wallet_balance;  // 75% in balance manager
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -533,7 +533,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_tiny_order_with_low_fee_rate() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_LOW;
         let order_amount = ORDER_TINY;
         let is_bid = false;
@@ -545,7 +545,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = 100;
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -580,7 +580,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_wallet_exactly_one_token_short() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_SMALL;
         let is_bid = true;
@@ -590,7 +590,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = 0;  // Nothing in balance manager
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
@@ -613,7 +613,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
     #[test]
     public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
         let is_pool_whitelisted = false;
-        let use_wrapper_deep = true;
+        let use_wrapper_deep_reserves = true;
         let pool_fee_bps = FEE_MEDIUM;
         let order_amount = ORDER_SMALL;
         let is_bid = false;
@@ -623,7 +623,7 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         let balance_manager_balance = fee_amount - 1;  // 1 token short
 
         let plan = determine_fee_collection_core(
-            use_wrapper_deep,
+            use_wrapper_deep_reserves,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
