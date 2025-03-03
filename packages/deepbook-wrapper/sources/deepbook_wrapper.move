@@ -642,7 +642,7 @@ module deepbook_wrapper::wrapper {
     /// Estimate order requirements for a limit order - core logic function that doesn't require DeepBook objects
     /// Takes raw data instead of DeepBook objects to improve testability
     /// Returns whether the order can be created, DEEP required, and estimated fee
-    public fun estimate_order_requirements_core(
+    public(package) fun estimate_order_requirements_core(
         wrapper_deep_reserves: u64,
         is_pool_whitelisted: bool,
         pool_fee_bps: u64,
@@ -710,7 +710,7 @@ module deepbook_wrapper::wrapper {
     }
 
     /// Helper function to determine if wrapper DEEP will be needed - core logic
-    public fun will_use_wrapper_deep_core(
+    public(package) fun will_use_wrapper_deep_core(
         wrapper_deep_reserves: u64,
         is_pool_whitelisted: bool,
         balance_manager_deep: u64,
@@ -738,7 +738,7 @@ module deepbook_wrapper::wrapper {
     }
 
     /// Calculate fee estimate for an order - core logic
-    public fun calculate_fee_estimate_core(
+    public(package) fun calculate_fee_estimate_core(
         is_pool_whitelisted: bool,
         will_use_wrapper_deep: bool,
         quantity: u64,
@@ -758,7 +758,7 @@ module deepbook_wrapper::wrapper {
     }
 
     /// Helper function to validate pool parameters - core logic
-    public fun validate_pool_params_core(
+    public(package) fun validate_pool_params_core(
         quantity: u64,
         price: u64,
         tick_size: u64,
@@ -771,7 +771,7 @@ module deepbook_wrapper::wrapper {
     }
 
     /// Checks if the user has sufficient tokens for the order - core logic
-    public fun has_sufficient_tokens_core(
+    public(package) fun has_sufficient_tokens_core(
         balance_manager_base: u64,
         balance_manager_quote: u64,
         base_in_wallet: u64,
@@ -807,7 +807,7 @@ module deepbook_wrapper::wrapper {
     }
     
     /// Determine the DEEP token requirements for an order - core logic
-    public fun determine_deep_requirements_core(
+    public(package) fun determine_deep_requirements_core(
         is_pool_whitelisted: bool,
         deep_required: u64,
         balance_manager_deep: u64,
@@ -870,7 +870,7 @@ module deepbook_wrapper::wrapper {
     /// For bid orders, fees are collected in quote tokens
     /// For ask orders, fees are collected in base tokens
     /// Returns a plan for fee collection
-    public fun determine_fee_collection_core(
+    public(package) fun determine_fee_collection_core(
         use_wrapper_deep_reserves: bool,
         is_pool_whitelisted: bool,
         pool_fee_bps: u64,
@@ -943,7 +943,7 @@ module deepbook_wrapper::wrapper {
     /// Determine token deposit requirements - core logic
     /// For bid orders, calculate how many quote tokens are needed
     /// For ask orders, calculate how many base tokens are needed
-    public fun determine_token_deposit_core(
+    public(package) fun determine_token_deposit_core(
         required_amount: u64,
         wallet_balance: u64,
         balance_manager_balance: u64
@@ -978,7 +978,7 @@ module deepbook_wrapper::wrapper {
     
     /// Create a limit order using tokens from various sources - core logic function
     /// This is a skeleton that orchestrates the process
-    public fun create_limit_order_core(
+    public(package) fun create_limit_order_core(
         is_pool_whitelisted: bool,
         deep_required: u64,
         balance_manager_deep: u64,
