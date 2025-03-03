@@ -236,7 +236,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
             user_deep,             // some in wallet
             insufficient_reserves  // insufficient wrapper reserves
         );
-        assert_deep_plan_eq(plan, true, user_deep, 0, false);
+        assert_deep_plan_eq(plan, true, 0, 0, false);
         
         // Almost nothing in wrapper
         let plan = wrapper::determine_deep_requirements_core(
@@ -246,7 +246,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
             user_deep,     // some in wallet
             1              // just 1 token in wrapper
         );
-        assert_deep_plan_eq(plan, true, user_deep, 0, false);
+        assert_deep_plan_eq(plan, true, 0, 0, false);
     }
     
     #[test]
@@ -427,7 +427,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
             user_amount,         // some in wallet
             wrapper_needed - 1   // one token short in wrapper
         );
-        assert_deep_plan_eq(plan, true, user_amount, 0, false);
+        assert_deep_plan_eq(plan, true, 0, 0, false);
         
         // One extra token in wrapper
         let plan = wrapper::determine_deep_requirements_core(

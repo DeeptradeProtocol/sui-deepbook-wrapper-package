@@ -846,19 +846,22 @@ module deepbook_wrapper::wrapper {
             // Need wrapper DEEP since user doesn't have enough
             let from_wallet = deep_in_wallet;  // Take all from wallet
             let still_needed = deep_required - user_deep_total;
-            
-            // Verify wrapper has enough DEEP
-            let take_from_wrapper = if (wrapper_deep_reserves >= still_needed) {
-                still_needed
-            } else {
-                0  // Not enough, will cause a failure later
+            let has_sufficient = wrapper_deep_reserves >= still_needed;
+
+            if (!has_sufficient) {
+                return DeepRequirementPlan {
+                    use_wrapper_deep: true,
+                    take_from_wallet: 0,
+                    take_from_wrapper: 0,
+                    has_sufficient_resources: false
+                }
             };
-            
+
             return DeepRequirementPlan {
                 use_wrapper_deep: true,
                 take_from_wallet: from_wallet,
-                take_from_wrapper: take_from_wrapper,
-                has_sufficient_resources: wrapper_deep_reserves >= still_needed
+                take_from_wrapper: still_needed,
+                has_sufficient_resources: true
             }
         }
     }
@@ -900,6 +903,19 @@ module deepbook_wrapper::wrapper {
                 has_sufficient_resources: true
             }
         };
+
+        // Check if we have sufficient resources
+        let has_sufficient = wallet_balance + balance_manager_balance >= fee_amount;
+
+        if (!has_sufficient) {
+            return FeeCollectionPlan {
+                token_type: if (is_bid) 2 else 1,  // 1 for base, 2 for quote
+                fee_amount,
+                take_from_wallet: 0,
+                take_from_balance_manager: 0,
+                has_sufficient_resources: false
+            }
+        };
         
         // Determine how much to take from wallet vs balance manager
         let from_wallet = if (wallet_balance >= fee_amount) {
@@ -910,17 +926,10 @@ module deepbook_wrapper::wrapper {
         
         let from_balance_manager = if (from_wallet < fee_amount) {
             let remaining = fee_amount - from_wallet;
-            if (balance_manager_balance >= remaining) {
-                remaining
-            } else {
-                0  // Not enough, will set the flag below and cause a failure later
-            }
+            remaining
         } else {
-            0
+            0 // Wallet has covered the fee, no need to take from balance manager
         };
-        
-        // Check if we have sufficient resources
-        let has_sufficient = from_wallet + from_balance_manager >= fee_amount;
         
         FeeCollectionPlan {
             token_type: if (is_bid) 2 else 1,  // 1 for base, 2 for quote
@@ -950,21 +959,20 @@ module deepbook_wrapper::wrapper {
         
         // Calculate how much more is needed
         let additional_needed = required_amount - balance_manager_balance;
-        
-        // Determine how much to take from wallet
-        let from_wallet = if (wallet_balance >= additional_needed) {
-            additional_needed
-        } else {
-            0  // Not enough, will set the flag below and cause a failure later
+        let has_sufficient = wallet_balance >= additional_needed;
+
+        if (!has_sufficient) {
+            return TokenDepositPlan {
+                amount_needed: required_amount,
+                take_from_wallet: 0,
+                has_sufficient_resources: false
+            }
         };
-        
-        // Check if we have sufficient resources
-        let has_sufficient = from_wallet >= additional_needed;
         
         TokenDepositPlan {
             amount_needed: required_amount,
-            take_from_wallet: from_wallet,
-            has_sufficient_resources: has_sufficient
+            take_from_wallet: additional_needed,
+            has_sufficient_resources: true
         }
     }
     

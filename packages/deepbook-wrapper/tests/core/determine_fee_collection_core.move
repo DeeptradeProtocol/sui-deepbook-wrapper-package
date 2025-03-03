@@ -350,13 +350,12 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         );
 
         // Should indicate insufficient resources
-        // Per implementation, when balance_manager doesn't have enough, take_from_balance_manager is set to 0
         assert_fee_plan_eq(
             plan,
             TOKEN_TYPE_QUOTE,           // token_type = 2 (quote)
             fee_amount,                 // fee_amount
-            wallet_balance,             // take_from_wallet = all wallet balance
-            0,                          // take_from_balance_manager = 0 (not enough in balance manager)
+            0,                          // take_from_wallet = 0 (insufficient resources)
+            0,                          // take_from_balance_manager = 0 (insufficient resources)
             false                       // has_sufficient_resources = false
         );
     }
@@ -385,13 +384,12 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
         );
 
         // Should indicate insufficient resources
-        // Per implementation, when balance_manager doesn't have enough, take_from_balance_manager is set to 0
         assert_fee_plan_eq(
             plan,
             TOKEN_TYPE_BASE,            // token_type = 1 (base)
             fee_amount,                 // fee_amount
-            wallet_balance,             // take_from_wallet = all wallet balance
-            0,                          // take_from_balance_manager = 0 (not enough in balance manager)
+            0,                          // take_from_wallet = 0 (insufficient resources)
+            0,                          // take_from_balance_manager = 0 (insufficient resources)
             false                       // has_sufficient_resources = false
         );
     }
@@ -606,8 +604,8 @@ module deepbook_wrapper::determine_fee_collection_core_tests {
             plan,
             TOKEN_TYPE_QUOTE,       // token_type = 2 (quote)
             fee_amount,             // fee_amount
-            wallet_balance,         // take_from_wallet = all wallet (not enough)
-            0,                      // take_from_balance_manager = 0
+            0,                      // take_from_wallet = 0 (insufficient resources)
+            0,                      // take_from_balance_manager = 0 (insufficient resources)
             false                   // has_sufficient_resources = false
         );
     }
