@@ -74,27 +74,120 @@ module deepbook_wrapper::wrapper {
     #[error]
     const ENotWhitelistedPool: u64 = 5;
 
+    /// Error when the amount of DEEP from reserves exceeds the total DEEP required
+    #[error]
+    const EInvalidDeepReservesAmount: u64 = 6;
+
     /// Define a constant for the fee scaling factor
     /// This matches DeepBook's FLOAT_SCALING constant (10^9) used for fee calculations
     /// Fees are expressed in billionths, e.g., 1,000,000 = 0.1% (1,000,000/1,000,000,000)
     const FEE_SCALING: u64 = 1_000_000_000;
 
-    /// Calculates the fee amount based on the token amount and fee rate
+    /// Maximum fee rate for protocol fee in billionths (0.3%)
+    const MAX_PROTOCOL_FEE_BPS: u64 = 3_000_000;
+
+    /// Calculates the deep reserves coverage fee based on the token amount and fee rate from the pool
     /// @param amount - The amount of tokens to calculate fee on
     /// @param fee_bps - The fee rate in billionths (e.g., 1,000,000 = 0.1%)
     /// @return The calculated fee amount
-    public fun calculate_fee_amount(amount: u64, fee_bps: u64): u64 {
+    public fun calculate_deep_reserves_coverage_fee(amount: u64, fee_bps: u64): u64 {
         ((amount as u128) * (fee_bps as u128) / (FEE_SCALING as u128)) as u64
     }
+
+    /// Calculates the protocol fee based on the proportion of DEEP taken from reserves
+    /// @param amount - The token amount to calculate fee on
+    /// @param deep_from_reserves - The amount of DEEP taken from the wrapper's reserves
+    /// @param total_deep_required - The total DEEP required for the order
+    /// @return The calculated protocol fee amount
+    public fun calculate_protocol_fee(
+        amount: u64, 
+        deep_from_reserves: u64, 
+        total_deep_required: u64
+    ): u64 {
+        if (total_deep_required == 0 || deep_from_reserves == 0) {
+            return 0
+        };
+
+        // Verify that deep_from_reserves doesn't exceed total_deep_required
+        assert!(deep_from_reserves <= total_deep_required, EInvalidDeepReservesAmount);
+
+        // Calculate the proportion of DEEP taken from reserves (as a ratio)
+        let proportion = (deep_from_reserves as u128) * (FEE_SCALING as u128) / (total_deep_required as u128);
+        
+        // Calculate the fee rate based on the proportion and the maximum fee rate
+        let fee_rate = (proportion * (MAX_PROTOCOL_FEE_BPS as u128)) / (FEE_SCALING as u128);
+        
+        // Calculate the fee amount
+        ((amount as u128) * fee_rate / (FEE_SCALING as u128)) as u64
+    }
+
+    /// Calculates the total fee amount including both protocol fee and deep reserves coverage fee
+    /// @param amount - The token amount to calculate fee on
+    /// @param fee_bps - The pool fee rate in billionths used for deep reserves coverage fee
+    /// @param deep_from_reserves - The amount of DEEP taken from the wrapper's reserves
+    /// @param total_deep_required - The total DEEP required for the order
+    /// @return The total calculated fee amount
+    public fun calculate_full_fee(
+        amount: u64, 
+        fee_bps: u64, 
+        deep_from_reserves: u64, 
+        total_deep_required: u64
+    ): u64 {
+        let deep_reserves_coverage_fee = calculate_deep_reserves_coverage_fee(amount, fee_bps);
+        let protocol_fee = calculate_protocol_fee(
+            amount, 
+            deep_from_reserves, 
+            total_deep_required
+        );
+        
+        deep_reserves_coverage_fee + protocol_fee
+    }
     
-    /// Charges a fee on a coin by splitting off a portion based on the fee rate
+    /// Charges only the deep reserves coverage fee on a coin
     /// @param coin - The coin to charge fee from
     /// @param fee_bps - The fee rate in billionths (from DeepBook pool parameters)
     /// @return The fee amount as a Balance
-    fun charge_fee<CoinType>(coin: &mut Coin<CoinType>, fee_bps: u64): Balance<CoinType> {
+    fun charge_deep_reserves_coverage_fee<CoinType>(
+        coin: &mut Coin<CoinType>, 
+        fee_bps: u64
+    ): Balance<CoinType> {
         let coin_balance = coin::balance_mut(coin);
         let value = balance::value(coin_balance);
-        balance::split(coin_balance, calculate_fee_amount(value, fee_bps))
+        balance::split(coin_balance, calculate_deep_reserves_coverage_fee(value, fee_bps))
+    }
+    
+    /// Charges only the protocol fee on a coin based on DEEP usage
+    /// @param coin - The coin to charge fee from
+    /// @param deep_from_reserves - The amount of DEEP taken from the wrapper's reserves
+    /// @param total_deep_required - The total DEEP required for the order
+    /// @return The fee amount as a Balance
+    #[allow(unused_function)]
+    fun charge_protocol_fee<CoinType>(
+        coin: &mut Coin<CoinType>, 
+        deep_from_reserves: u64,
+        total_deep_required: u64
+    ): Balance<CoinType> {
+        let coin_balance = coin::balance_mut(coin);
+        let value = balance::value(coin_balance);
+        balance::split(coin_balance, calculate_protocol_fee(value, deep_from_reserves, total_deep_required))
+    }
+    
+    /// Charges the full fee (both deep reserves coverage fee and protocol fee) on a coin
+    /// @param coin - The coin to charge fee from
+    /// @param fee_bps - The fee rate in billionths (from DeepBook pool parameters)
+    /// @param deep_from_reserves - The amount of DEEP taken from the wrapper's reserves
+    /// @param total_deep_required - The total DEEP required for the order
+    /// @return The fee amount as a Balance
+    #[allow(unused_function)]
+    fun charge_full_fee<CoinType>(
+        coin: &mut Coin<CoinType>, 
+        fee_bps: u64,
+        deep_from_reserves: u64,
+        total_deep_required: u64
+    ): Balance<CoinType> {
+        let coin_balance = coin::balance_mut(coin);
+        let value = balance::value(coin_balance);
+        balance::split(coin_balance, calculate_full_fee(value, fee_bps, deep_from_reserves, total_deep_required))
     }
 
     /// Join DEEP coins into the router's reserves
@@ -176,7 +269,7 @@ module deepbook_wrapper::wrapper {
         join(wrapper, deep_remainder);
 
         let (fee_bps, _, _) = pool::pool_trade_params(pool);
-        join_fee(wrapper, charge_fee(&mut result_quote, fee_bps));
+        join_fee(wrapper, charge_deep_reserves_coverage_fee(&mut result_quote, fee_bps));
         
         (base_remainder, result_quote)
     }
@@ -214,11 +307,10 @@ module deepbook_wrapper::wrapper {
         join(wrapper, deep_remainder);
 
         let (fee_bps, _, _) = pool::pool_trade_params(pool);
-        join_fee(wrapper, charge_fee(&mut result_base, fee_bps));
+        join_fee(wrapper, charge_deep_reserves_coverage_fee(&mut result_base, fee_bps));
         
         (result_base, quote_remainder)
     }
-    
     
     /// Withdraw collected fees for a specific coin type
     public fun withdraw_charged_fee<CoinType>(
@@ -265,11 +357,11 @@ module deepbook_wrapper::wrapper {
         // If quote_quantity > 0, we're swapping quote for base, so apply fee to base_out
         if (base_quantity > 0) {
             // Swapping base for quote, apply fee to quote_out
-            let fee_amount = calculate_fee_amount(quote_out, fee_bps);
+            let fee_amount = calculate_deep_reserves_coverage_fee(quote_out, fee_bps);
             quote_out = quote_out - fee_amount;
         } else if (quote_quantity > 0) {
             // Swapping quote for base, apply fee to base_out
-            let fee_amount = calculate_fee_amount(base_out, fee_bps);
+            let fee_amount = calculate_deep_reserves_coverage_fee(base_out, fee_bps);
             base_out = base_out - fee_amount;
         };
         
@@ -550,12 +642,14 @@ module deepbook_wrapper::wrapper {
 
     /// Calculates the fee estimate for an order
     /// Returns 0 for whitelisted pools or when user provides all DEEP
-    public fun estimate_fee<BaseToken, QuoteToken>(
+    public fun estimate_full_fee<BaseToken, QuoteToken>(
         pool: &Pool<BaseToken, QuoteToken>,
         will_use_wrapper_deep: bool,
         quantity: u64,
         price: u64,
-        is_bid: bool
+        is_bid: bool,
+        deep_from_reserves: u64,
+        total_deep_required: u64
     ): u64 {
         // Check if pool is whitelisted
         let is_pool_whitelisted = pool::whitelisted(pool);
@@ -564,13 +658,15 @@ module deepbook_wrapper::wrapper {
         let pool_fee_bps = get_fee_bps(pool);
         
         // Call the core logic function
-        estimate_fee_core(
+        estimate_full_fee_core(
             is_pool_whitelisted,
             will_use_wrapper_deep,
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            pool_fee_bps,
+            deep_from_reserves,
+            total_deep_required
         )
     }
     
@@ -605,7 +701,7 @@ module deepbook_wrapper::wrapper {
 
     /// Determines if wrapper DEEP will be needed for this order
     /// Also checks if the wrapper has enough DEEP to cover the needs
-    /// Returns (will_use_wrapper_deep, has_enough_deep)
+    /// Returns (will_use_wrapper_deep, wrapper_has_enough_deep)
     public fun will_use_wrapper_deep_reserves<BaseToken, QuoteToken>(
         wrapper: &DeepBookV3RouterWrapper,
         pool: &Pool<BaseToken, QuoteToken>,
@@ -625,15 +721,17 @@ module deepbook_wrapper::wrapper {
         
         // Check DEEP from balance manager
         let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
-        
-        // Call the core logic function
-        will_use_wrapper_deep_reserves_core(
-            wrapper_deep_reserves,
+
+        // Get deep plan
+        let deep_plan = get_deep_plan(
             is_pool_whitelisted,
+            deep_required,
             balance_manager_deep,
             deep_in_wallet,
-            deep_required
-        )
+            wrapper_deep_reserves
+        );
+
+        return (deep_plan.use_wrapper_deep_reserves, deep_plan.deep_reserves_cover_order)
     }
 
     /// Helper function to validate pool parameters
@@ -675,28 +773,30 @@ module deepbook_wrapper::wrapper {
         is_bid: bool,
         deep_required: u64
     ): (bool, u64, u64) {
-        // Check if we'll need to use wrapper DEEP
-        let (will_use_wrapper_deep, has_enough_deep) = will_use_wrapper_deep_reserves_core(
-            wrapper_deep_reserves,
+        // Get deep plan
+        let deep_plan = get_deep_plan(
             is_pool_whitelisted,
+            deep_required,
             balance_manager_deep,
             deep_in_wallet,
-            deep_required
+            wrapper_deep_reserves
         );
         
         // Early return if wrapper doesn't have enough DEEP
-        if (will_use_wrapper_deep && !has_enough_deep) {
+        if (deep_plan.use_wrapper_deep_reserves && !deep_plan.deep_reserves_cover_order) {
             return (false, deep_required, 0)
         };
         
         // Calculate fee
-        let fee_estimate = estimate_fee_core(
+        let fee_estimate = estimate_full_fee_core(
             is_pool_whitelisted,
-            will_use_wrapper_deep,
+            deep_plan.use_wrapper_deep_reserves,
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            pool_fee_bps,
+            deep_plan.from_deep_reserves,
+            deep_required
         );
         
         // Validate order parameters
@@ -716,50 +816,24 @@ module deepbook_wrapper::wrapper {
             quote_in_wallet,
             quantity,
             price,
-            will_use_wrapper_deep,
+            deep_plan.use_wrapper_deep_reserves,
             fee_estimate,
             is_bid
         );
         
-        (valid_params && sufficient_tokens && has_enough_deep, deep_required, fee_estimate)
-    }
-
-    /// Helper function to determine if wrapper DEEP will be needed - core logic
-    public(package) fun will_use_wrapper_deep_reserves_core(
-        wrapper_deep_reserves: u64,
-        is_pool_whitelisted: bool,
-        balance_manager_deep: u64,
-        deep_in_wallet: u64,
-        deep_required: u64
-    ): (bool, bool) {
-        // If pool is whitelisted, we don't need any DEEP
-        if (is_pool_whitelisted) {
-            return (false, true)
-        };
-        
-        // Total DEEP from user's sources
-        let user_deep_total = balance_manager_deep + deep_in_wallet;
-        
-        // If user has enough DEEP, we don't need wrapper DEEP
-        if (user_deep_total >= deep_required) {
-            return (false, true)
-        };
-        
-        // Need to use wrapper DEEP
-        let additional_deep_needed = deep_required - user_deep_total;
-        let wrapper_has_enough = wrapper_deep_reserves >= additional_deep_needed;
-        
-        (true, wrapper_has_enough)
+        (valid_params && sufficient_tokens && deep_plan.deep_reserves_cover_order, deep_required, fee_estimate)
     }
 
     /// Calculate fee estimate for an order - core logic
-    public(package) fun estimate_fee_core(
+    public(package) fun estimate_full_fee_core(
         is_pool_whitelisted: bool,
         will_use_wrapper_deep: bool,
         quantity: u64,
         price: u64,
         is_bid: bool,
-        pool_fee_bps: u64
+        pool_fee_bps: u64,
+        deep_from_reserves: u64, 
+        total_deep_required: u64
     ): u64 {
         if (is_pool_whitelisted || !will_use_wrapper_deep) {
             0 // No fee for whitelisted pools or when user provides all DEEP
@@ -767,8 +841,8 @@ module deepbook_wrapper::wrapper {
             // Calculate order amount
             let order_amount = calculate_order_amount(quantity, price, is_bid);
             
-            // Calculate fee based on order amount
-            calculate_fee_amount(order_amount, pool_fee_bps)
+            // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
+            calculate_full_fee(order_amount, pool_fee_bps, deep_from_reserves, total_deep_required)
         }
     }
 
@@ -887,6 +961,8 @@ module deepbook_wrapper::wrapper {
     /// Returns a plan for fee collection
     public(package) fun get_fee_plan(
         use_wrapper_deep_reserves: bool,
+        deep_from_reserves: u64,
+        total_deep_required: u64,
         is_pool_whitelisted: bool,
         pool_fee_bps: u64,
         order_amount: u64,
@@ -905,8 +981,8 @@ module deepbook_wrapper::wrapper {
             }
         };
         
-        // Calculate fee based on order amount
-        let fee_amount = calculate_fee_amount(order_amount, pool_fee_bps);
+        // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
+        let fee_amount = calculate_full_fee(order_amount, pool_fee_bps, deep_from_reserves, total_deep_required);
         
         // If no fee, return early
         if (fee_amount == 0) {
@@ -1021,6 +1097,8 @@ module deepbook_wrapper::wrapper {
         // Step 3: Determine fee collection based on order type
         let fee_plan = get_fee_plan(
             deep_plan.use_wrapper_deep_reserves,
+            deep_plan.from_deep_reserves,
+            deep_required,
             is_pool_whitelisted,
             pool_fee_bps,
             order_amount,
