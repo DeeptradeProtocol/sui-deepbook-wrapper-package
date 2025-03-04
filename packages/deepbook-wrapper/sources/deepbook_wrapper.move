@@ -8,7 +8,7 @@ module deepbook_wrapper::wrapper {
     use token::deep::DEEP;
     use deepbook_wrapper::admin::AdminCap;
     use deepbook_wrapper::math;
-    use deepbook_wrapper::whitelisted_pools;
+    use deepbook_wrapper::whitelisted_pools::{Self, WhitelistRegistry};
     use deepbook::pool::{Self, Pool};
     use deepbook::balance_manager::{Self, BalanceManager};
 
@@ -280,6 +280,7 @@ module deepbook_wrapper::wrapper {
     /// Returns whether the order can be created, DEEP required, and estimated fee
     public fun estimate_order_requirements<BaseToken, QuoteToken>(
         wrapper: &DeepBookV3RouterWrapper,
+        whitelisted_pools_registry: &WhitelistRegistry,
         pool: &Pool<BaseToken, QuoteToken>,
         balance_manager: &BalanceManager,
         deep_in_wallet: u64,
@@ -290,7 +291,7 @@ module deepbook_wrapper::wrapper {
         is_bid: bool
     ): (bool, u64, u64) {
         // Verify the pool is whitelisted by our protocol. If not, the order can't be created
-        if (!whitelisted_pools::is_pool_whitelisted(pool)) {
+        if (!whitelisted_pools::is_pool_whitelisted(whitelisted_pools_registry, pool)) {
             return (false, 0, 0)
         };
 
@@ -337,6 +338,7 @@ module deepbook_wrapper::wrapper {
     /// Returns the order info
     public fun create_limit_order<BaseToken, QuoteToken>(
         wrapper: &mut DeepBookV3RouterWrapper,
+        whitelisted_pools_registry: &WhitelistRegistry,
         pool: &mut Pool<BaseToken, QuoteToken>,
         balance_manager: &mut BalanceManager,
         mut base_coin: Coin<BaseToken>,
@@ -354,7 +356,7 @@ module deepbook_wrapper::wrapper {
         assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
 
         // Verify the pool is whitelisted by our protocol
-        assert!(whitelisted_pools::is_pool_whitelisted(pool), ENotWhitelistedPool);
+        assert!(whitelisted_pools::is_pool_whitelisted(whitelisted_pools_registry, pool), ENotWhitelistedPool);
         
         // Extract all the data we need from DeepBook objects
         let is_pool_whitelisted = pool::whitelisted(pool);

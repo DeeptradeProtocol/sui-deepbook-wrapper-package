@@ -20,4 +20,10 @@ module deepbook_wrapper::admin {
     public fun create_for_testing(ctx: &mut TxContext): AdminCap {
         AdminCap { id: object::new(ctx) }
     }
+
+    #[test_only]
+    #[allow(lint(custom_state_change))]
+    public fun transfer_for_testing(admin_cap: AdminCap, recipient: address) {
+        transfer::transfer(admin_cap, recipient)
+    }
 }
