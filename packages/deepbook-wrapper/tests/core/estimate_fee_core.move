@@ -1,5 +1,5 @@
 #[test_only]
-module deepbook_wrapper::calculate_fee_estimate_core_tests {
+module deepbook_wrapper::estimate_fee_core_tests {
     use sui::test_utils::assert_eq;
     
     use deepbook_wrapper::wrapper;
@@ -9,16 +9,16 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
     const QUANTITY: u64 = 10_000_000_000;
     const FEE_BPS: u64 = 1_000_000; // 0.1% fee (1_000_000 / 1,000,000,000)
     
-    // Test calculate_fee_estimate_core
+    // Test estimate_fee_core
     #[test]
-    fun test_calculate_fee_estimate_core() {
+    fun test_estimate_fee_core() {
         // Matrix-based testing approach for complete coverage
 
         // 1. No fee cases (returns 0)
         // ----------------------------
         
         // 1.1 Whitelisted pool, using wrapper DEEP (whitelisted takes precedence)
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             true,  // whitelisted
             true,  // using wrapper DEEP
             QUANTITY,
@@ -29,7 +29,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         assert_eq(fee, 0);
         
         // 1.2 Whitelisted pool, not using wrapper DEEP
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             true,  // whitelisted
             false, // not using wrapper DEEP
             QUANTITY,
@@ -40,7 +40,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         assert_eq(fee, 0);
         
         // 1.3 Not whitelisted pool, but user provides all DEEP (not using wrapper)
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             false, // not using wrapper DEEP
             QUANTITY,
@@ -51,7 +51,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         assert_eq(fee, 0);
         
         // 1.4 Zero fee basis points
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             QUANTITY,
@@ -61,7 +61,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         );
         assert_eq(fee, 0);
         
-        // 2. Bid order with fee (returns fee on quote tokens)
+        // 2. Bid order with fee (returns fee on quote coins)
         // --------------------------------------------------
         
         // 2.1 Standard bid order with fee
@@ -70,7 +70,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         // = 20_000_000 * 0.001 = 20_000
         let expected_bid_fee = 20_000;
         
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             QUANTITY,
@@ -89,7 +89,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         // Direct calculation: 1 * 1 * 0.001 = 0.001, which rounds to 0 with integer math
         let expected_min_bid_fee = 0; 
         
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             min_quantity,
@@ -106,7 +106,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         // Direct calculation: 10_000_000_000 * 2_000_000 / 1_000_000_000 * 0.1 = 20_000_000 * 0.1 = 2_000_000
         let expected_high_bid_fee = 2_000_000;
         
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             QUANTITY,
@@ -118,7 +118,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         assert_eq(fee, expected_high_bid_fee);
         assert_eq(fee > expected_bid_fee, true); // Should be higher than standard fee
         
-        // 3. Ask order with fee (returns fee on base tokens)
+        // 3. Ask order with fee (returns fee on base coins)
         // --------------------------------------------------
         
         // 3.1 Standard ask order with fee
@@ -126,7 +126,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         // Direct calculation: 10_000_000_000 * 0.001 = 10_000_000
         let expected_ask_fee = 10_000_000;
         
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             QUANTITY,
@@ -144,7 +144,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         // Direct calculation: 1 * 0.001 = 0.001, which rounds to 0 with integer math
         let expected_min_ask_fee = 0; 
         
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             min_quantity,
@@ -161,7 +161,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         // Direct calculation: 10_000_000_000 * 0.1 = 1_000_000_000
         let expected_high_ask_fee = 1_000_000_000;
         
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             QUANTITY,
@@ -177,8 +177,8 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         
         // 4.1 Bid vs Ask fee comparison
         // For same quantity and price, bid fee should be higher than ask fee
-        // since bid fee is on quote tokens (quantity * price) and ask fee is on base tokens (quantity)
-        let bid_fee = wrapper::calculate_fee_estimate_core(
+        // since bid fee is on quote coins (quantity * price) and ask fee is on base coins (quantity)
+        let bid_fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             QUANTITY,
@@ -187,7 +187,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
             FEE_BPS
         );
         
-        let ask_fee = wrapper::calculate_fee_estimate_core(
+        let ask_fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             QUANTITY,
@@ -211,7 +211,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         // Direct calculation: 10^10 * 10^6 / 10^9 * 10^6 / 10^9 = 10^7 * 10^-3 = 10^4 = 10,000
         let expected_large_fee = 10000;
         
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             large_quantity,
@@ -231,7 +231,7 @@ module deepbook_wrapper::calculate_fee_estimate_core_tests {
         // 10_000_000_000 * 2_000_000 / 1_000_000_000 = 20_000_000
         let expected_max_fee = 20_000_000;
         
-        let fee = wrapper::calculate_fee_estimate_core(
+        let fee = wrapper::estimate_fee_core(
             false, // not whitelisted
             true,  // using wrapper DEEP
             QUANTITY,

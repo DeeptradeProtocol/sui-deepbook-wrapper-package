@@ -5,11 +5,11 @@ module deepbook_wrapper::create_limit_order_core_tests {
         calculate_order_amount,
         assert_deep_plan_eq,
         assert_fee_plan_eq,
-        assert_token_plan_eq,
+        assert_input_coin_deposit_plan_eq,
         calculate_fee_amount,
-        DeepRequirementPlan,
-        FeeCollectionPlan,
-        TokenDepositPlan
+        DeepPlan,
+        FeePlan,
+        InputCoinDepositPlan
     };
 
     // ===== Constants =====
@@ -24,24 +24,24 @@ module deepbook_wrapper::create_limit_order_core_tests {
     const FEE_MEDIUM: u64 = 1_000_000;   // 0.1%
     
     // Token types
-    const TOKEN_TYPE_NONE: u8 = 0;  // No fee
-    const TOKEN_TYPE_BASE: u8 = 1;  // Base token (for ask orders)
-    const TOKEN_TYPE_QUOTE: u8 = 2; // Quote token (for bid orders)
+    const FEE_COIN_TYPE_NONE: u8 = 0;  // No fee
+    const FEE_COIN_TYPE_BASE: u8 = 1;  // Base coin (for ask orders)
+    const FEE_COIN_TYPE_QUOTE: u8 = 2; // Quote coin (for bid orders)
 
     // ===== Helper Function for Testing =====
     
     /// Helper function to assert all three plans match expected values
     public fun assert_order_plans_eq(
-        deep_plan: DeepRequirementPlan,
-        fee_plan: FeeCollectionPlan,
-        token_plan: TokenDepositPlan,
+        deep_plan: DeepPlan,
+        fee_plan: FeePlan,
+        input_coin_deposit_plan: InputCoinDepositPlan,
         // Expected values for DeepRequirementPlan
         expected_use_wrapper_deep: bool,
         expected_take_from_wallet: u64,
         expected_take_from_wrapper: u64,
         expected_deep_sufficient: bool,
         // Expected values for FeeCollectionPlan
-        expected_token_type: u8,
+        expected_fee_coin_type: u8,
         expected_fee_amount: u64,
         expected_fee_from_wallet: u64,
         expected_fee_from_balance_manager: u64,
@@ -63,7 +63,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         // Assert FeeCollectionPlan
         assert_fee_plan_eq(
             fee_plan,
-            expected_token_type,
+            expected_fee_coin_type,
             expected_fee_amount,
             expected_fee_from_wallet,
             expected_fee_from_balance_manager,
@@ -71,8 +71,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         );
         
         // Assert TokenDepositPlan
-        assert_token_plan_eq(
-            token_plan,
+        assert_input_coin_deposit_plan_eq(
+            input_coin_deposit_plan,
             expected_amount_needed,
             expected_deposit_from_wallet,
             expected_deposit_sufficient
@@ -107,7 +107,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         // 2. Fees: None because no wrapper DEEP used
         // 3. Token deposit: Remaining from wallet
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -124,14 +124,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             deep_in_wallet,         // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -177,7 +177,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let fee_from_balance_manager = 0;
         let deposit_from_wallet = order_amount - balance_manager_input_coin;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -194,14 +194,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             deep_from_wallet,       // expected_take_from_wallet
             deep_from_wrapper,      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_QUOTE,       // expected_token_type
+            FEE_COIN_TYPE_QUOTE,       // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             fee_from_wallet,        // expected_fee_from_wallet
             fee_from_balance_manager, // expected_fee_from_balance_manager
@@ -239,7 +239,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         // 2. Fees: None (whitelisted pool)
         // 3. Token deposit: All from balance manager
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -256,14 +256,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             0,                      // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -301,7 +301,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let wallet_input_coin = fee_from_wallet;  // Half of fees
         let balance_manager_input_coin = fee_from_balance_manager + order_amount;  // Half of order amount + half of fees
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -318,14 +318,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             deep_in_wallet,         // expected_take_from_wallet
             deep_from_wrapper,      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_QUOTE,       // expected_token_type
+            FEE_COIN_TYPE_QUOTE,       // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             fee_from_wallet,        // expected_fee_from_wallet
             fee_from_balance_manager, // expected_fee_from_balance_manager
@@ -346,7 +346,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let is_pool_whitelisted = false;
         let pool_fee_bps = FEE_MEDIUM;
         
-        // Resource balances - enough for DEEP, but not enough for tokens after fees
+        // Resource balances - enough for DEEP, but not enough for coins after fees
         let deep_required = AMOUNT_MEDIUM;
         let balance_manager_deep = AMOUNT_SMALL;
         let deep_in_wallet = AMOUNT_SMALL;
@@ -365,7 +365,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let fee_from_wallet = fee_amount;
         let fee_from_balance_manager = 0;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -383,14 +383,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             deep_in_wallet,         // expected_take_from_wallet
             deep_from_wrapper,      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_QUOTE,       // expected_token_type
+            FEE_COIN_TYPE_QUOTE,       // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             fee_from_wallet,        // expected_fee_from_wallet
             fee_from_balance_manager, // expected_fee_from_balance_manager
@@ -427,7 +427,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let fee_from_wallet = fee_amount;
         let fee_from_balance_manager = 0;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -444,14 +444,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             0,                      // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             false,                  // expected_deep_sufficient (not enough DEEP)
             // FeeCollectionPlan
-            TOKEN_TYPE_QUOTE,       // expected_token_type
+            FEE_COIN_TYPE_QUOTE,       // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             fee_from_wallet,        // expected_fee_from_wallet
             fee_from_balance_manager, // expected_fee_from_balance_manager
@@ -472,7 +472,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let is_pool_whitelisted = false;
         let pool_fee_bps = FEE_MEDIUM;
         
-        // Resource balances - quote tokens only in balance manager
+        // Resource balances - quote coins only in balance manager
         let deep_required = AMOUNT_SMALL;
         let balance_manager_deep = AMOUNT_SMALL;
         let deep_in_wallet = 0;
@@ -480,11 +480,11 @@ module deepbook_wrapper::create_limit_order_core_tests {
         
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 2_000_000_000
         
-        // All quote tokens in balance manager, none in wallet
+        // All quote coins in balance manager, none in wallet
         let balance_manager_input_coin = order_amount; // No need to add fee_amount since there are no fees
         let wallet_input_coin = 0;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -503,14 +503,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             0,                      // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type (no fee since not using wrapper DEEP)
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type (no fee since not using wrapper DEEP)
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -549,7 +549,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let fee_from_wallet = fee_amount;
         let fee_from_balance_manager = 0;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -566,14 +566,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             deep_in_wallet,         // expected_take_from_wallet
             deep_from_wrapper,      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_QUOTE,       // expected_token_type
+            FEE_COIN_TYPE_QUOTE,       // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             fee_from_wallet,        // expected_fee_from_wallet
             fee_from_balance_manager, // expected_fee_from_balance_manager
@@ -607,7 +607,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let balance_manager_input_coin = order_amount / 2;
         let wallet_input_coin = order_amount / 2;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -624,14 +624,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             deep_in_wallet,         // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -661,11 +661,11 @@ module deepbook_wrapper::create_limit_order_core_tests {
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 10_000_000
         
-        // Exact resources in wallet for token deposit
+        // Exact resources in wallet for coin deposit
         let wallet_input_coin = order_amount;
         let balance_manager_input_coin = 0;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -683,14 +683,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             deep_required,          // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type (no fee since not using wrapper DEEP)
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type (no fee since not using wrapper DEEP)
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -729,7 +729,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         // 2. No fees since user doesn't use wrapper DEEP
         // 3. Token deposit: Full amount from wallet
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -746,14 +746,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             deep_from_wallet,       // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type (no fee since not using wrapper DEEP)
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type (no fee since not using wrapper DEEP)
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -788,7 +788,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         // 2. Fees: None (whitelisted pool)
         // 3. Token deposit: All from balance manager
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -805,14 +805,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             0,                      // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -839,13 +839,13 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = AMOUNT_SMALL / 2;
         let wrapper_deep_reserves = AMOUNT_SMALL;  // Not enough in wrapper either
 
-        // For ask orders, we need base tokens (the token being sold)
+        // For ask orders, we need base coins (the coin being sold)
         let fee_amount = calculate_fee_amount(quantity, pool_fee_bps);
         
         let balance_manager_input_coin = AMOUNT_MEDIUM;
         let wallet_input_coin = AMOUNT_MEDIUM;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -862,14 +862,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             0,                      // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             false,                  // expected_deep_sufficient (not enough DEEP)
             // FeeCollectionPlan
-            TOKEN_TYPE_BASE,        // expected_token_type
+            FEE_COIN_TYPE_BASE,        // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -890,7 +890,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let is_pool_whitelisted = false;
         let pool_fee_bps = FEE_MEDIUM;
         
-        // Resource balances - base tokens only in balance manager
+        // Resource balances - base coins only in balance manager
         let deep_required = AMOUNT_SMALL;
         let balance_manager_deep = AMOUNT_SMALL - 50;
         let deep_in_wallet = 0;
@@ -898,14 +898,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
 
         let deep_from_wrapper = deep_required - balance_manager_deep;
         
-        // For ask orders, we need base tokens (the token being sold)
+        // For ask orders, we need base coins (the coin being sold)
         let fee_amount = calculate_fee_amount(quantity, pool_fee_bps);
         
-        // All base tokens in balance manager, none in wallet
+        // All base coins in balance manager, none in wallet
         let wallet_input_coin = 0;
         let balance_manager_input_coin = quantity + fee_amount;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -924,14 +924,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             0,                      // expected_take_from_wallet
             deep_from_wrapper,      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_BASE,        // expected_token_type (no fee since not using wrapper DEEP)
+            FEE_COIN_TYPE_BASE,        // expected_fee_coin_type (no fee since not using wrapper DEEP)
             fee_amount,             // expected_fee_amount
             0,                      // expected_fee_from_wallet
             fee_amount,             // expected_fee_from_balance_manager
@@ -966,7 +966,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let balance_manager_input_coin = 0;
         let wallet_input_coin = quantity + fee_amount;  // Exact amount needed
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -983,14 +983,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             deep_in_wallet,         // expected_take_from_wallet
             deep_from_wrapper,      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_BASE,        // expected_token_type
+            FEE_COIN_TYPE_BASE,        // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             fee_amount,             // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -1018,11 +1018,11 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = AMOUNT_SMALL / 2;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        // Split base tokens between wallet and balance manager
+        // Split base coins between wallet and balance manager
         let balance_manager_input_coin = quantity / 2;
         let wallet_input_coin = quantity / 2;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -1039,14 +1039,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             deep_in_wallet,         // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type (no fee since not using wrapper DEEP)
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type (no fee since not using wrapper DEEP)
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -1073,11 +1073,11 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = deep_required; // Exactly what's needed
         let wrapper_deep_reserves = 0;
         
-        // For ask orders, we need exact base tokens
+        // For ask orders, we need exact base coins
         let balance_manager_input_coin = 0;
         let wallet_input_coin = quantity; // Exactly what's needed
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -1094,14 +1094,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             deep_required,          // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -1130,7 +1130,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let wallet_input_coin = 700_000;
         let balance_manager_input_coin = 1_300_000;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -1147,14 +1147,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             deep_in_wallet,         // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -1184,12 +1184,12 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_in_wallet = AMOUNT_SMALL / 2;
         let wrapper_deep_reserves = AMOUNT_MEDIUM;
         
-        // Not enough base tokens after accounting for fees
+        // Not enough base coins after accounting for fees
         // Wallet has enough for fees but not enough for the deposit
         let wallet_input_coin = fee_amount + AMOUNT_SMALL;
         let balance_manager_input_coin = quantity - AMOUNT_SMALL - 1;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -1203,20 +1203,20 @@ module deepbook_wrapper::create_limit_order_core_tests {
             pool_fee_bps
         );
         
-        // For this test case, after taking fees, there's not enough base tokens
+        // For this test case, after taking fees, there's not enough base coins
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             deep_in_wallet,         // expected_take_from_wallet
             deep_from_wrapper,      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_BASE,        // expected_token_type
+            FEE_COIN_TYPE_BASE,        // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             fee_amount,             // expected_fee_from_wallet - all from wallet
             0,                      // expected_fee_from_balance_manager
@@ -1260,7 +1260,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let fee_from_balance_manager = 0;
         let deposit_from_wallet = quantity - balance_manager_input_coin;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -1277,14 +1277,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             deep_from_wallet,       // expected_take_from_wallet
             deep_from_wrapper,      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_BASE,        // expected_token_type
+            FEE_COIN_TYPE_BASE,        // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             fee_from_wallet,        // expected_fee_from_wallet
             fee_from_balance_manager, // expected_fee_from_balance_manager
@@ -1322,7 +1322,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let wallet_input_coin = fee_from_wallet;
         let balance_manager_input_coin = fee_from_balance_manager + quantity;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -1345,14 +1345,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             true,                   // expected_use_wrapper_deep
             deep_in_wallet,         // expected_take_from_wallet
             deep_from_wrapper,      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_BASE,        // expected_token_type
+            FEE_COIN_TYPE_BASE,        // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             fee_from_wallet,        // expected_fee_from_wallet
             fee_from_balance_manager, // expected_fee_from_balance_manager
@@ -1384,7 +1384,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let balance_manager_input_coin = AMOUNT_MEDIUM;
         let wallet_input_coin = AMOUNT_MEDIUM;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -1402,14 +1402,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             0,                      // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
@@ -1439,7 +1439,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let balance_manager_input_coin = AMOUNT_MEDIUM;
         let wallet_input_coin = AMOUNT_MEDIUM;
         
-        let (deep_plan, fee_plan, token_plan) = create_limit_order_core(
+        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
@@ -1460,14 +1460,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         assert_order_plans_eq(
             deep_plan,
             fee_plan,
-            token_plan,
+            input_coin_deposit_plan,
             // DeepRequirementPlan
             false,                  // expected_use_wrapper_deep
             0,                      // expected_take_from_wallet
             0,                      // expected_take_from_wrapper
             true,                   // expected_deep_sufficient
             // FeeCollectionPlan
-            TOKEN_TYPE_NONE,        // expected_token_type
+            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type
             0,                      // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager

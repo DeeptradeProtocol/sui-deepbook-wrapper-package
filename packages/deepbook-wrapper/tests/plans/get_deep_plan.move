@@ -1,5 +1,5 @@
 #[test_only]
-module deepbook_wrapper::determine_deep_requirements_core_tests {
+module deepbook_wrapper::get_deep_plan_tests {
     use deepbook_wrapper::wrapper::{Self, assert_deep_plan_eq};
 
     // -------------------------------------
@@ -17,7 +17,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
     #[test]
     fun test_whitelisted_pools() {
         // Test 1: Whitelisted pool with zero requirements
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             true, // is whitelisted
             0,    // deep required
             0,    // manager balance
@@ -27,7 +27,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, false, 0, 0, true);
         
         // Test 2: Whitelisted pool with non-zero requirements (should still return zeros)
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             true,        // is whitelisted  
             DEEP_LARGE,  // deep required
             0,           // manager balance
@@ -37,7 +37,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, false, 0, 0, true);
         
         // Test 3: Whitelisted pool with available DEEP (should ignore available DEEP)
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             true,        // is whitelisted  
             DEEP_LARGE,  // deep required
             DEEP_SMALL,  // some in manager
@@ -55,7 +55,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
     fun test_user_has_sufficient_deep_all_in_manager() {
         // All DEEP in manager, nothing in wallet
         let required = DEEP_MEDIUM;
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,       // not whitelisted
             required,    // deep required
             required,    // exact amount in manager
@@ -65,7 +65,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, false, 0, 0, true);
         
         // Excess DEEP in manager
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,           // not whitelisted
             required,        // deep required
             required * 2,    // excess in manager
@@ -79,7 +79,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
     fun test_user_has_sufficient_deep_all_in_wallet() {
         // All DEEP in wallet, nothing in manager
         let required = DEEP_MEDIUM;
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,       // not whitelisted
             required,    // deep required
             0,           // nothing in manager
@@ -89,7 +89,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, false, required, 0, true);
         
         // Excess DEEP in wallet
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,           // not whitelisted
             required,        // deep required
             0,               // nothing in manager
@@ -106,7 +106,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         let manager_amount = required / 3;
         let wallet_amount = required - manager_amount;
         
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,           // not whitelisted
             required,        // deep required
             manager_amount,  // some in manager
@@ -116,7 +116,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, false, wallet_amount, 0, true);
         
         // DEEP split with excess in both
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,               // not whitelisted
             required,            // deep required
             manager_amount * 2,  // excess in manager
@@ -131,7 +131,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
     fun test_user_has_more_deep_in_manager_than_required() {
         // Manager has more DEEP than required
         let required = DEEP_MEDIUM;
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,          // not whitelisted
             required,       // deep required
             required * 2,   // double required in manager
@@ -152,7 +152,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         let user_deep = required / 2;
         let wrapper_needed = required - user_deep;
         
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,       // not whitelisted
             required,    // deep required
             0,           // nothing in manager
@@ -165,7 +165,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         let manager_deep = user_deep / 2;
         let wallet_deep = user_deep - manager_deep;
         
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,          // not whitelisted
             required,       // deep required
             manager_deep,   // some in manager
@@ -180,7 +180,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         // No user DEEP, all from wrapper
         let required = DEEP_MEDIUM;
         
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,       // not whitelisted
             required,    // deep required
             0,           // nothing in manager
@@ -190,7 +190,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, true, 0, required, true);
         
         // No user DEEP, wrapper has excess
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,           // not whitelisted
             required,        // deep required
             0,               // nothing in manager
@@ -207,7 +207,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         let user_deep = required / 3;
         let wrapper_needed = required - user_deep;
         
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,           // not whitelisted
             required,        // deep required
             0,               // nothing in manager
@@ -229,7 +229,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         let wrapper_needed = required - user_deep;
         let insufficient_reserves = wrapper_needed - 1; // One token short
         
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,                 // not whitelisted
             required,              // deep required
             0,                     // nothing in manager
@@ -239,7 +239,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, true, 0, 0, false);
         
         // Almost nothing in wrapper
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,         // not whitelisted
             required,      // deep required
             0,             // nothing in manager
@@ -254,7 +254,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         // No DEEP anywhere, but some required
         let required = DEEP_MEDIUM;
         
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,       // not whitelisted
             required,    // deep required
             0,           // nothing in manager
@@ -265,7 +265,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         
         // Small amount in user, none in wrapper
         let small_amount = required / 10;
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,          // not whitelisted
             required,       // deep required
             small_amount,   // small amount in manager
@@ -282,7 +282,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
     #[test]
     fun test_zero_deep_required() {
         // Zero DEEP required (non-whitelisted)
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false, // not whitelisted
             0,     // zero deep required
             0,     // manager balance
@@ -292,7 +292,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, false, 0, 0, true);
         
         // Zero DEEP required but DEEP available
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,       // not whitelisted
             0,           // zero deep required
             DEEP_SMALL,  // some in manager
@@ -308,7 +308,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         let large_value = 9_223_372_036_854_775_000; // Just under u64::MAX
         
         // Large requirement with matching manager balance
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,         // not whitelisted
             large_value,   // large deep required
             large_value,   // matching manager balance
@@ -318,7 +318,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, false, 0, 0, true);
         
         // Large requirement with matching wallet balance
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,         // not whitelisted
             large_value,   // large deep required
             0,             // manager balance
@@ -328,7 +328,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, false, large_value, 0, true);
         
         // Large requirement with matching wrapper reserves
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,         // not whitelisted
             large_value,   // large deep required
             0,             // manager balance
@@ -348,7 +348,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         let required = DEEP_MEDIUM;
         
         // Manager exactly matches required
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,       // not whitelisted
             required,    // deep required
             required,    // exact amount in manager
@@ -358,7 +358,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, false, 0, 0, true);
         
         // Wallet exactly matches required
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,       // not whitelisted
             required,    // deep required
             0,           // nothing in manager
@@ -370,7 +370,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         // Combined user balance equals exactly required
         let manager_amount = required / 2;
         let wallet_amount = required - manager_amount;
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,           // not whitelisted
             required,        // deep required
             manager_amount,  // some in manager
@@ -382,7 +382,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         // Wrapper exactly matches what's needed
         let user_amount = required / 2;
         let wrapper_needed = required - user_amount;
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,           // not whitelisted
             required,        // deep required
             0,               // nothing in manager
@@ -398,7 +398,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         let required = DEEP_MEDIUM;
         
         // Manager has one token less than required
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,           // not whitelisted
             required,        // deep required
             required - 1,    // one token less in manager
@@ -408,7 +408,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, true, 0, 0, false);
         
         // One token in wallet completes the requirement
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,           // not whitelisted
             required,        // deep required
             required - 1,    // one token less in manager
@@ -420,7 +420,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         // One token short with wrapper
         let user_amount = required / 2;
         let wrapper_needed = required - user_amount;
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,               // not whitelisted
             required,            // deep required
             0,                   // nothing in manager
@@ -430,7 +430,7 @@ module deepbook_wrapper::determine_deep_requirements_core_tests {
         assert_deep_plan_eq(plan, true, 0, 0, false);
         
         // One extra token in wrapper
-        let plan = wrapper::determine_deep_requirements_core(
+        let plan = wrapper::get_deep_plan(
             false,               // not whitelisted
             required,            // deep required
             0,                   // nothing in manager
