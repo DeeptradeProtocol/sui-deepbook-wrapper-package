@@ -8,6 +8,7 @@ module deepbook_wrapper::wrapper {
     use token::deep::DEEP;
     use deepbook_wrapper::admin::AdminCap;
     use deepbook_wrapper::math;
+    use deepbook_wrapper::whitelisted_pools;
     use deepbook::pool::{Self, Pool};
     use deepbook::balance_manager::{Self, BalanceManager};
 
@@ -68,7 +69,11 @@ module deepbook_wrapper::wrapper {
     /// Error when the caller is not the owner of the balance manager
     #[error]
     const EInvalidOwner: u64 = 4;
-    
+
+    /// Error when the pool is not whitelisted by our protocol
+    #[error]
+    const ENotWhitelistedPool: u64 = 5;
+
     /// Define a constant for the fee scaling factor
     /// This matches DeepBook's FLOAT_SCALING constant (10^9) used for fee calculations
     /// Fees are expressed in billionths, e.g., 1,000,000 = 0.1% (1,000,000/1,000,000,000)
@@ -284,6 +289,11 @@ module deepbook_wrapper::wrapper {
         price: u64,
         is_bid: bool
     ): (bool, u64, u64) {
+        // Verify the pool is whitelisted by our protocol. If not, the order can't be created
+        if (!whitelisted_pools::is_pool_whitelisted(pool)) {
+            return (false, 0, 0)
+        };
+
         // Get wrapper deep reserves
         let wrapper_deep_reserves = balance::value(&wrapper.deep_reserves);
         
@@ -342,6 +352,9 @@ module deepbook_wrapper::wrapper {
     ): (deepbook::order_info::OrderInfo) {
         // Verify the caller owns the balance manager
         assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+
+        // Verify the pool is whitelisted by our protocol
+        assert!(whitelisted_pools::is_pool_whitelisted(pool), ENotWhitelistedPool);
         
         // Extract all the data we need from DeepBook objects
         let is_pool_whitelisted = pool::whitelisted(pool);
