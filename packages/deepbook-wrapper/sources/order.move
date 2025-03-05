@@ -21,27 +21,42 @@ module deepbook_wrapper::order {
     use deepbook_wrapper::fee::{estimate_full_fee_core, calculate_full_fee};
 
     // === Structs ===
-    /// Data structure to represent DEEP requirements for an order
+    /// Tracks how DEEP will be sourced for an order
+    /// Used to coordinate token sourcing from user wallet and wrapper reserves
     public struct DeepPlan has copy, drop {
+        /// Whether DEEP from wrapper reserves is needed for this order
         use_wrapper_deep_reserves: bool,
+        /// Amount of DEEP to take from user's wallet
         from_user_wallet: u64,
+        /// Amount of DEEP to take from wrapper reserves
         from_deep_reserves: u64,
+        /// Whether wrapper DEEP reserves has enough DEEP to cover the order
         deep_reserves_cover_order: bool
     }
     
-    /// Data structure to represent fee collection plan
+    /// Tracks fee charging strategy for an order
+    /// Determines fee coin type, amount, and sources for fee payment
     public struct FeePlan has copy, drop {
-        fee_coin_type: u8,     // 0 for no fee, 1 for base token, 2 for quote token
+        /// Coin type for fee charging: 0 = no fee, 1 = base coin, 2 = quote coin
+        fee_coin_type: u8,
+        /// Total fee amount to be collected
         fee_amount: u64,
+        /// Amount of fee to take from user's wallet
         from_user_wallet: u64,
+        /// Amount of fee to take from user's balance manager
         from_user_balance_manager: u64,
+        /// Whether user has enough coins on his wallet and balance manager to cover the required fee
         user_covers_wrapper_fee: bool
     }
     
-    /// Data structure to represent token deposit requirements
+    /// Tracks input coin requirements for an order
+    /// Plans how input coins will be sourced from user wallet and balance manager
     public struct InputCoinDepositPlan has copy, drop {
+        /// Total amount of input coins needed for the order
         order_amount: u64,
+        /// Amount of input coins to take from user's wallet
         from_user_wallet: u64,
+        /// Whether user has enough input coins for the order
         user_has_enough_input_coin: bool
     }
 
@@ -50,7 +65,8 @@ module deepbook_wrapper::order {
     #[error]
     const EInsufficientDeepReserves: u64 = 1;
 
-    /// Error when the input amount is insufficient after fees
+    /// Error when user doesn't have enough coins on his wallet and balance manager
+    /// to cover the required fee and(or) create the order with desired amount
     #[error]
     const EInsufficientFeeOrInput: u64 = 2;
 
@@ -63,8 +79,12 @@ module deepbook_wrapper::order {
     const ENotWhitelistedPool: u64 = 4;
 
     // === Public-Mutative Functions ===
-    /// Create a limit order using tokens from various sources
-    /// Returns the order info
+    /// Creates a limit order on DeepBook using coins from various sources
+    /// This function orchestrates the entire order creation process:
+    /// 1. Sources DEEP coins from user wallet and wrapper reserves if needed
+    /// 2. Collects fees in input coins
+    /// 3. Deposits required input coins from the wallet to the balance manager
+    /// 4. Places the order on DeepBook and returns the order info
     public fun create_limit_order<BaseToken, QuoteToken>(
         wrapper: &mut DeepBookV3RouterWrapper,
         whitelisted_pools_registry: &WhitelistRegistry,
@@ -122,10 +142,10 @@ module deepbook_wrapper::order {
             fee_bps
         );
         
-        // Step 1: Execute DEEP token plan
+        // Step 1: Execute DEEP plan
         execute_deep_plan(wrapper, balance_manager, &mut deep_coin, &deep_plan, ctx);
         
-        // Step 2: Execute fee collection plan
+        // Step 2: Execute fee charging plan
         execute_fee_plan(
             wrapper,
             balance_manager,
@@ -135,7 +155,7 @@ module deepbook_wrapper::order {
             ctx
         );
         
-        // Step 3: Execute token deposit plan
+        // Step 3: Execute input coin deposit plan
         execute_input_coin_deposit_plan(
             balance_manager,
             &mut base_coin,
@@ -145,7 +165,7 @@ module deepbook_wrapper::order {
             ctx
         );
         
-        // Return unused tokens to the caller
+        // Return unused coins to the caller
         transfer_if_nonzero(base_coin, tx_context::sender(ctx));
         transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
         transfer_if_nonzero(deep_coin, tx_context::sender(ctx));
@@ -171,8 +191,13 @@ module deepbook_wrapper::order {
     }
 
     // === Public-View Functions ===
-    /// Estimate order requirements for a limit order
-    /// Returns whether the order can be created, DEEP required, and estimated fee
+    /// Estimates the requirements for creating a limit order on DeepBook
+    /// Analyzes available resources and requirements to determine if an order can be created
+    /// 
+    /// Returns a tuple with three values:
+    /// - bool: Whether the order can be successfully created with available resources
+    /// - u64: Amount of DEEP coins required for the order (if non-whitelisted pool)
+    /// - u64: Estimated fee amount in input coins (base for ask orders, quote for bid orders)
     public fun estimate_order_requirements<BaseToken, QuoteToken>(
         wrapper: &DeepBookV3RouterWrapper,
         whitelisted_pools_registry: &WhitelistRegistry,
@@ -193,7 +218,7 @@ module deepbook_wrapper::order {
         // Get wrapper deep reserves
         let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
         
-        // Check if pool is whitelisted
+        // Check if pool is whitelisted by DeepBook
         let is_pool_whitelisted = pool::whitelisted(pool);
         
         // Get pool parameters
@@ -229,9 +254,12 @@ module deepbook_wrapper::order {
         )
     }
 
-    /// Determines if wrapper DEEP will be needed for this order
-    /// Also checks if the wrapper has enough DEEP to cover the needs
-    /// Returns (will_use_wrapper_deep, wrapper_has_enough_deep)
+    /// Determines if wrapper DEEP reserves will be needed for placing an order
+    /// Analyzes user's available DEEP coins and calculates if wrapper reserves are required
+    /// 
+    /// Returns a tuple with two boolean values:
+    /// - bool: Whether wrapper DEEP reserves will be used for this order
+    /// - bool: Whether the wrapper has sufficient DEEP reserves to cover the order needs
     public fun will_use_wrapper_deep_reserves<BaseToken, QuoteToken>(
         wrapper: &DeepBookV3RouterWrapper,
         pool: &Pool<BaseToken, QuoteToken>,
@@ -243,7 +271,7 @@ module deepbook_wrapper::order {
         // Get wrapper deep reserves
         let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
         
-        // Check if pool is whitelisted
+        // Check if pool is whitelisted by DeepBook
         let is_pool_whitelisted = pool::whitelisted(pool);
         
         // Calculate how much DEEP is required
@@ -264,7 +292,12 @@ module deepbook_wrapper::order {
         return (deep_plan.use_wrapper_deep_reserves, deep_plan.deep_reserves_cover_order)
     }
 
-    /// Helper function to validate pool parameters
+    /// Validates that order parameters satisfy the pool's requirements
+    /// Checks if quantity and price comply with the pool's tick size, lot size, and minimum size constraints
+    /// 
+    /// Returns boolean:
+    /// - true: If order parameters are valid for the specified pool
+    /// - false: If any parameter violates the pool's constraints
     public fun validate_pool_params<BaseToken, QuoteToken>(
         pool: &Pool<BaseToken, QuoteToken>,
         quantity: u64,
@@ -282,7 +315,13 @@ module deepbook_wrapper::order {
         )
     }
 
-    /// Checks if the user has sufficient tokens for the order
+    /// Checks if the user has enough input coins for creating an order
+    /// Evaluates combined balances from wallet and balance manager against order requirements
+    /// Accounts for additional fee requirements when using wrapper DEEP reserves
+    /// 
+    /// Returns boolean:
+    /// - true: If user has enough coins to create the order with specified parameters
+    /// - false: If user doesn't have enough coins for the order
     public fun has_enough_input_coin<BaseToken, QuoteToken>(
         balance_manager: &BalanceManager,
         base_in_wallet: u64,
@@ -312,9 +351,14 @@ module deepbook_wrapper::order {
     }
 
     // === Public-Package Functions ===
-    /// Estimate order requirements for a limit order - core logic function that doesn't require DeepBook objects
-    /// Takes raw data instead of DeepBook objects to improve testability
-    /// Returns whether the order can be created, DEEP required, and estimated fee
+    /// Core logic for estimating order requirements without using DeepBook objects
+    /// Takes raw parameters instead of DeepBook objects for improved testability
+    /// Evaluates all requirements including DEEP needs, fees, and parameter validation
+    /// 
+    /// Returns a tuple with three values:
+    /// - bool: Whether the order can be created with available resources
+    /// - u64: Amount of DEEP coins required for the order (if non-whitelisted pool)
+    /// - u64: Estimated fee amount in input coins
     public(package) fun estimate_order_requirements_core(
         wrapper_deep_reserves: u64,
         is_pool_whitelisted: bool,
@@ -368,8 +412,8 @@ module deepbook_wrapper::order {
             pool_min_size
         );
         
-        // Check if user has sufficient tokens
-        let sufficient_tokens = has_enough_input_coin_core(
+        // Check if user has enough input coins
+        let enough_coins = has_enough_input_coin_core(
             balance_manager_base,
             balance_manager_quote,
             base_in_wallet,
@@ -381,11 +425,17 @@ module deepbook_wrapper::order {
             is_bid
         );
         
-        (valid_params && sufficient_tokens && deep_plan.deep_reserves_cover_order, deep_required, fee_estimate)
+        (valid_params && enough_coins && deep_plan.deep_reserves_cover_order, deep_required, fee_estimate)
     }
 
-    /// Create a limit order using tokens from various sources - core logic function
-    /// This is a skeleton that orchestrates the process
+    /// Core logic function that orchestrates the creation of a limit order using coins from various sources
+    /// Coordinates all requirements by analyzing available resources and calculating necessary allocations
+    /// Creates comprehensive plans for DEEP coins sourcing, fee charging, and input coin deposits
+    /// 
+    /// Returns a tuple with three structured plans:
+    /// - DeepPlan: Coordinates DEEP coin sourcing from user wallet and wrapper reserves
+    /// - FeePlan: Specifies fee coin type, amount, and sources for fee payment
+    /// - InputCoinDepositPlan: Determines how input coins will be sourced for the order
     public(package) fun create_limit_order_core(
         is_pool_whitelisted: bool,
         deep_required: u64,
@@ -411,7 +461,7 @@ module deepbook_wrapper::order {
         // Step 2: Calculate order amount based on order type
         let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-        // Step 3: Determine fee collection based on order type
+        // Step 3: Determine fee charging plan based on order type
         let fee_plan = get_fee_plan(
             deep_plan.use_wrapper_deep_reserves,
             deep_plan.from_deep_reserves,
@@ -424,7 +474,7 @@ module deepbook_wrapper::order {
             balance_manager_input_coin
         );
 
-        // Step 4: Determine token deposit requirements
+        // Step 4: Determine input coin deposit plan
         let deposit_plan = get_input_coin_deposit_plan(
             order_amount,
             wallet_input_coin - fee_plan.from_user_wallet,
@@ -434,7 +484,15 @@ module deepbook_wrapper::order {
         (deep_plan, fee_plan, deposit_plan)
     }
 
-    /// Helper function to validate pool parameters - core logic
+    /// Validates that order parameters satisfy the pool's requirements - core logic implementation
+    /// Performs three essential checks for order parameter validity:
+    /// 1. Quantity meets or exceeds the pool's minimum size
+    /// 2. Quantity is a multiple of the pool's lot size
+    /// 3. Price is a multiple of the pool's tick size
+    /// 
+    /// Returns boolean:
+    /// - true: If all order parameters comply with the pool's constraints
+    /// - false: If any parameter violates the pool's constraints
     public(package) fun validate_pool_params_core(
         quantity: u64,
         price: u64,
@@ -447,7 +505,14 @@ module deepbook_wrapper::order {
         price % tick_size == 0
     }
 
-    /// Checks if the user has sufficient tokens for the order - core logic
+    /// Checks if the user has enough input coins for creating an order - core logic implementation
+    /// Evaluates available coin balances against order requirements, considering:
+    /// 1. For bid orders: if user has enough quote coins including fee if needed
+    /// 2. For ask orders: if user has enough base coins including fee if needed
+    /// 
+    /// Returns boolean:
+    /// - true: If user has enough coins for the order with specified parameters
+    /// - false: If user doesn't have enough coins to create the order
     public(package) fun has_enough_input_coin_core(
         balance_manager_base: u64,
         balance_manager_quote: u64,
@@ -460,7 +525,7 @@ module deepbook_wrapper::order {
         is_bid: bool
     ): bool {
         if (is_bid) {
-            // For bid orders, check if user has enough quote tokens
+            // For bid orders, check if user has enough quote coins
             let quote_required = math::mul(quantity, price);
             let total_quote_available = balance_manager_quote + quote_in_wallet;
             
@@ -471,7 +536,7 @@ module deepbook_wrapper::order {
                 total_quote_available >= quote_required
             }
         } else {
-            // For ask orders, check if user has enough base tokens
+            // For ask orders, check if user has enough base coins
             let total_base_available = balance_manager_base + base_in_wallet;
             
             // Need to account for fee if using wrapper DEEP
@@ -483,7 +548,15 @@ module deepbook_wrapper::order {
         }
     }
 
-    /// Determine the DEEP token requirements for an order - core logic
+    /// Analyzes DEEP coin requirements for an order and creates a sourcing plan
+    /// Evaluates user's available DEEP coins and determines if wrapper reserves are needed
+    /// Calculates optimal allocation from user wallet, balance manager, and wrapper reserves
+    /// 
+    /// Returns a DeepPlan structure with the following information:
+    /// - use_wrapper_deep_reserves: Whether DEEP from wrapper reserves will be used
+    /// - from_user_wallet: Amount of DEEP to take from user's wallet
+    /// - from_deep_reserves: Amount of DEEP to take from wrapper reserves
+    /// - deep_reserves_cover_order: Whether wrapper has enough DEEP to cover what's needed
     public(package) fun get_deep_plan(
         is_pool_whitelisted: bool,
         deep_required: u64,
@@ -523,9 +596,9 @@ module deepbook_wrapper::order {
             // Need wrapper DEEP since user doesn't have enough
             let from_wallet = deep_in_wallet;  // Take all from wallet
             let still_needed = deep_required - user_deep_total;
-            let has_sufficient = wrapper_deep_reserves >= still_needed;
+            let has_enough = wrapper_deep_reserves >= still_needed;
 
-            if (!has_sufficient) {
+            if (!has_enough) {
                 return DeepPlan {
                     use_wrapper_deep_reserves: true,
                     from_user_wallet: 0,
@@ -543,10 +616,16 @@ module deepbook_wrapper::order {
         }
     }
     
-    /// Determine fee collection requirements - core logic
-    /// For bid orders, fees are collected in quote tokens
-    /// For ask orders, fees are collected in base tokens
-    /// Returns a plan for fee collection
+    /// Creates a fee charging plan for order execution - core logic
+    /// Determines fee coin type, amount, and optimal sources for fee payment
+    /// For bid orders, fees are charged in quote coins; for ask orders, in base coins
+    /// 
+    /// Returns a FeePlan structure with the following information:
+    /// - fee_coin_type: Coin type for fee charging (0 = no fee, 1 = base coin, 2 = quote coin)
+    /// - fee_amount: Total fee amount to be charged
+    /// - from_user_wallet: Amount of fee to take from user's wallet
+    /// - from_user_balance_manager: Amount of fee to take from user's balance manager
+    /// - user_covers_wrapper_fee: Whether user has enough coins to cover the required fee
     public(package) fun get_fee_plan(
         use_wrapper_deep_reserves: bool,
         deep_from_reserves: u64,
@@ -583,10 +662,10 @@ module deepbook_wrapper::order {
             }
         };
 
-        // Check if we have sufficient resources
-        let has_sufficient = wallet_balance + balance_manager_balance >= fee_amount;
+        // Check if user has enough coins to cover the fee
+        let has_enough = wallet_balance + balance_manager_balance >= fee_amount;
 
-        if (!has_sufficient) {
+        if (!has_enough) {
             return FeePlan {
                 fee_coin_type: if (is_bid) 2 else 1,  // 1 for base, 2 for quote
                 fee_amount,
@@ -615,13 +694,18 @@ module deepbook_wrapper::order {
             fee_amount,
             from_user_wallet: from_wallet,
             from_user_balance_manager: from_balance_manager,
-            user_covers_wrapper_fee: has_sufficient
+            user_covers_wrapper_fee: has_enough
         }
     }
     
-    /// Determine token deposit requirements - core logic
-    /// For bid orders, calculate how many quote tokens are needed
-    /// For ask orders, calculate how many base tokens are needed
+    /// Creates an input coin deposit plan for order execution - core logic
+    /// Determines how to source required input coins from user wallet and balance manager
+    /// For bid orders, calculates quote coins needed; for ask orders, calculates base coins needed
+    /// 
+    /// Returns an InputCoinDepositPlan structure with the following information:
+    /// - order_amount: Total amount of input coins needed for the order
+    /// - from_user_wallet: Amount of input coins to take from user's wallet
+    /// - user_has_enough_input_coin: Whether user has enough input coins for the order
     public(package) fun get_input_coin_deposit_plan(
         required_amount: u64,
         wallet_balance: u64,
@@ -638,9 +722,9 @@ module deepbook_wrapper::order {
         
         // Calculate how much more is needed
         let additional_needed = required_amount - balance_manager_balance;
-        let has_sufficient = wallet_balance >= additional_needed;
+        let has_enough = wallet_balance >= additional_needed;
 
-        if (!has_sufficient) {
+        if (!has_enough) {
             return InputCoinDepositPlan {
                 order_amount: required_amount,
                 from_user_wallet: 0,
@@ -656,55 +740,15 @@ module deepbook_wrapper::order {
     }
 
     // === Private Functions ===
-    /// Helper function to collect fees based on token type
-    fun execute_fee_plan<BaseToken, QuoteToken>(
-        wrapper: &mut DeepBookV3RouterWrapper,
-        balance_manager: &mut BalanceManager, 
-        base_coin: &mut Coin<BaseToken>,
-        quote_coin: &mut Coin<QuoteToken>,
-        fee_plan: &FeePlan,
-        ctx: &mut TxContext
-    ) {
-        // Verify there are enough tokens to cover the fee
-        if (fee_plan.fee_amount > 0) {
-            assert!(
-                fee_plan.user_covers_wrapper_fee,
-                EInsufficientFeeOrInput
-            );
-        };
-        
-        // Collect fee from wallet if needed
-        if (fee_plan.from_user_wallet > 0) {
-            if (fee_plan.fee_coin_type == 1) { // Base token
-                let fee_coin = coin::split(base_coin, fee_plan.from_user_wallet, ctx);
-                join_fee(wrapper, coin::into_balance(fee_coin));
-            } else if (fee_plan.fee_coin_type == 2) { // Quote token
-                let fee_coin = coin::split(quote_coin, fee_plan.from_user_wallet, ctx);
-                join_fee(wrapper, coin::into_balance(fee_coin));
-            };
-        };
-        
-        // Collect fee from balance manager if needed
-        if (fee_plan.from_user_balance_manager > 0) {
-            if (fee_plan.fee_coin_type == 1) { // Base token
-                let fee_coin = balance_manager::withdraw<BaseToken>(
-                    balance_manager,
-                    fee_plan.from_user_balance_manager,
-                    ctx
-                );
-                join_fee(wrapper, coin::into_balance(fee_coin));
-            } else if (fee_plan.fee_coin_type == 2) { // Quote token
-                let fee_coin = balance_manager::withdraw<QuoteToken>(
-                    balance_manager,
-                    fee_plan.from_user_balance_manager,
-                    ctx
-                );
-                join_fee(wrapper, coin::into_balance(fee_coin));
-            };
-        };
-    }
-    
-    /// Helper function to collect DEEP tokens from wallet and wrapper according to the plan
+    /// Executes the DEEP coin sourcing plan by acquiring coins from specified sources
+    /// Sources DEEP coins from user wallet and/or wrapper reserves based on the deep plan
+    /// Deposits all acquired DEEP coins to the user's balance manager for order placement
+    /// 
+    /// Steps performed:
+    /// 1. Verifies the wrapper has enough DEEP reserves if they will be used
+    /// 2. Takes DEEP coins from user wallet when specified in the plan
+    /// 3. Takes DEEP coins from wrapper reserves when needed
+    /// 4. Deposits all acquired DEEP coins to the balance manager
     fun execute_deep_plan(
         wrapper: &mut DeepBookV3RouterWrapper,
         balance_manager: &mut BalanceManager,
@@ -712,7 +756,7 @@ module deepbook_wrapper::order {
         deep_plan: &DeepPlan,
         ctx: &mut TxContext
     ) {
-        // Check if there are sufficient resources
+        // Check if there is enough DEEP in the wrapper reserves
         if (deep_plan.use_wrapper_deep_reserves) {
             assert!(deep_plan.deep_reserves_cover_order, EInsufficientDeepReserves);
         };
@@ -730,8 +774,71 @@ module deepbook_wrapper::order {
             balance_manager::deposit(balance_manager, reserve_payment, ctx);
         };
     }
+    
+    /// Executes the fee charging plan by taking coins from specified sources
+    /// Takes fee coins from user wallet and/or balance manager based on the fee plan
+    /// Supports both base and quote coins depending on the order type (ask/bid)
+    /// 
+    /// Steps performed:
+    /// 1. Verifies the user has enough coins to cover required fees
+    /// 2. Takes fee coins from user wallet when specified in the plan
+    /// 3. Takes fee coins from balance manager when needed
+    /// 4. Joins all collected fees to the wrapper's fee balance
+    fun execute_fee_plan<BaseToken, QuoteToken>(
+        wrapper: &mut DeepBookV3RouterWrapper,
+        balance_manager: &mut BalanceManager, 
+        base_coin: &mut Coin<BaseToken>,
+        quote_coin: &mut Coin<QuoteToken>,
+        fee_plan: &FeePlan,
+        ctx: &mut TxContext
+    ) {
+        // Verify there are enough coins to cover the fee
+        if (fee_plan.fee_amount > 0) {
+            assert!(
+                fee_plan.user_covers_wrapper_fee,
+                EInsufficientFeeOrInput
+            );
+        };
+        
+        // Charge fee from wallet if needed
+        if (fee_plan.from_user_wallet > 0) {
+            if (fee_plan.fee_coin_type == 1) { // Base coin
+                let fee_coin = coin::split(base_coin, fee_plan.from_user_wallet, ctx);
+                join_fee(wrapper, coin::into_balance(fee_coin));
+            } else if (fee_plan.fee_coin_type == 2) { // Quote coin
+                let fee_coin = coin::split(quote_coin, fee_plan.from_user_wallet, ctx);
+                join_fee(wrapper, coin::into_balance(fee_coin));
+            };
+        };
+        
+        // Charge fee from balance manager if needed
+        if (fee_plan.from_user_balance_manager > 0) {
+            if (fee_plan.fee_coin_type == 1) { // Base coin
+                let fee_coin = balance_manager::withdraw<BaseToken>(
+                    balance_manager,
+                    fee_plan.from_user_balance_manager,
+                    ctx
+                );
+                join_fee(wrapper, coin::into_balance(fee_coin));
+            } else if (fee_plan.fee_coin_type == 2) { // Quote coin
+                let fee_coin = balance_manager::withdraw<QuoteToken>(
+                    balance_manager,
+                    fee_plan.from_user_balance_manager,
+                    ctx
+                );
+                join_fee(wrapper, coin::into_balance(fee_coin));
+            };
+        };
+    }
 
-    /// Helper function to deposit tokens according to the token plan
+    /// Executes the input coin deposit plan by transferring coins to the balance manager
+    /// Deposits required input coins from user wallet to balance manager based on the plan
+    /// Handles different coin types based on order type: quote coins for bid orders, base coins for ask orders
+    /// 
+    /// Steps performed:
+    /// 1. Verifies the user has enough input coins to satisfy the deposit requirements
+    /// 2. For bid orders: transfers quote coins from user wallet to balance manager
+    /// 3. For ask orders: transfers base coins from user wallet to balance manager
     fun execute_input_coin_deposit_plan<BaseToken, QuoteToken>(
         balance_manager: &mut BalanceManager,
         base_coin: &mut Coin<BaseToken>,
@@ -740,7 +847,7 @@ module deepbook_wrapper::order {
         is_bid: bool,
         ctx: &mut TxContext
     ) {
-        // Verify there are enough tokens to satisfy the deposit requirements
+        // Verify there are enough coins to satisfy the deposit requirements
         if (deposit_plan.order_amount > 0) {
             assert!(
                 deposit_plan.user_has_enough_input_coin,
@@ -748,12 +855,12 @@ module deepbook_wrapper::order {
             );
         };
         
-        // Deposit tokens from wallet if needed
+        // Deposit coins from wallet if needed
         if (deposit_plan.from_user_wallet > 0) {
-            if (is_bid) { // Quote tokens for bid
+            if (is_bid) { // Quote coins for bid
                 let payment = coin::split(quote_coin, deposit_plan.from_user_wallet, ctx);
                 balance_manager::deposit(balance_manager, payment, ctx);
-            } else { // Base tokens for ask
+            } else { // Base coins for ask
                 let payment = coin::split(base_coin, deposit_plan.from_user_wallet, ctx);
                 balance_manager::deposit(balance_manager, payment, ctx);
             };
