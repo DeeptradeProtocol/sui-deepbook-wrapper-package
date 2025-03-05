@@ -7,14 +7,14 @@ module deepbook_wrapper::math {
     
     /// Multiply two floating numbers.
     /// This function will round down the result.
-    public fun mul(x: u64, y: u64): u64 {
+    public(package) fun mul(x: u64, y: u64): u64 {
         let (_, result) = mul_internal(x, y);
         result
     }
     
     /// Divide two floating numbers.
     /// This function will round down the result.
-    public fun div(x: u64, y: u64): u64 {
+    public(package) fun div(x: u64, y: u64): u64 {
         let (_, result) = div_internal(x, y);
         result
     }
