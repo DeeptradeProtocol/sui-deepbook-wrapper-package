@@ -13,5 +13,5 @@ deepbook = { local = "../deepbook", address = "0x2c8d603bc51326b8c13cef9dd07031a
 token = { local = "../token", address = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270" }
 
 [addresses]
-deepbook_wrapper = "0xe8bbc1cbc9fa45076ec6dfc5be186851cec16571a35ec946468376a7cdc23e40"
+deepbook_wrapper = "0xa329d8a3d499f6c811caa208455d81d648fe79ff04d8ffb351a52466a57958a4"
 # deepbook_wrapper = "0x0"
