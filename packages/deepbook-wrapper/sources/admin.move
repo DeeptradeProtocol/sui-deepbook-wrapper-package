@@ -16,6 +16,7 @@ module deepbook_wrapper::admin {
         )
     }
 
+    // === Test-Only Functions ===
     #[test_only]
     public fun create_for_testing(ctx: &mut TxContext): AdminCap {
         AdminCap { id: object::new(ctx) }

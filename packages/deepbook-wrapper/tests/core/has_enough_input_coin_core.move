@@ -2,7 +2,7 @@
 module deepbook_wrapper::has_enough_input_coin_core_tests {
     use sui::test_utils::assert_eq;
     
-    use deepbook_wrapper::wrapper;
+    use deepbook_wrapper::order::{has_enough_input_coin_core};
     
     // Test has_enough_input_coin_core
     #[test]
@@ -16,7 +16,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         // price = 100_000_000_000 (100 * 10^9)
         // quantity = 10
         // required = (10 * 100_000_000_000) / 10^9 = 1000
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base (not used for bid)
             0,                  // balance_manager_quote
             0,                  // base_in_wallet (not used for bid)
@@ -30,7 +30,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, true);
         
         // 1.2 More than enough quote coins in wallet, no fees
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             0,                  // base_in_wallet
@@ -44,7 +44,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, true);
         
         // 1.3 Not enough quote coins in wallet, no fees
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             0,                  // base_in_wallet
@@ -58,7 +58,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, false);
         
         // 1.4 Exactly enough quote coins split between wallet and balance manager
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             500,               // balance_manager_quote
             0,                  // base_in_wallet
@@ -72,7 +72,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, true);
         
         // 1.5 Exactly enough including fees
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             0,                  // base_in_wallet
@@ -86,7 +86,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, true);
         
         // 1.6 Not enough when including fees
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             0,                  // base_in_wallet
@@ -103,7 +103,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         // ----------------------------------------
         
         // 2.1 Exactly enough base coins in wallet, no fees
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             100,               // base_in_wallet
@@ -117,7 +117,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, true);
         
         // 2.2 More than enough base coins in wallet, no fees
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             200,               // base_in_wallet
@@ -131,7 +131,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, true);
         
         // 2.3 Not enough base coins in wallet, no fees
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             50,                // base_in_wallet
@@ -145,7 +145,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, false);
         
         // 2.4 Exactly enough base coins split between wallet and balance manager
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             50,                // balance_manager_base
             0,                  // balance_manager_quote
             50,                // base_in_wallet
@@ -159,7 +159,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, true);
         
         // 2.5 Exactly enough including fees
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             110,               // base_in_wallet
@@ -173,7 +173,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, true);
         
         // 2.6 Not enough when including fees
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             100,               // base_in_wallet
@@ -190,7 +190,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         // ---------------
         
         // 3.1 Zero quantity bid
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             0,                  // base_in_wallet
@@ -204,7 +204,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         assert_eq(has_sufficient, true);
         
         // 3.2 Zero quantity ask
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             0,                  // base_in_wallet
@@ -219,7 +219,7 @@ module deepbook_wrapper::has_enough_input_coin_core_tests {
         
         // 3.3 Very large values within u64 range (check for overflow safety)
         let large_value = 10_000_000_000; // 10^10, below max u64 when multiplied by price scaling
-        let has_sufficient = wrapper::has_enough_input_coin_core(
+        let has_sufficient = has_enough_input_coin_core(
             0,                  // balance_manager_base
             0,                  // balance_manager_quote
             large_value,        // base_in_wallet

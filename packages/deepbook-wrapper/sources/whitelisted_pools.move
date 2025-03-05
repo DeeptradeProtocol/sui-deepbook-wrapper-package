@@ -3,12 +3,14 @@ module deepbook_wrapper::whitelisted_pools {
     use deepbook::pool::Pool;
     use deepbook_wrapper::admin::AdminCap;
 
+    // === Structs ===
     /// Capability that stores the list of whitelisted pools
     public struct WhitelistRegistry has key {
         id: UID,
         pools: Table<ID, bool>
     }
 
+    // === Errors ===
     /// Error when a pool is already whitelisted
     #[error]
     const EPoolAlreadyWhitelisted: u64 = 1;
@@ -17,16 +19,7 @@ module deepbook_wrapper::whitelisted_pools {
     #[error]
     const EPoolNotWhitelisted: u64 = 2;
 
-    /// Initialize the whitelist registry
-    fun init(ctx: &mut TxContext) {
-        let registry = WhitelistRegistry {
-            id: object::new(ctx),
-            pools: table::new(ctx)
-        };
-        
-        transfer::share_object(registry);
-    }
-
+    // === Public-Mutative Functions ===
     /// Add a pool to the whitelist, requires admin capability
     public entry fun add_pool_to_whitelist(
         _admin: &AdminCap,
@@ -47,6 +40,7 @@ module deepbook_wrapper::whitelisted_pools {
         table::remove(&mut registry.pools, pool_id);
     }
 
+    // === Public-View Functions ===
     /// Checks if a pool is whitelisted by our protocol
     public fun is_pool_whitelisted<BaseCoin, QuoteCoin>(
         registry: &WhitelistRegistry,
@@ -56,14 +50,27 @@ module deepbook_wrapper::whitelisted_pools {
         is_id_whitelisted(registry, &pool_id)
     }
 
+    // === Public-Package Functions ===
     /// Checks if a pool ID is in the whitelist
-    public fun is_id_whitelisted(
+    public(package) fun is_id_whitelisted(
         registry: &WhitelistRegistry,
         pool_id: &ID
     ): bool {
         table::contains(&registry.pools, *pool_id)
     }
 
+    // === Private Functions ===
+    /// Initialize the whitelist registry
+    fun init(ctx: &mut TxContext) {
+        let registry = WhitelistRegistry {
+            id: object::new(ctx),
+            pools: table::new(ctx)
+        };
+        
+        transfer::share_object(registry);
+    }
+
+    // === Test-Only Functions ===
     #[test_only]
     /// Create a whitelist registry for testing
     public fun create_for_testing(ctx: &mut TxContext): WhitelistRegistry {

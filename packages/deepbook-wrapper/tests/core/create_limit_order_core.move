@@ -1,19 +1,18 @@
 #[test_only]
 module deepbook_wrapper::create_limit_order_core_tests {
-    use deepbook_wrapper::wrapper::{
+    use deepbook_wrapper::order::{
         create_limit_order_core,
-        calculate_order_amount,
         assert_deep_plan_eq,
         assert_fee_plan_eq,
         assert_input_coin_deposit_plan_eq,
-        calculate_full_fee,
         DeepPlan,
         FeePlan,
         InputCoinDepositPlan
     };
+    use deepbook_wrapper::helper::{calculate_order_amount};
+    use deepbook_wrapper::fee::{calculate_full_fee};
 
     // ===== Constants =====
-
     // Token amounts
     const AMOUNT_SMALL: u64 = 1_000;               // 1,000
     const AMOUNT_MEDIUM: u64 = 1_000_000;          // 1 million

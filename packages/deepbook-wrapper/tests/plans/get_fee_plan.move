@@ -1,14 +1,9 @@
 #[test_only]
 module deepbook_wrapper::get_fee_plan_tests {
-    use deepbook_wrapper::wrapper::{
-        get_fee_plan,
-        assert_fee_plan_eq,
-        calculate_protocol_fee,
-        calculate_deep_reserves_coverage_fee,
-    };
+    use deepbook_wrapper::order::{get_fee_plan, assert_fee_plan_eq};
+    use deepbook_wrapper::fee::{calculate_protocol_fee, calculate_deep_reserves_coverage_fee};
 
     // ===== Constants =====
-
     // Order amounts
     const ORDER_TINY: u64 = 1_000;              // 1,000
     const ORDER_SMALL: u64 = 100_000;           // 100,000

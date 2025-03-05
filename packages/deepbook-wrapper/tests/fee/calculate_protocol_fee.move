@@ -1,24 +1,24 @@
 #[test_only]
 module deepbook_wrapper::calculate_protocol_fee_tests {
-    use deepbook_wrapper::wrapper::{Self};
+    use deepbook_wrapper::fee::{calculate_protocol_fee};
 
     #[test]
     /// Test when deep_from_reserves or total_deep_required is zero, result should be zero
     fun test_zero_values() {
         // When total_deep_required is zero, result should be zero
-        let fee = wrapper::calculate_protocol_fee(1000, 500, 0);
+        let fee = calculate_protocol_fee(1000, 500, 0);
         assert!(fee == 0, 0);
         
         // When deep_from_reserves is zero, result should be zero
-        let fee = wrapper::calculate_protocol_fee(1000, 0, 500);
+        let fee = calculate_protocol_fee(1000, 0, 500);
         assert!(fee == 0, 0);
         
         // When amount is zero, result should be zero
-        let fee = wrapper::calculate_protocol_fee(0, 500, 1000);
+        let fee = calculate_protocol_fee(0, 500, 1000);
         assert!(fee == 0, 0);
         
         // All zeros should return zero
-        let fee = wrapper::calculate_protocol_fee(0, 0, 0);
+        let fee = calculate_protocol_fee(0, 0, 0);
         assert!(fee == 0, 0);
     }
     
@@ -29,7 +29,7 @@ module deepbook_wrapper::calculate_protocol_fee_tests {
         let deep_required = 5000;
         
         // Using all from reserves (5000/5000 = 100%)
-        let fee = wrapper::calculate_protocol_fee(amount, deep_required, deep_required);
+        let fee = calculate_protocol_fee(amount, deep_required, deep_required);
         
         // Expected fee: amount * MAX_PROTOCOL_FEE_BPS / FEE_SCALING = 1000000 * 3000000 / 1000000000 = 3000
         assert!(fee == 3000, 0); // 0.3% of 1000000
@@ -42,22 +42,22 @@ module deepbook_wrapper::calculate_protocol_fee_tests {
         let total_deep = 10000;
         
         // Using 50% from reserves (5000/10000)
-        let fee_50_percent = wrapper::calculate_protocol_fee(amount, 5000, total_deep);
+        let fee_50_percent = calculate_protocol_fee(amount, 5000, total_deep);
         // Expected: 1000000 * (5000/10000 * 3000000) / 1000000000 = 1500
         assert!(fee_50_percent == 1500, 0); // 0.15% of 1000000
         
         // Using 25% from reserves (2500/10000)
-        let fee_25_percent = wrapper::calculate_protocol_fee(amount, 2500, total_deep);
+        let fee_25_percent = calculate_protocol_fee(amount, 2500, total_deep);
         // Expected: 1000000 * (2500/10000 * 3000000) / 1000000000 = 750
         assert!(fee_25_percent == 750, 0); // 0.075% of 1000000
         
         // Using 75% from reserves (7500/10000)
-        let fee_75_percent = wrapper::calculate_protocol_fee(amount, 7500, total_deep);
+        let fee_75_percent = calculate_protocol_fee(amount, 7500, total_deep);
         // Expected: 1000000 * (7500/10000 * 3000000) / 1000000000 = 2250
         assert!(fee_75_percent == 2250, 0); // 0.225% of 1000000
         
         // Using 10% from reserves (1000/10000)
-        let fee_10_percent = wrapper::calculate_protocol_fee(amount, 1000, total_deep);
+        let fee_10_percent = calculate_protocol_fee(amount, 1000, total_deep);
         // Expected: 1000000 * (1000/10000 * 3000000) / 1000000000 = 300
         assert!(fee_10_percent == 300, 0); // 0.03% of 1000000
     }
@@ -71,19 +71,19 @@ module deepbook_wrapper::calculate_protocol_fee_tests {
         let amount = 1000000;
         
         // 1/10000 = 0.01% of reserves used
-        let fee = wrapper::calculate_protocol_fee(amount, small_deep_from_reserves, large_deep_required);
+        let fee = calculate_protocol_fee(amount, small_deep_from_reserves, large_deep_required);
         // Expected: 1000000 * (1/10000 * 3000000) / 1000000000 = 0.3
         // Due to integer division, this should round down to 0
         assert!(fee == 0, 0);
         
         // Now with a larger amount to make sure we get a non-zero result
         let large_amount = 10000000000;
-        let fee_large = wrapper::calculate_protocol_fee(large_amount, small_deep_from_reserves, large_deep_required);
+        let fee_large = calculate_protocol_fee(large_amount, small_deep_from_reserves, large_deep_required);
         // Expected: 10000000000 * (1/10000 * 3000000) / 1000000000 = 3000
         assert!(fee_large == 3000, 0);
         
         // Very small ratio (1/100000)
-        let fee_very_small = wrapper::calculate_protocol_fee(large_amount, 1, 100000);
+        let fee_very_small = calculate_protocol_fee(large_amount, 1, 100000);
         // Expected: 10000000000 * (1/100000 * 3000000) / 1000000000 = 300
         assert!(fee_very_small == 300, 0);
     }
@@ -96,17 +96,17 @@ module deepbook_wrapper::calculate_protocol_fee_tests {
         // 50% from reserves
         
         // Small amount
-        let fee_small = wrapper::calculate_protocol_fee(100, deep_from_reserves, total_deep_required);
+        let fee_small = calculate_protocol_fee(100, deep_from_reserves, total_deep_required);
         // Expected: 100 * (500/1000 * 3000000) / 1000000000 = 0.15, rounds to 0
         assert!(fee_small == 0, 0);
         
         // Medium amount
-        let fee_medium = wrapper::calculate_protocol_fee(10000, deep_from_reserves, total_deep_required);
+        let fee_medium = calculate_protocol_fee(10000, deep_from_reserves, total_deep_required);
         // Expected: 10000 * (500/1000 * 3000000) / 1000000000 = 15
         assert!(fee_medium == 15, 0);
         
         // Large amount
-        let fee_large = wrapper::calculate_protocol_fee(1000000, deep_from_reserves, total_deep_required);
+        let fee_large = calculate_protocol_fee(1000000, deep_from_reserves, total_deep_required);
         // Expected: 1000000 * (500/1000 * 3000000) / 1000000000 = 1500
         assert!(fee_large == 1500, 0);
     }
@@ -118,18 +118,18 @@ module deepbook_wrapper::calculate_protocol_fee_tests {
         let deep_from_reserves = 1;
         
         // With total_deep_required = 3, proportion = 1/3
-        let fee1 = wrapper::calculate_protocol_fee(amount, deep_from_reserves, 3);
+        let fee1 = calculate_protocol_fee(amount, deep_from_reserves, 3);
         // Expected: 1000 * (1/3 * 3000000) / 1000000000 ~= 1
         assert!(fee1 == 1, 0);
         
         // With total_deep_required = 4, proportion = 1/4
-        let fee2 = wrapper::calculate_protocol_fee(amount, deep_from_reserves, 4);
+        let fee2 = calculate_protocol_fee(amount, deep_from_reserves, 4);
         // Expected: 1000 * (1/4 * 3000000) / 1000000000 ~= 0.75, rounds to 0
         assert!(fee2 == 0, 0);
         
         // Use a larger amount to see the rounding effect more clearly
         let larger_amount = 4000;
-        let fee3 = wrapper::calculate_protocol_fee(larger_amount, deep_from_reserves, 4);
+        let fee3 = calculate_protocol_fee(larger_amount, deep_from_reserves, 4);
         // Expected: 4000 * (1/4 * 3000000) / 1000000000 = 3
         assert!(fee3 == 3, 0);
     }
@@ -143,7 +143,7 @@ module deepbook_wrapper::calculate_protocol_fee_tests {
         let total_deep = 10000000;
         
         // This should not overflow due to u128 casting in the function
-        let fee = wrapper::calculate_protocol_fee(large_amount, deep_from_reserves, total_deep);
+        let fee = calculate_protocol_fee(large_amount, deep_from_reserves, total_deep);
         
         // Expected: large_amount * (1000000/10000000 * 3000000) / 1000000000
         // = large_amount * 0.3 / 1000 = large_amount * 0.0003
@@ -163,13 +163,13 @@ module deepbook_wrapper::calculate_protocol_fee_tests {
         let amount = 100000;
         let deep = 5000;
         
-        let fee = wrapper::calculate_protocol_fee(amount, deep, deep);
+        let fee = calculate_protocol_fee(amount, deep, deep);
         // Expected: 100000 * (5000/5000 * 3000000) / 1000000000 = 100000 * 0.003 = 300
         assert!(fee == 300, 0);
         
         // When deep_from_reserves = total_deep_required = amount (just a sanity check)
         let equal = 10000;
-        let fee_equal = wrapper::calculate_protocol_fee(equal, equal, equal);
+        let fee_equal = calculate_protocol_fee(equal, equal, equal);
         // Expected: 10000 * (10000/10000 * 3000000) / 1000000000 = 10000 * 0.003 = 30
         assert!(fee_equal == 30, 0);
     }
@@ -181,16 +181,16 @@ module deepbook_wrapper::calculate_protocol_fee_tests {
         let total_deep = 1000;
         
         // Test fee at 10% increments to verify linear scaling
-        let fee_10 = wrapper::calculate_protocol_fee(amount, 100, total_deep);  // 10%
-        let fee_20 = wrapper::calculate_protocol_fee(amount, 200, total_deep);  // 20%
-        let fee_30 = wrapper::calculate_protocol_fee(amount, 300, total_deep);  // 30%
-        let fee_40 = wrapper::calculate_protocol_fee(amount, 400, total_deep);  // 40%
-        let fee_50 = wrapper::calculate_protocol_fee(amount, 500, total_deep);  // 50%
-        let fee_60 = wrapper::calculate_protocol_fee(amount, 600, total_deep);  // 60%
-        let fee_70 = wrapper::calculate_protocol_fee(amount, 700, total_deep);  // 70%
-        let fee_80 = wrapper::calculate_protocol_fee(amount, 800, total_deep);  // 80%
-        let fee_90 = wrapper::calculate_protocol_fee(amount, 900, total_deep);  // 90%
-        let fee_100 = wrapper::calculate_protocol_fee(amount, 1000, total_deep); // 100%
+        let fee_10 = calculate_protocol_fee(amount, 100, total_deep);  // 10%
+        let fee_20 = calculate_protocol_fee(amount, 200, total_deep);  // 20%
+        let fee_30 = calculate_protocol_fee(amount, 300, total_deep);  // 30%
+        let fee_40 = calculate_protocol_fee(amount, 400, total_deep);  // 40%
+        let fee_50 = calculate_protocol_fee(amount, 500, total_deep);  // 50%
+        let fee_60 = calculate_protocol_fee(amount, 600, total_deep);  // 60%
+        let fee_70 = calculate_protocol_fee(amount, 700, total_deep);  // 70%
+        let fee_80 = calculate_protocol_fee(amount, 800, total_deep);  // 80%
+        let fee_90 = calculate_protocol_fee(amount, 900, total_deep);  // 90%
+        let fee_100 = calculate_protocol_fee(amount, 1000, total_deep); // 100%
         
         // Verify fee increases linearly with proportion
         assert!(fee_10 == 300, 0);   // 0.03% of 1000000
@@ -212,7 +212,7 @@ module deepbook_wrapper::calculate_protocol_fee_tests {
         let deep = 1000;
         
         // 100% from reserves should apply maximum fee
-        let max_fee = wrapper::calculate_protocol_fee(amount, deep, deep);
+        let max_fee = calculate_protocol_fee(amount, deep, deep);
         
         // Manual calculation: 1000000 * 3000000 / 1000000000 = 3000
         let expected_max_fee = 3000; // 0.3% of 1000000
@@ -229,6 +229,6 @@ module deepbook_wrapper::calculate_protocol_fee_tests {
         let deep_from_reserves = 1001; // Exceeds total_deep_required
         
         // This should abort with EInvalidDeepReservesAmount
-        wrapper::calculate_protocol_fee(amount, deep_from_reserves, total_deep_required);
+        calculate_protocol_fee(amount, deep_from_reserves, total_deep_required);
     }
 } 

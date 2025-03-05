@@ -1,6 +1,6 @@
 #[test_only]
 module deepbook_wrapper::get_input_coin_deposit_plan_tests {
-    use deepbook_wrapper::wrapper::{
+    use deepbook_wrapper::order::{
         get_input_coin_deposit_plan,
         assert_input_coin_deposit_plan_eq,
     };
