@@ -291,7 +291,7 @@ module deepbook_wrapper::order {
             wrapper_deep_reserves
         );
 
-        return (deep_plan.use_wrapper_deep_reserves, deep_plan.deep_reserves_cover_order)
+        (deep_plan.use_wrapper_deep_reserves, deep_plan.deep_reserves_cover_order)
     }
 
     /// Validates that order parameters satisfy the pool's requirements
@@ -588,7 +588,7 @@ module deepbook_wrapper::order {
                 deep_required - balance_manager_deep
             };
             
-            return DeepPlan {
+            DeepPlan {
                 use_wrapper_deep_reserves: false,
                 from_user_wallet: from_wallet,
                 from_deep_reserves: 0,
@@ -609,7 +609,7 @@ module deepbook_wrapper::order {
                 }
             };
 
-            return DeepPlan {
+            DeepPlan {
                 use_wrapper_deep_reserves: true,
                 from_user_wallet: from_wallet,
                 from_deep_reserves: still_needed,
