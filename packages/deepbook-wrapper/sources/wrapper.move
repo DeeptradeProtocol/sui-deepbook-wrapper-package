@@ -75,7 +75,7 @@ module deepbook_wrapper::wrapper {
     }
 
     // === Public-Package Functions ===
-    /// Add collected fees to the router's fee storage
+    /// Add collected fees to the wrapper's fee storage
     public(package) fun join_fee<CoinType>(wrapper: &mut DeepBookV3RouterWrapper, fee: Balance<CoinType>) {
         if (balance::value(&fee) == 0) {
             balance::destroy_zero(fee);
@@ -106,13 +106,24 @@ module deepbook_wrapper::wrapper {
     }
     
     // === Private Functions ===
-    /// Initialize the router module
+    /// Initialize the wrapper module
     fun init(ctx: &mut TxContext) {
         let wrapper = DeepBookV3RouterWrapper {
             id: object::new(ctx),
             deep_reserves: balance::zero(),
             charged_fees: bag::new(ctx),
         };
+
+        // Create a fund capability for the deployer
+        let fund_cap = DeepBookV3FundCap {
+            id: object::new(ctx),
+            wrapper_id: object::uid_to_inner(&wrapper.id),
+        };
+
+        // Share the wrapper object
         transfer::share_object(wrapper);
+
+        // Transfer the fund capability to the transaction sender
+        transfer::transfer(fund_cap, tx_context::sender(ctx));
     }
 }
