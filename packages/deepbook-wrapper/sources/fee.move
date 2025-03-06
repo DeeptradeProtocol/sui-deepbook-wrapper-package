@@ -1,9 +1,7 @@
 module deepbook_wrapper::fee {
     use sui::balance::{Self, Balance};
     use sui::coin::{Self, Coin};
-    use token::deep::DEEP;
     use deepbook::pool::{Self, Pool};
-    use deepbook::balance_manager::{Self, BalanceManager};
     use deepbook_wrapper::helper::{get_fee_bps, calculate_order_amount, calculate_deep_required};
   
     // === Errors ===
@@ -25,8 +23,8 @@ module deepbook_wrapper::fee {
     /// Returns 0 for whitelisted pools or when user provides all DEEP
     public fun estimate_full_fee<BaseToken, QuoteToken>(
         pool: &Pool<BaseToken, QuoteToken>,
-        balance_manager: &mut BalanceManager,
-        deep_coin_in_wallet: u64,
+        deep_in_balance_manager: u64,
+        deep_in_wallet: u64,
         quantity: u64,
         price: u64,
         is_bid: bool
@@ -37,17 +35,14 @@ module deepbook_wrapper::fee {
         // Get DEEP required for the order
         let deep_required = calculate_deep_required(pool, quantity, price);
 
-        // Get DEEP balance from balance manager
-        let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
-
         // Get pool fee basis points
         let pool_fee_bps = get_fee_bps(pool);
         
         // Call the core logic function
         estimate_full_fee_core(
             is_pool_whitelisted,
-            balance_manager_deep,
-            deep_coin_in_wallet,
+            deep_in_balance_manager,
+            deep_in_wallet,
             quantity,
             price,
             is_bid,
