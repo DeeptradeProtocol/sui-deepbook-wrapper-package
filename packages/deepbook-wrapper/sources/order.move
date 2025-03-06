@@ -97,6 +97,8 @@ module deepbook_wrapper::order {
         quantity: u64,
         is_bid: bool,
         expire_timestamp: u64,
+        order_type: u8,
+        self_matching_option: u8,
         client_order_id: u64,
         clock: &Clock,
         ctx: &mut TxContext
@@ -178,8 +180,8 @@ module deepbook_wrapper::order {
             balance_manager,
             &proof,
             client_order_id,
-            0, // default order type (limit)
-            0, // default self matching option
+            order_type,
+            self_matching_option,
             price,
             quantity,
             is_bid,
