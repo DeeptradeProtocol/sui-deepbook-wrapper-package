@@ -1,8 +1,10 @@
 module deepbook_wrapper::fee {
     use sui::balance::{Self, Balance};
     use sui::coin::{Self, Coin};
+    use token::deep::DEEP;
     use deepbook::pool::{Self, Pool};
-    use deepbook_wrapper::helper::{get_fee_bps, calculate_order_amount};
+    use deepbook::balance_manager::{Self, BalanceManager};
+    use deepbook_wrapper::helper::{get_fee_bps, calculate_order_amount, calculate_deep_required};
   
     // === Errors ===
     /// Error when the amount of DEEP from reserves exceeds the total DEEP required
@@ -23,29 +25,34 @@ module deepbook_wrapper::fee {
     /// Returns 0 for whitelisted pools or when user provides all DEEP
     public fun estimate_full_fee<BaseToken, QuoteToken>(
         pool: &Pool<BaseToken, QuoteToken>,
-        will_use_wrapper_deep: bool,
+        balance_manager: &mut BalanceManager,
+        deep_coin_in_wallet: u64,
         quantity: u64,
         price: u64,
-        is_bid: bool,
-        deep_from_reserves: u64,
-        total_deep_required: u64
+        is_bid: bool
     ): u64 {
         // Check if pool is whitelisted
         let is_pool_whitelisted = pool::whitelisted(pool);
-        
+
+        // Get DEEP required for the order
+        let deep_required = calculate_deep_required(pool, quantity, price);
+
+        // Get DEEP balance from balance manager
+        let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
+
         // Get pool fee basis points
         let pool_fee_bps = get_fee_bps(pool);
         
         // Call the core logic function
         estimate_full_fee_core(
             is_pool_whitelisted,
-            will_use_wrapper_deep,
+            balance_manager_deep,
+            deep_coin_in_wallet,
             quantity,
             price,
             is_bid,
             pool_fee_bps,
-            deep_from_reserves,
-            total_deep_required
+            deep_required
         )
     }
 
@@ -53,22 +60,28 @@ module deepbook_wrapper::fee {
     /// Calculate fee estimate for an order - core logic
     public(package) fun estimate_full_fee_core(
         is_pool_whitelisted: bool,
-        will_use_wrapper_deep: bool,
+        balance_manager_deep: u64,
+        deep_in_wallet: u64,
         quantity: u64,
         price: u64,
         is_bid: bool,
         pool_fee_bps: u64,
-        deep_from_reserves: u64, 
-        total_deep_required: u64
+        deep_required: u64
     ): u64 {
+        // Determine if user needs to use wrapper DEEP reserves
+        let will_use_wrapper_deep = balance_manager_deep + deep_in_wallet < deep_required;
+
         if (is_pool_whitelisted || !will_use_wrapper_deep) {
             0 // No fee for whitelisted pools or when user provides all DEEP
         } else {
             // Calculate order amount
             let order_amount = calculate_order_amount(quantity, price, is_bid);
+
+            // Calculate the amount of DEEP to take from reserves
+            let deep_from_reserves = deep_required - balance_manager_deep - deep_in_wallet;
             
             // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
-            calculate_full_fee(order_amount, pool_fee_bps, deep_from_reserves, total_deep_required)
+            calculate_full_fee(order_amount, pool_fee_bps, deep_from_reserves, deep_required)
         }
     }
 

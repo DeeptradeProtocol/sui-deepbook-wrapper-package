@@ -396,12 +396,12 @@ module deepbook_wrapper::order {
         // Calculate fee
         let fee_estimate = estimate_full_fee_core(
             is_pool_whitelisted,
-            deep_plan.use_wrapper_deep_reserves,
+            balance_manager_deep,
+            deep_in_wallet,
             quantity,
             price,
             is_bid,
             pool_fee_bps,
-            deep_plan.from_deep_reserves,
             deep_required
         );
         
