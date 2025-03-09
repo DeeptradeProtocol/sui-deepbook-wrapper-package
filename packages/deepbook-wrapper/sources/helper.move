@@ -3,6 +3,9 @@ module deepbook_wrapper::helper {
     use deepbook::pool::{Self, Pool};
     use deepbook_wrapper::math;
 
+    // === Constants ===
+    const DEEP_REQUIRED_SLIPPAGE: u64 = 100_000_000; // 10% in billionths
+
     // === Public-Package Functions ===
     /// Get fee basis points from pool parameters
     public(package) fun get_fee_bps<BaseToken, QuoteToken>(pool: &Pool<BaseToken, QuoteToken>): u64 {
@@ -38,8 +41,33 @@ module deepbook_wrapper::helper {
             0
         } else {
             let (deep_req, _) = pool::get_order_deep_required(pool, quantity, price);
-            deep_req
+
+            // We need to apply slippage to the deep required because the VIEW deep required from
+            // `pool::get_order_deep_required` can be different from the ACTUAL deep required`
+            // when placing an order.
+            //
+            // For example, this can be potentially observed when setting a SELL order with a price
+            // lower than the current market price.
+            let deep_req_with_slippage = apply_slippage(deep_req, DEEP_REQUIRED_SLIPPAGE);
+
+            deep_req_with_slippage
         }
+    }
+
+    /// Applies slippage to a value and returns the result
+    /// The slippage is in billionths format (e.g., 5_000_000 = 0.5%)
+    /// For small values, the slippage might be rounded down to zero due to integer division
+    public(package) fun apply_slippage(value: u64, slippage: u64): u64 {
+        // Handle special case: if value is 0, no slippage is needed
+        if (value == 0) {
+            return 0
+        };
+        
+        // Calculate slippage amount
+        let slippage_amount = math::mul(value, slippage);
+        
+        // Add slippage to original value
+        value + slippage_amount
     }
 
     /// Calculates the order amount in tokens (quote for bid, base for ask)
