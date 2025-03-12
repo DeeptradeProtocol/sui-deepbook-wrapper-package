@@ -2,7 +2,8 @@ module deepbook_wrapper::fee {
     use sui::balance::{Self, Balance};
     use sui::coin::{Self, Coin};
     use deepbook::pool::{Self, Pool};
-    use deepbook_wrapper::helper::{get_fee_bps, calculate_order_amount, calculate_deep_required};
+    use deepbook_wrapper::helper::{calculate_order_amount, calculate_deep_required, get_order_deep_price_params};
+    use deepbook_wrapper::math;
   
     // === Errors ===
     /// Error when the amount of DEEP from reserves exceeds the total DEEP required
@@ -19,8 +20,20 @@ module deepbook_wrapper::fee {
     const MAX_PROTOCOL_FEE_BPS: u64 = 3_000_000;
 
     // === Public-View Functions ===
-    /// Calculates the fee estimate for an order
-    /// Returns 0 for whitelisted pools or when user provides all DEEP
+    /// Calculates the total fee estimate for a DeepBook order, including both protocol fee
+    /// and DEEP reserves coverage fee if applicable.
+    /// 
+    /// # Returns
+    /// * `u64` - The estimated total fee in base or quote asset units.
+    ///   Returns 0 for whitelisted pools or when user provides all required DEEP.
+    /// 
+    /// # Parameters
+    /// * `pool` - Reference to the DeepBook pool
+    /// * `deep_in_balance_manager` - Amount of DEEP available in the balance manager
+    /// * `deep_in_wallet` - Amount of DEEP in the user's wallet
+    /// * `quantity` - Order quantity in base asset units
+    /// * `price` - Order price in quote asset units
+    /// * `is_bid` - Whether this is a bid (buy) order
     public fun estimate_full_fee<BaseToken, QuoteToken>(
         pool: &Pool<BaseToken, QuoteToken>,
         deep_in_balance_manager: u64,
@@ -32,35 +45,54 @@ module deepbook_wrapper::fee {
         // Check if pool is whitelisted
         let is_pool_whitelisted = pool::whitelisted(pool);
 
+        // Get the order deep price for the pool
+        let (asset_is_base, deep_per_asset) = get_order_deep_price_params(pool);
+
         // Get DEEP required for the order
         let deep_required = calculate_deep_required(pool, quantity, price);
 
-        // Get pool fee basis points
-        let pool_fee_bps = get_fee_bps(pool);
-        
         // Call the core logic function
-        estimate_full_fee_core(
+        estimate_full_order_fee_core(
             is_pool_whitelisted,
             deep_in_balance_manager,
             deep_in_wallet,
             quantity,
             price,
             is_bid,
-            pool_fee_bps,
+            asset_is_base,
+            deep_per_asset,
             deep_required
         )
     }
 
     // === Public-Package Functions ===
-    /// Calculate fee estimate for an order - core logic
-    public(package) fun estimate_full_fee_core(
+    /// Core logic for calculating the total fee for an order.
+    /// Determines if user needs to use wrapper DEEP reserves and calculates
+    /// the appropriate fee if needed.
+    /// 
+    /// # Returns
+    /// * `u64` - The estimated total fee in base or quote asset units.
+    ///   Returns 0 for whitelisted pools or when user provides all required DEEP.
+    /// 
+    /// # Parameters
+    /// * `is_pool_whitelisted` - Whether the pool is whitelisted (exempt from fees)
+    /// * `balance_manager_deep` - Amount of DEEP available in the balance manager
+    /// * `deep_in_wallet` - Amount of DEEP in the user's wallet
+    /// * `quantity` - Order quantity in base asset units
+    /// * `price` - Order price in quote asset units
+    /// * `is_bid` - Whether this is a bid (buy) order
+    /// * `asset_is_base` - Whether the asset used for DEEP conversion is the base token
+    /// * `deep_per_asset` - The amount of DEEP units per 1 asset coin
+    /// * `deep_required` - The total amount of DEEP required for the order
+    public(package) fun estimate_full_order_fee_core(
         is_pool_whitelisted: bool,
         balance_manager_deep: u64,
         deep_in_wallet: u64,
         quantity: u64,
         price: u64,
         is_bid: bool,
-        pool_fee_bps: u64,
+        asset_is_base: bool,
+        deep_per_asset: u64,
         deep_required: u64
     ): u64 {
         // Determine if user needs to use wrapper DEEP reserves
@@ -69,30 +101,132 @@ module deepbook_wrapper::fee {
         if (is_pool_whitelisted || !will_use_wrapper_deep) {
             0 // No fee for whitelisted pools or when user provides all DEEP
         } else {
-            // Calculate order amount
-            let order_amount = calculate_order_amount(quantity, price, is_bid);
-
             // Calculate the amount of DEEP to take from reserves
             let deep_from_reserves = deep_required - balance_manager_deep - deep_in_wallet;
             
             // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
-            calculate_full_fee(order_amount, pool_fee_bps, deep_from_reserves, deep_required)
+            calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_reserves, deep_required)
         }
     }
 
-    /// Calculates the deep reserves coverage fee based on the token amount and fee rate from the pool
-    /// @param amount - The amount of tokens to calculate fee on
-    /// @param fee_bps - The fee rate in billionths (e.g., 1,000,000 = 0.1%)
-    /// @return The calculated fee amount
-    public(package) fun calculate_deep_reserves_coverage_fee(amount: u64, fee_bps: u64): u64 {
-        ((amount as u128) * (fee_bps as u128) / (FEE_SCALING as u128)) as u64
+    /// Calculates the total fee amount including both protocol fee and deep reserves 
+    /// coverage fee for an order that uses DEEP from reserves.
+    /// 
+    /// # Returns
+    /// * `u64` - The total fee amount in base or quote asset units
+    /// 
+    /// # Parameters
+    /// * `quantity` - Order quantity in base asset units
+    /// * `price` - Order price in quote asset units
+    /// * `is_bid` - Whether this is a bid (buy) order
+    /// * `asset_is_base` - Whether the asset used for DEEP conversion is the base token
+    /// * `deep_per_asset` - The amount of DEEP units per 1 asset coin
+    /// * `deep_from_reserves` - The amount of DEEP taken from the wrapper's reserves
+    /// * `total_deep_required` - The total DEEP required for the order
+    public(package) fun calculate_full_order_fee(
+        quantity: u64, 
+        price: u64, 
+        is_bid: bool,
+        asset_is_base: bool,
+        deep_per_asset: u64,
+        deep_from_reserves: u64, 
+        total_deep_required: u64
+    ): u64 {
+        // Calculate the deep reserves coverage fee
+        let deep_reserves_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+            deep_from_reserves,
+            asset_is_base,
+            deep_per_asset,
+            price,
+            is_bid
+        );
+
+        // Calculate order amount
+        let amount = calculate_order_amount(quantity, price, is_bid);
+
+        // Calculate the protocol fee
+        let protocol_fee = calculate_protocol_fee(
+            amount,
+            deep_from_reserves, 
+            total_deep_required
+        );
+        
+        deep_reserves_coverage_fee + protocol_fee
     }
 
-    /// Calculates the protocol fee based on the proportion of DEEP taken from reserves
-    /// @param amount - The token amount to calculate fee on
-    /// @param deep_from_reserves - The amount of DEEP taken from the wrapper's reserves
-    /// @param total_deep_required - The total DEEP required for the order
-    /// @return The calculated protocol fee amount
+    /// Calculates the fee to cover the cost of DEEP taken from reserves for an order.
+    /// Converts DEEP to the appropriate asset (base or quote) based on the order type
+    /// and the reference asset configuration.
+    ///
+    /// The calculation follows four different paths based on combinations of:
+    /// 1. Whether the order is a buy or sell (`is_bid`)
+    /// 2. Whether the reference asset for DEEP is the base or quote token (`asset_is_base`)
+    ///
+    /// For buy orders (is_bid = true):
+    /// - If asset_is_base = true: DEEP → base asset → quote asset (using price)
+    /// - If asset_is_base = false: DEEP → quote asset (direct)
+    ///
+    /// For sell orders (is_bid = false):
+    /// - If asset_is_base = true: DEEP → base asset (direct)
+    /// - If asset_is_base = false: DEEP → quote asset → base asset (using price)
+    ///
+    /// # Returns
+    /// * `u64` - The calculated fee amount in base or quote asset units
+    ///
+    /// # Parameters
+    /// * `deep_from_reserves` - Amount of DEEP taken from reserves for the order
+    /// * `asset_is_base` - Whether the reference asset for DEEP conversion is the base token
+    /// * `deep_per_asset` - The amount of DEEP units per 1 asset coin
+    /// * `price` - Order price in quote asset units
+    /// * `is_bid` - Whether this is a bid (buy) order
+    public(package) fun calculate_deep_reserves_coverage_order_fee(
+      deep_from_reserves: u64,
+      asset_is_base: bool,
+      deep_per_asset: u64,
+      price: u64,
+      is_bid: bool,
+    ): u64 {
+        // Skip calculation if no DEEP is required from reserves
+        if (deep_from_reserves == 0) return 0;
+    
+        // Calculate DEEP equivalent in the reference asset (either base or quote)
+        let asset_equivalent = math::div(deep_from_reserves, deep_per_asset);
+    
+        // Determine the fee amount based on order type and asset_is_base value
+        if (is_bid) { // Buy order (user providing quote)
+            if (asset_is_base) {
+                // Reference is base token
+                // Convert base equivalent to quote using price
+                math::mul(asset_equivalent, price)
+            } else {
+                // Reference is quote token
+                // User is already paying in quote, so return directly
+                asset_equivalent
+            }
+        } else { // Sell order (user providing base)
+            if (asset_is_base) {
+                // Reference is base token
+                // User is already paying in base, so return directly
+                asset_equivalent
+            } else {
+                // Reference is quote token
+                // Convert quote equivalent to base using price
+                math::div(asset_equivalent, price)
+            }
+        }
+    }
+
+    /// Calculates the protocol fee based on the proportion of DEEP taken from reserves.
+    /// The fee scales linearly with the proportion of DEEP used from reserves,
+    /// up to the maximum fee rate (MAX_PROTOCOL_FEE_BPS).
+    /// 
+    /// # Returns
+    /// * `u64` - The calculated protocol fee amount in the order's asset units
+    /// 
+    /// # Parameters
+    /// * `amount` - The total order amount in asset units
+    /// * `deep_from_reserves` - The amount of DEEP taken from the wrapper's reserves
+    /// * `total_deep_required` - The total DEEP required for the order
     public(package) fun calculate_protocol_fee(
         amount: u64, 
         deep_from_reserves: u64, 
@@ -115,72 +249,34 @@ module deepbook_wrapper::fee {
         ((amount as u128) * fee_rate / (FEE_SCALING as u128)) as u64
     }
 
-    /// Calculates the total fee amount including both protocol fee and deep reserves coverage fee
-    /// @param amount - The token amount to calculate fee on
-    /// @param fee_bps - The pool fee rate in billionths used for deep reserves coverage fee
-    /// @param deep_from_reserves - The amount of DEEP taken from the wrapper's reserves
-    /// @param total_deep_required - The total DEEP required for the order
-    /// @return The total calculated fee amount
-    public(package) fun calculate_full_fee(
-        amount: u64, 
-        fee_bps: u64, 
-        deep_from_reserves: u64, 
-        total_deep_required: u64
-    ): u64 {
-        let deep_reserves_coverage_fee = calculate_deep_reserves_coverage_fee(amount, fee_bps);
-        let protocol_fee = calculate_protocol_fee(
-            amount, 
-            deep_from_reserves, 
-            total_deep_required
-        );
-        
-        deep_reserves_coverage_fee + protocol_fee
+    /// Calculates a basic swap fee based on an amount and a fee rate.
+    /// Used primarily for calculating fees in traditional DEX swaps.
+    /// 
+    /// # Returns
+    /// * `u64` - The calculated fee amount
+    /// 
+    /// # Parameters
+    /// * `amount` - The amount of tokens to calculate fee on
+    /// * `fee_bps` - The fee rate in billionths (e.g., 1,000,000 = 0.1%)
+    public(package) fun calculate_swap_fee(amount: u64, fee_bps: u64): u64 {
+        ((amount as u128) * (fee_bps as u128) / (FEE_SCALING as u128)) as u64
     }
 
-    /// Charges only the deep reserves coverage fee on a coin
-    /// @param coin - The coin to charge fee from
-    /// @param fee_bps - The fee rate in billionths (from DeepBook pool parameters)
-    /// @return The fee amount as a Balance
-    public(package) fun charge_deep_reserves_coverage_fee<CoinType>(
+    /// Charges a swap fee on a coin and returns the fee amount as a Balance.
+    /// Allows collecting fees directly from a coin during swap operations.
+    /// 
+    /// # Returns
+    /// * `Balance<CoinType>` - The fee amount as a Balance object
+    /// 
+    /// # Parameters
+    /// * `coin` - The coin to charge fee from
+    /// * `fee_bps` - The fee rate in billionths
+    public(package) fun charge_swap_fee<CoinType>(
         coin: &mut Coin<CoinType>, 
         fee_bps: u64
     ): Balance<CoinType> {
         let coin_balance = coin::balance_mut(coin);
         let value = balance::value(coin_balance);
-        balance::split(coin_balance, calculate_deep_reserves_coverage_fee(value, fee_bps))
-    }
-
-    /// Charges only the protocol fee on a coin based on DEEP usage
-    /// @param coin - The coin to charge fee from
-    /// @param deep_from_reserves - The amount of DEEP taken from the wrapper's reserves
-    /// @param total_deep_required - The total DEEP required for the order
-    /// @return The fee amount as a Balance
-    #[allow(unused_function)]
-    public(package) fun charge_protocol_fee<CoinType>(
-        coin: &mut Coin<CoinType>, 
-        deep_from_reserves: u64,
-        total_deep_required: u64
-    ): Balance<CoinType> {
-        let coin_balance = coin::balance_mut(coin);
-        let value = balance::value(coin_balance);
-        balance::split(coin_balance, calculate_protocol_fee(value, deep_from_reserves, total_deep_required))
-    }
-    
-    /// Charges the full fee (both deep reserves coverage fee and protocol fee) on a coin
-    /// @param coin - The coin to charge fee from
-    /// @param fee_bps - The fee rate in billionths (from DeepBook pool parameters)
-    /// @param deep_from_reserves - The amount of DEEP taken from the wrapper's reserves
-    /// @param total_deep_required - The total DEEP required for the order
-    /// @return The fee amount as a Balance
-    #[allow(unused_function)]
-    public(package) fun charge_full_fee<CoinType>(
-        coin: &mut Coin<CoinType>, 
-        fee_bps: u64,
-        deep_from_reserves: u64,
-        total_deep_required: u64
-    ): Balance<CoinType> {
-        let coin_balance = coin::balance_mut(coin);
-        let value = balance::value(coin_balance);
-        balance::split(coin_balance, calculate_full_fee(value, fee_bps, deep_from_reserves, total_deep_required))
+        balance::split(coin_balance, calculate_swap_fee(value, fee_bps))
     }
 }

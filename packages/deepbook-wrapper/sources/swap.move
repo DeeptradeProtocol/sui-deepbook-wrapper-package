@@ -9,7 +9,7 @@ module deepbook_wrapper::swap {
       split_deep_reserves
     };
     use deepbook_wrapper::helper::{get_fee_bps};
-    use deepbook_wrapper::fee::{calculate_deep_reserves_coverage_fee, charge_deep_reserves_coverage_fee};
+    use deepbook_wrapper::fee::{calculate_swap_fee, charge_swap_fee};
 
     // === Public-Mutative Functions ===
     /// Swap exact base token amount for quote tokens
@@ -42,7 +42,7 @@ module deepbook_wrapper::swap {
         join(wrapper, deep_remainder);
 
         let fee_bps = get_fee_bps(pool);
-        join_fee(wrapper, charge_deep_reserves_coverage_fee(&mut result_quote, fee_bps));
+        join_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
         
         (base_remainder, result_quote)
     }
@@ -77,7 +77,7 @@ module deepbook_wrapper::swap {
         join(wrapper, deep_remainder);
 
         let fee_bps = get_fee_bps(pool);
-        join_fee(wrapper, charge_deep_reserves_coverage_fee(&mut result_base, fee_bps));
+        join_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
         
         (result_base, quote_remainder)
     }
@@ -107,11 +107,11 @@ module deepbook_wrapper::swap {
         // If quote_quantity > 0, we're swapping quote for base, so apply fee to base_out
         if (base_quantity > 0) {
             // Swapping base for quote, apply fee to quote_out
-            let fee_amount = calculate_deep_reserves_coverage_fee(quote_out, fee_bps);
+            let fee_amount = calculate_swap_fee(quote_out, fee_bps);
             quote_out = quote_out - fee_amount;
         } else if (quote_quantity > 0) {
             // Swapping quote for base, apply fee to base_out
-            let fee_amount = calculate_deep_reserves_coverage_fee(base_out, fee_bps);
+            let fee_amount = calculate_swap_fee(base_out, fee_bps);
             base_out = base_out - fee_amount;
         };
         

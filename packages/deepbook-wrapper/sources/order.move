@@ -14,11 +14,11 @@ module deepbook_wrapper::order {
     };
     use deepbook_wrapper::helper::{
       calculate_deep_required,
-      get_fee_bps,
       transfer_if_nonzero,
-      calculate_order_amount
+      calculate_order_amount,
+      get_order_deep_price_params
     };
-    use deepbook_wrapper::fee::{estimate_full_fee_core, calculate_full_fee};
+    use deepbook_wrapper::fee::{estimate_full_order_fee_core, calculate_full_order_fee};
 
     // === Structs ===
     /// Tracks how DEEP will be sourced for an order
@@ -112,7 +112,7 @@ module deepbook_wrapper::order {
         // Extract all the data we need from DeepBook objects
         let is_pool_whitelisted = pool::whitelisted(pool);
         let deep_required = calculate_deep_required(pool, quantity, price);
-        let fee_bps = get_fee_bps(pool);
+        let (asset_is_base, deep_per_asset) = get_order_deep_price_params(pool);
         
         // Get balances from balance manager
         let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
@@ -141,7 +141,8 @@ module deepbook_wrapper::order {
             quantity,
             price,
             is_bid,
-            fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         // Step 1: Execute DEEP plan
@@ -224,8 +225,10 @@ module deepbook_wrapper::order {
         let is_pool_whitelisted = pool::whitelisted(pool);
         
         // Get pool parameters
-        let (pool_fee_bps, _, _) = pool::pool_trade_params(pool);
         let (pool_tick_size, pool_lot_size, pool_min_size) = pool::pool_book_params(pool);
+
+        // Get the order deep price for the pool
+        let (asset_is_base, deep_per_asset) = get_order_deep_price_params(pool);
         
         // Get balance manager balances
         let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
@@ -239,7 +242,8 @@ module deepbook_wrapper::order {
         estimate_order_requirements_core(
             wrapper_deep_reserves,
             is_pool_whitelisted,
-            pool_fee_bps,
+            asset_is_base,
+            deep_per_asset,
             pool_tick_size,
             pool_lot_size,
             pool_min_size,
@@ -364,7 +368,8 @@ module deepbook_wrapper::order {
     public(package) fun estimate_order_requirements_core(
         wrapper_deep_reserves: u64,
         is_pool_whitelisted: bool,
-        pool_fee_bps: u64,
+        asset_is_base: bool,
+        deep_per_asset: u64,
         pool_tick_size: u64,
         pool_lot_size: u64,
         pool_min_size: u64,
@@ -394,14 +399,15 @@ module deepbook_wrapper::order {
         };
         
         // Calculate fee
-        let fee_estimate = estimate_full_fee_core(
+        let fee_estimate = estimate_full_order_fee_core(
             is_pool_whitelisted,
             balance_manager_deep,
             deep_in_wallet,
             quantity,
             price,
             is_bid,
-            pool_fee_bps,
+            asset_is_base,
+            deep_per_asset,
             deep_required
         );
         
@@ -449,7 +455,8 @@ module deepbook_wrapper::order {
         quantity: u64,
         price: u64,
         is_bid: bool,
-        pool_fee_bps: u64
+        asset_is_base: bool,
+        deep_per_asset: u64
     ): (DeepPlan, FeePlan, InputCoinDepositPlan) {
         // Step 1: Determine DEEP requirements
         let deep_plan = get_deep_plan(
@@ -469,8 +476,10 @@ module deepbook_wrapper::order {
             deep_plan.from_deep_reserves,
             deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_input_coin,
             balance_manager_input_coin
@@ -633,8 +642,10 @@ module deepbook_wrapper::order {
         deep_from_reserves: u64,
         total_deep_required: u64,
         is_pool_whitelisted: bool,
-        pool_fee_bps: u64,
-        order_amount: u64,
+        asset_is_base: bool,
+        deep_per_asset: u64,
+        quantity: u64,
+        price: u64,
         is_bid: bool,
         wallet_balance: u64,
         balance_manager_balance: u64
@@ -651,7 +662,7 @@ module deepbook_wrapper::order {
         };
         
         // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
-        let fee_amount = calculate_full_fee(order_amount, pool_fee_bps, deep_from_reserves, total_deep_required);
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_reserves, total_deep_required);
         
         // If no fee, return early
         if (fee_amount == 0) {
