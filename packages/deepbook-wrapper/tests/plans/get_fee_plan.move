@@ -1,22 +1,25 @@
 #[test_only]
 module deepbook_wrapper::get_fee_plan_tests {
     use deepbook_wrapper::order::{get_fee_plan, assert_fee_plan_eq};
-    use deepbook_wrapper::fee::{calculate_protocol_fee, calculate_deep_reserves_coverage_fee};
+    use deepbook_wrapper::fee::{calculate_protocol_fee, calculate_deep_reserves_coverage_order_fee};
+    use deepbook_wrapper::helper::{calculate_order_amount};
 
     // ===== Constants =====
-    // Order amounts
-    const ORDER_TINY: u64 = 1_000;              // 1,000
-    const ORDER_SMALL: u64 = 100_000;           // 100,000
-    const ORDER_MEDIUM: u64 = 10_000_000;       // 10,000,000
-    const ORDER_LARGE: u64 = 1_000_000_000;     // 1,000,000,000
-    const ORDER_HUGE: u64 = 1_000_000_000_000;  // 1,000,000,000,000
+    // Quantities
+    const QUANTITY_SMALL: u64 = 1_000;
+    const QUANTITY_MEDIUM: u64 = 1_000_000;
+    const QUANTITY_LARGE: u64 = 1_000_000_000;
+    const QUANTITY_HUGE: u64 = 1_000_000_000_000;
 
-    // Fee rates (in billionths, matching FEE_SCALING = 1,000,000,000)
-    const FEE_ZERO: u64 = 0;             // 0%
-    const FEE_LOW: u64 = 100_000;        // 0.01%
-    const FEE_MEDIUM: u64 = 1_000_000;   // 0.1%
-    const FEE_HIGH: u64 = 5_000_000;     // 0.5%
-    const FEE_MAX: u64 = 10_000_000;     // 1%
+    // Prices
+    const PRICE_SMALL: u64 = 100_000;
+    const PRICE_MEDIUM: u64 = 1_000_000;
+    const PRICE_LARGE: u64 = 100_000_000;
+    const PRICE_HUGE: u64 = 1_000_000_000;
+
+    // DEEP per asset
+    const SUI_DEEP_PER_ASSET: u64 = 29_637_955;
+    const USDC_DEEP_PER_ASSET: u64 = 13_426_181_696;
     
     // Token types
     const TOKEN_TYPE_NONE: u8 = 0;  // No fee
@@ -31,8 +34,10 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 100;
         let total_deep_required = 200;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = SUI_DEEP_PER_ASSET;
+        let quantity = QUANTITY_LARGE;
+        let price = PRICE_MEDIUM;
         let is_bid = true;
         let wallet_balance = 1000;
         let balance_manager_balance = 1000;
@@ -42,8 +47,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -52,7 +59,7 @@ module deepbook_wrapper::get_fee_plan_tests {
         // Whitelisted pools should have no fee regardless of other factors
         assert_fee_plan_eq(
             plan,
-            TOKEN_TYPE_NONE,   // token_type = 0 (no fee)
+            TOKEN_TYPE_NONE,    // token_type = 0 (no fee)
             0,                  // fee_amount = 0
             0,                  // take_from_wallet = 0
             0,                  // take_from_balance_manager = 0
@@ -66,8 +73,10 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = false;  // Not using wrapper DEEP
         let deep_from_reserves = 0;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = SUI_DEEP_PER_ASSET;
+        let quantity = QUANTITY_LARGE;
+        let price = PRICE_MEDIUM;
         let is_bid = true;
         let wallet_balance = 1000;
         let balance_manager_balance = 1000;
@@ -77,8 +86,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -96,77 +107,40 @@ module deepbook_wrapper::get_fee_plan_tests {
     }
 
     #[test]
-    public fun test_zero_order_amount_has_zero_fee() {
+    public fun test_zero_order_amount_has_only_deep_coverage_fee() {
         let is_pool_whitelisted = false;
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 200_000;
         let total_deep_required = 250_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = 0;  // Zero order amount
+        let asset_is_base = true;
+        let deep_per_asset = USDC_DEEP_PER_ASSET;
+        let quantity = 0;
+        let price = PRICE_SMALL;
         let is_bid = true;
         let wallet_balance = 1000;
         let balance_manager_balance = 1000;
 
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
+
         let plan = get_fee_plan(
             use_wrapper_deep_reserves,
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
         );
 
-        // Expected token type is quote (2) for bid orders, but fee amount is 0
         assert_fee_plan_eq(
             plan,
             TOKEN_TYPE_QUOTE,   // token_type = 2 (quote)
-            0,                  // fee_amount = 0
-            0,                  // take_from_wallet = 0
-            0,                  // take_from_balance_manager = 0
-            true                // has_sufficient_resources = true
-        );
-    }
-
-    #[test]
-    public fun test_zero_fee_rate_has_only_protocol_fee() {
-        let is_pool_whitelisted = false;
-        let use_wrapper_deep_reserves = true;
-        let deep_from_reserves = 30_000;
-        let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_ZERO;  // Zero fee rate
-        let order_amount = ORDER_MEDIUM;
-        let is_bid = false;
-        let wallet_balance = 100000;
-        let balance_manager_balance = 100000;
-
-        // Calculate the expected protocol fee
-        let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        
-        // Protocol fee should be non-zero since deep_from_reserves is 30% of total_deep_required
-        assert!(protocol_fee > 0, 0);
-
-        let plan = get_fee_plan(
-            use_wrapper_deep_reserves,
-            deep_from_reserves,
-            total_deep_required,
-            is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
-            is_bid,
-            wallet_balance,
-            balance_manager_balance
-        );
-
-        // Expected token type is base (1) for ask orders
-        // Fee amount should be only the protocol fee
-        assert_fee_plan_eq(
-            plan,
-            TOKEN_TYPE_BASE,    // token_type = 1 (base)
-            protocol_fee,       // fee_amount = protocol_fee
-            protocol_fee,       // take_from_wallet = protocol_fee (wallet has enough)
+            deep_coverage_fee,  // fee_amount = deep coverage fee
+            deep_coverage_fee,  // take_from_wallet = deep coverage fee
             0,                  // take_from_balance_manager = 0
             true                // has_sufficient_resources = true
         );
@@ -180,26 +154,32 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 50_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = USDC_DEEP_PER_ASSET;
+        let quantity = QUANTITY_LARGE;
+        let price = PRICE_LARGE;
         let is_bid = true;  // Bid order
         let wallet_balance = 1000000;
         let balance_manager_balance = 1000000;
 
-        // Calculate the expected pool fee and protocol fee separately
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+
+        // Calculate the expected deep coverage fee and protocol fee separately
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
         
         // Total fee should be the sum of both
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let plan = get_fee_plan(
             use_wrapper_deep_reserves,
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -222,26 +202,32 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 50_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = SUI_DEEP_PER_ASSET;
+        let quantity = QUANTITY_HUGE;
+        let price = PRICE_LARGE;
         let is_bid = false;  // Ask order
-        let wallet_balance = 1000000;
-        let balance_manager_balance = 1000000;
+        let wallet_balance = QUANTITY_HUGE;
+        let balance_manager_balance = QUANTITY_HUGE;
 
-        // Calculate the expected pool fee and protocol fee separately
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+
+        // Calculate the expected deep coverage fee and protocol fee separately
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
         
         // Total fee should be the sum of both
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let plan = get_fee_plan(
             use_wrapper_deep_reserves,
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -266,14 +252,17 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 25_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = SUI_DEEP_PER_ASSET;
+        let quantity = QUANTITY_MEDIUM;
+        let price = PRICE_MEDIUM;
         let is_bid = true;
         
         // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = total_fee * 2;  // Plenty in wallet
         let balance_manager_balance = 0;      // Nothing in balance manager
@@ -283,8 +272,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -307,14 +298,17 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 75_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = USDC_DEEP_PER_ASSET;
+        let quantity = QUANTITY_MEDIUM;
+        let price = PRICE_MEDIUM;
         let is_bid = true;
         
         // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = 0;                    // Nothing in wallet
         let balance_manager_balance = total_fee * 2;  // Plenty in balance manager
@@ -324,8 +318,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -348,14 +344,17 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 40_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = USDC_DEEP_PER_ASSET;
+        let quantity = QUANTITY_LARGE;
+        let price = PRICE_MEDIUM;
         let is_bid = true;
         
         // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_part = total_fee / 3;           // 1/3 in wallet
         let wallet_balance = wallet_part;
@@ -367,8 +366,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -393,14 +394,17 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 60_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_LARGE;
+        let asset_is_base = true;
+        let deep_per_asset = SUI_DEEP_PER_ASSET;
+        let quantity = QUANTITY_LARGE;
+        let price = PRICE_LARGE;
         let is_bid = true;
         
         // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = total_fee / 4;          // 25% in wallet
         let balance_manager_balance = total_fee / 4;  // 25% in balance manager
@@ -411,8 +415,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -435,14 +441,17 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 35_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = SUI_DEEP_PER_ASSET;
+        let quantity = QUANTITY_MEDIUM;
+        let price = PRICE_MEDIUM;
         let is_bid = false;
         
-        // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        // Calculate the expected total fee with both deep coverage fee and protocol fee
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = total_fee / 2;  // 50% in wallet
         let balance_manager_balance = (total_fee / 2) - 1;  // Almost 50% in balance manager (1 short)
@@ -453,8 +462,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -479,14 +490,17 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 50_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = USDC_DEEP_PER_ASSET;
+        let quantity = QUANTITY_HUGE;
+        let price = PRICE_MEDIUM;
         let is_bid = true;
         
-        // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        // Calculate the expected total fee with both deep coverage fee and protocol fee
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = total_fee;  // Exact match
         let balance_manager_balance = 0;  // Nothing in balance manager
@@ -496,8 +510,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -520,14 +536,17 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 20_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = USDC_DEEP_PER_ASSET;
+        let quantity = QUANTITY_MEDIUM;
+        let price = PRICE_SMALL;
         let is_bid = false;
         
-        // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        // Calculate the expected total fee with both deep coverage fee and protocol fee
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = 0;                 // Nothing in wallet
         let balance_manager_balance = total_fee;  // Exact match
@@ -537,8 +556,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -561,14 +582,17 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 80_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_HIGH;
-        let order_amount = ORDER_LARGE;
+        let asset_is_base = true;
+        let deep_per_asset = USDC_DEEP_PER_ASSET;
+        let quantity = QUANTITY_LARGE;
+        let price = PRICE_HUGE;
         let is_bid = true;
         
-        // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        // Calculate the expected total fee with both deep coverage fee and protocol fee
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = total_fee / 2;  // Half in wallet
         let balance_manager_balance = total_fee - wallet_balance;  // Rest in balance manager
@@ -578,8 +602,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -599,19 +625,22 @@ module deepbook_wrapper::get_fee_plan_tests {
     // ===== Edge Cases =====
 
     #[test]
-    public fun test_huge_order_with_high_fee_rate() {
+    public fun test_huge_order_with_high_fees() {
         let is_pool_whitelisted = false;
         let use_wrapper_deep_reserves = true;
-        let deep_from_reserves = 90_000;
-        let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MAX;
-        let order_amount = ORDER_HUGE;
+        let deep_from_reserves = 1_000_000_000;
+        let total_deep_required = 1_000_000_000;
+        let asset_is_base = true;
+        let deep_per_asset = SUI_DEEP_PER_ASSET;
+        let quantity = QUANTITY_HUGE;
+        let price = PRICE_HUGE;
         let is_bid = true;
         
-        // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        // Calculate the expected total fee with both deep coverage fee and protocol fee
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = total_fee / 4;  // 25% in wallet
         let balance_manager_balance = total_fee - wallet_balance;  // 75% in balance manager
@@ -621,8 +650,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -643,16 +674,19 @@ module deepbook_wrapper::get_fee_plan_tests {
     public fun test_tiny_order_with_low_fee_rate() {
         let is_pool_whitelisted = false;
         let use_wrapper_deep_reserves = true;
-        let deep_from_reserves = 10_000;
-        let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_LOW;
-        let order_amount = ORDER_TINY;
+        let deep_from_reserves = 100;
+        let total_deep_required = 100;
+        let asset_is_base = false;
+        let deep_per_asset = USDC_DEEP_PER_ASSET;
+        let quantity = QUANTITY_SMALL;
+        let price = PRICE_SMALL;
         let is_bid = false;
         
-        // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        // Calculate the expected total fee with both deep coverage fee and protocol fee
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = 100;
         let balance_manager_balance = 100;
@@ -662,8 +696,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -725,14 +761,17 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 15_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_SMALL;
+        let asset_is_base = true;
+        let deep_per_asset = SUI_DEEP_PER_ASSET;
+        let quantity = QUANTITY_SMALL;
+        let price = PRICE_SMALL;
         let is_bid = true;
         
-        // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        // Calculate the expected total fee with both deep coverage fee and protocol fee
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = total_fee - 1;  // 1 token short
         let balance_manager_balance = 0;     // Nothing in balance manager
@@ -742,8 +781,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -766,14 +807,17 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 45_000;
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_SMALL;
+        let asset_is_base = false;
+        let deep_per_asset = SUI_DEEP_PER_ASSET;
+        let quantity = QUANTITY_MEDIUM;
+        let price = PRICE_MEDIUM;
         let is_bid = false;
         
-        // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        // Calculate the expected total fee with both deep coverage fee and protocol fee
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let wallet_balance = 0;              // Empty wallet
         let balance_manager_balance = total_fee - 1;  // 1 token short
@@ -783,8 +827,10 @@ module deepbook_wrapper::get_fee_plan_tests {
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -810,28 +856,33 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 0;  // No DEEP from reserves
         let total_deep_required = 100_000;
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = SUI_DEEP_PER_ASSET;
+        let quantity = QUANTITY_MEDIUM;
+        let price = PRICE_MEDIUM;
         let is_bid = true;
         let wallet_balance = 1000000;
         let balance_manager_balance = 1000000;
 
         // Only pool fee should be charged since deep_from_reserves is 0
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
         
         // Protocol fee should be 0 when no DEEP is taken from reserves
         assert!(protocol_fee == 0, 0);
         
-        let total_fee = pool_fee; // Only pool fee, no protocol fee
+        let total_fee = deep_coverage_fee; // Only pool fee, no protocol fee
         
         let plan = get_fee_plan(
             use_wrapper_deep_reserves,
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -854,26 +905,31 @@ module deepbook_wrapper::get_fee_plan_tests {
         let use_wrapper_deep_reserves = true;
         let deep_from_reserves = 100_000;    // All DEEP from reserves
         let total_deep_required = 100_000;   // All DEEP required
-        let pool_fee_bps = FEE_MEDIUM;
-        let order_amount = ORDER_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = USDC_DEEP_PER_ASSET;
+        let quantity = QUANTITY_MEDIUM;
+        let price = PRICE_MEDIUM;
         let is_bid = true;
         let wallet_balance = 10000000;
         let balance_manager_balance = 10000000;
 
-        // Calculate the expected total fee with both pool fee and protocol fee
-        let pool_fee = calculate_deep_reserves_coverage_fee(order_amount, pool_fee_bps);
+        // Calculate the expected total fee with both deep coverage fee and protocol fee
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(deep_from_reserves, asset_is_base, deep_per_asset, price, is_bid);
         let protocol_fee = calculate_protocol_fee(order_amount, deep_from_reserves, total_deep_required);
         
         // Protocol fee should be at maximum when all DEEP is from reserves
-        let total_fee = pool_fee + protocol_fee;
+        let total_fee = deep_coverage_fee + protocol_fee;
         
         let plan = get_fee_plan(
             use_wrapper_deep_reserves,
             deep_from_reserves,
             total_deep_required,
             is_pool_whitelisted,
-            pool_fee_bps,
-            order_amount,
+            asset_is_base,
+            deep_per_asset,
+            quantity,
+            price,
             is_bid,
             wallet_balance,
             balance_manager_balance
@@ -883,7 +939,7 @@ module deepbook_wrapper::get_fee_plan_tests {
         assert_fee_plan_eq(
             plan,
             TOKEN_TYPE_QUOTE,   // token_type = 2 (quote)
-            total_fee,          // fee_amount = pool fee + max protocol fee
+            total_fee,          // fee_amount = deep coverage fee + max protocol fee
             total_fee,          // take_from_wallet = all fee (wallet has enough)
             0,                  // take_from_balance_manager = 0
             true                // has_sufficient_resources = true
@@ -892,7 +948,7 @@ module deepbook_wrapper::get_fee_plan_tests {
     
     #[test]
     public fun test_protocol_fee_scaling_with_deep_ratio() {
-        let order_amount = ORDER_LARGE;
+        let order_amount = 1_000_000_000;
         let total_deep_required = 100_000;
         
         // Test with 0% from reserves

@@ -10,17 +10,14 @@ module deepbook_wrapper::create_limit_order_core_tests {
         InputCoinDepositPlan
     };
     use deepbook_wrapper::helper::{calculate_order_amount};
-    use deepbook_wrapper::fee::{calculate_full_fee};
+    use deepbook_wrapper::fee::{calculate_full_order_fee};
 
     // ===== Constants =====
     // Token amounts
+    const AMOUNT_TINY: u64 = 100;                  // 100
     const AMOUNT_SMALL: u64 = 1_000;               // 1,000
     const AMOUNT_MEDIUM: u64 = 1_000_000;          // 1 million
     const AMOUNT_LARGE: u64 = 1_000_000_000;       // 1 billion
-    
-    // Fee rates (in billionths, matching FEE_SCALING = 1,000,000,000)
-    const FEE_ZERO: u64 = 0;             // 0%
-    const FEE_MEDIUM: u64 = 1_000_000;   // 0.1%
     
     // Token types
     const FEE_COIN_TYPE_NONE: u8 = 0;  // No fee
@@ -87,7 +84,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 2_000_000;
         let is_bid = true;
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 13_426_181_696;
         
         // Resource balances
         let deep_required = AMOUNT_SMALL;
@@ -117,7 +115,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -149,7 +148,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_500_000;
         let is_bid = true;
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 13_426_181_696;
         
         // Resource balances - not enough DEEP in wallet or balance manager
         let deep_required = AMOUNT_MEDIUM;
@@ -160,8 +160,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         
         // Calculate expected values
-        let order_amount = calculate_order_amount(quantity, price, is_bid); // 150_000_000
-        let fee_amount = calculate_full_fee(order_amount, pool_fee_bps, deep_from_wrapper, deep_required); // 150_000
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_wrapper, deep_required);
         
         let balance_manager_input_coin = 75_000_000;
         let wallet_input_coin = 80_000_000;
@@ -187,7 +187,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -219,7 +220,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_000_000;
         let is_bid = true;
         let is_pool_whitelisted = true;  // Whitelisted pool!
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = 13_426_181_696;
         
         // Resource balances
         let deep_required = AMOUNT_SMALL;
@@ -249,7 +251,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -281,7 +284,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 2_000_000;
         let is_bid = true;
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = 13_426_181_696;
         
         // Resource balances
         let deep_required = AMOUNT_MEDIUM;
@@ -293,7 +297,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         
         // Set up a scenario where fees need to come from both sources
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 2_000_000_000
-        let fee_amount = calculate_full_fee(order_amount, pool_fee_bps, deep_from_wrapper, deep_required); // 2_000_000
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_wrapper, deep_required); // 2_000_000
         let fee_from_wallet = fee_amount / 2;
         let fee_from_balance_manager = fee_amount - fee_from_wallet;
         
@@ -311,7 +315,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -343,26 +348,27 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_000_000;
         let is_bid = true;
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 29_637_955;
         
         // Resource balances - enough for DEEP, but not enough for coins after fees
-        let deep_required = AMOUNT_MEDIUM;
-        let balance_manager_deep = AMOUNT_SMALL;
-        let deep_in_wallet = AMOUNT_SMALL;
+        let deep_required = AMOUNT_SMALL;
+        let balance_manager_deep = AMOUNT_TINY;
+        let deep_in_wallet = AMOUNT_TINY;
         let wrapper_deep_reserves = AMOUNT_LARGE;
 
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 10_000
-        let fee_amount = calculate_full_fee(order_amount, pool_fee_bps, deep_from_wrapper, deep_required); // 10
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_wrapper, deep_required);
         
         // Set up a scenario where there's not enough for the order and fees
-        let wallet_input_coin = order_amount / 2;
-        let balance_manager_input_coin = order_amount / 2;
+        let wallet_input_coin = fee_amount / 2;
+        let balance_manager_input_coin = fee_amount / 2 + order_amount / 2;
 
-        let fee_from_wallet = fee_amount;
-        let fee_from_balance_manager = 0;
+        let fee_from_wallet = fee_amount / 2;
+        let fee_from_balance_manager = fee_amount / 2;
         
         let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
@@ -375,7 +381,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         // For this test case, there's not enough for the order
@@ -408,7 +415,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_500_000;
         let is_bid = true;
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = 29_637_955;
         
         // Resource balances - not enough DEEP anywhere
         let deep_required = AMOUNT_MEDIUM;
@@ -421,7 +429,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
 
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid); // 150_000_000
-        let fee_amount = calculate_full_fee(order_amount, pool_fee_bps, 0, deep_required); // 150_000
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, 0, deep_required); // 150_000
 
         let fee_from_wallet = fee_amount;
         let fee_from_balance_manager = 0;
@@ -437,7 +445,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -469,7 +478,9 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 2_000_000;
         let is_bid = true;
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 29_637_955;
+
         
         // Resource balances - quote coins only in balance manager
         let deep_required = AMOUNT_SMALL;
@@ -494,7 +505,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         // For this test case, there should be no fees since the user doesn't use wrapper DEEP
@@ -528,7 +540,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_000_000_000_000;
         let is_bid = true;
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 29_637_955;
         
         // Make sure we have enough resources for this large order
         let deep_required = AMOUNT_MEDIUM;
@@ -540,7 +553,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
 
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid);
-        let fee_amount = calculate_full_fee(order_amount, pool_fee_bps, deep_from_wrapper, deep_required);
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_wrapper, deep_required);
         
         let balance_manager_input_coin = 0;
         let wallet_input_coin = order_amount + fee_amount;
@@ -559,7 +572,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -584,64 +598,6 @@ module deepbook_wrapper::create_limit_order_core_tests {
         );
     }
 
-    // TODO: Need to fix after fee calculation formula is updated
-    #[test]
-    public fun test_bid_order_zero_fee() {
-        // Order parameters
-        let quantity = 10_000_000_000;
-        let price = 1_000_000;
-        let is_bid = true;
-        let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_ZERO;  // Zero fee
-        
-        // Resource balances
-        let deep_required = AMOUNT_SMALL;
-        let balance_manager_deep = AMOUNT_SMALL / 2;
-        let deep_in_wallet = AMOUNT_SMALL / 2;
-        let wrapper_deep_reserves = AMOUNT_MEDIUM;
-        
-        let order_amount = calculate_order_amount(quantity, price, is_bid);
-        
-        // Split order amount between wallet and balance manager
-        let balance_manager_input_coin = order_amount / 2;
-        let wallet_input_coin = order_amount / 2;
-        
-        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
-            is_pool_whitelisted,
-            deep_required,
-            balance_manager_deep,
-            balance_manager_input_coin,
-            deep_in_wallet,
-            wallet_input_coin,
-            wrapper_deep_reserves,
-            quantity,
-            price,
-            is_bid,
-            pool_fee_bps
-        );
-        
-        assert_order_plans_eq(
-            deep_plan,
-            fee_plan,
-            input_coin_deposit_plan,
-            // DeepRequirementPlan
-            false,                  // expected_use_wrapper_deep
-            deep_in_wallet,         // expected_take_from_wallet
-            0,                      // expected_take_from_wrapper
-            true,                   // expected_deep_sufficient
-            // FeeCollectionPlan
-            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type
-            0,                      // expected_fee_amount
-            0,                      // expected_fee_from_wallet
-            0,                      // expected_fee_from_balance_manager
-            true,                   // expected_fee_sufficient
-            // TokenDepositPlan
-            order_amount,           // expected_amount_needed
-            wallet_input_coin,      // expected_deposit_from_wallet
-            true                    // expected_deposit_sufficient
-        );
-    }
-
     #[test]
     public fun test_bid_order_exact_resources() {
         // Order parameters
@@ -649,7 +605,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_000_000;
         let is_bid = true;
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = 13_426_181_696;
         
         // Resource balances - exactly what's needed
         let deep_required = AMOUNT_SMALL;
@@ -675,7 +632,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         // For this test case, resources are exactly what's needed
@@ -710,7 +668,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 10_000_000_000;
         let is_bid = false;  // Ask order
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 13_426_181_696;
         
         // Resource balances
         let deep_required = AMOUNT_SMALL;
@@ -739,7 +698,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -771,7 +731,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_000;
         let is_bid = false;  // Ask order
         let is_pool_whitelisted = true;  // Whitelisted pool!
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = 13_426_181_696;
         
         // Resource balances
         let deep_required = AMOUNT_SMALL;
@@ -798,7 +759,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -830,7 +792,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 40_000_000_000;
         let is_bid = false;  // Ask order
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = 13_426_181_696;
         
         // Resource balances - not enough DEEP
         let deep_required = AMOUNT_MEDIUM;
@@ -839,7 +802,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let wrapper_deep_reserves = AMOUNT_SMALL;  // Not enough in wrapper either
 
         // For ask orders, we need base coins (the coin being sold)
-        let fee_amount = calculate_full_fee(quantity, pool_fee_bps, 0, deep_required);
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, 0, deep_required);
         
         let balance_manager_input_coin = AMOUNT_MEDIUM;
         let wallet_input_coin = AMOUNT_MEDIUM;
@@ -855,7 +818,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -868,11 +832,11 @@ module deepbook_wrapper::create_limit_order_core_tests {
             0,                      // expected_take_from_wrapper
             false,                  // expected_deep_sufficient (not enough DEEP)
             // FeeCollectionPlan
-            FEE_COIN_TYPE_BASE,        // expected_fee_coin_type
+            FEE_COIN_TYPE_BASE,     // expected_fee_coin_type
             fee_amount,             // expected_fee_amount
             0,                      // expected_fee_from_wallet
             0,                      // expected_fee_from_balance_manager
-            false,                  // expected_fee_sufficient
+            true,                  // expected_fee_sufficient
             // TokenDepositPlan
             quantity,               // expected_amount_needed
             0,                      // expected_deposit_from_wallet
@@ -887,7 +851,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_000_000;
         let is_bid = false;  // Ask order
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 13_426_181_696;
         
         // Resource balances - base coins only in balance manager
         let deep_required = AMOUNT_SMALL;
@@ -898,7 +863,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - balance_manager_deep;
         
         // For ask orders, we need base coins (the coin being sold)
-        let fee_amount = calculate_full_fee(quantity, pool_fee_bps, deep_from_wrapper, deep_required);
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_wrapper, deep_required);
         
         // All base coins in balance manager, none in wallet
         let wallet_input_coin = 0;
@@ -915,7 +880,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         // For this test case, there should be no fees since the user doesn't use wrapper DEEP
@@ -949,7 +915,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_000_000_000_000_000;
         let is_bid = false;  // Ask order
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = 13_426_181_696;
         
         // Make sure we have enough resources for this large order
         let deep_required = AMOUNT_MEDIUM;
@@ -960,7 +927,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - deep_in_wallet;
 
         // Calculate fee for this large order
-        let fee_amount = calculate_full_fee(quantity, pool_fee_bps, deep_from_wrapper, deep_required);
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_wrapper, deep_required);
         
         let balance_manager_input_coin = 0;
         let wallet_input_coin = quantity + fee_amount;  // Exact amount needed
@@ -976,7 +943,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -1001,62 +969,6 @@ module deepbook_wrapper::create_limit_order_core_tests {
         );
     }
 
-    // TODO: Need to fix after fee calculation formula is updated
-    #[test]
-    public fun test_ask_order_zero_fee() {
-        // Order parameters
-        let quantity = 10_000;
-        let price = 1_000;
-        let is_bid = false;  // Ask order
-        let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_ZERO;  // Zero fee
-        
-        // Resource balances
-        let deep_required = AMOUNT_SMALL;
-        let balance_manager_deep = AMOUNT_SMALL / 2;
-        let deep_in_wallet = AMOUNT_SMALL / 2;
-        let wrapper_deep_reserves = AMOUNT_MEDIUM;
-        
-        // Split base coins between wallet and balance manager
-        let balance_manager_input_coin = quantity / 2;
-        let wallet_input_coin = quantity / 2;
-        
-        let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
-            is_pool_whitelisted,
-            deep_required,
-            balance_manager_deep,
-            balance_manager_input_coin,
-            deep_in_wallet,
-            wallet_input_coin,
-            wrapper_deep_reserves,
-            quantity,
-            price,
-            is_bid,
-            pool_fee_bps
-        );
-        
-        assert_order_plans_eq(
-            deep_plan,
-            fee_plan,
-            input_coin_deposit_plan,
-            // DeepRequirementPlan
-            false,                  // expected_use_wrapper_deep
-            deep_in_wallet,         // expected_take_from_wallet
-            0,                      // expected_take_from_wrapper
-            true,                   // expected_deep_sufficient
-            // FeeCollectionPlan
-            FEE_COIN_TYPE_NONE,        // expected_fee_coin_type (no fee since not using wrapper DEEP)
-            0,                      // expected_fee_amount
-            0,                      // expected_fee_from_wallet
-            0,                      // expected_fee_from_balance_manager
-            true,                   // expected_fee_sufficient
-            // TokenDepositPlan
-            quantity,               // expected_amount_needed
-            wallet_input_coin,      // expected_deposit_from_wallet
-            true                    // expected_deposit_sufficient
-        );
-    }
-
     #[test]
     public fun test_ask_order_exact_resources() {
         // Order parameters
@@ -1064,7 +976,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 40_000_000;
         let is_bid = false;  // Ask order
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = 29_637_955;
         
         // Set up resources to exactly match what's needed
         let deep_required = AMOUNT_SMALL;
@@ -1087,7 +1000,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -1119,7 +1033,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 40_000_000;
         let is_bid = false;  // Ask order
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 29_637_955;
         
         let deep_required = AMOUNT_MEDIUM;
         let balance_manager_deep = deep_required / 2;
@@ -1140,7 +1055,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -1172,7 +1088,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_000_000_000;
         let is_bid = false;  // Ask order
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = 29_637_955;
         
         // Resource balances - not enough DEEP to force using wrapper DEEP
         let deep_required = AMOUNT_MEDIUM;
@@ -1182,7 +1099,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         
         // Calculate fee
-        let fee_amount = calculate_full_fee(quantity, pool_fee_bps, deep_from_wrapper, deep_required); // 70_000
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_wrapper, deep_required); // 70_000
         
         // Not enough base coins after accounting for fees
         // Wallet has enough for fees but not enough for the deposit
@@ -1200,7 +1117,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -1229,10 +1147,11 @@ module deepbook_wrapper::create_limit_order_core_tests {
     public fun test_ask_order_with_wrapper_deep() {
         // Order parameters
         let quantity = 70_000;
-        let price = 1_000_000;
+        let price = 54_000_000;
         let is_bid = false;  // Ask order
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 29_637_955;
         
         // Resource balances - not enough DEEP in wallet or balance manager
         let deep_required = AMOUNT_MEDIUM;
@@ -1242,10 +1161,10 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         
         // Calculate expected values
-        let fee_amount = calculate_full_fee(quantity, pool_fee_bps, deep_from_wrapper, deep_required);
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_wrapper, deep_required);
 
         let balance_manager_input_coin = 15_000;
-        let wallet_input_coin = 100_000;
+        let wallet_input_coin = 680_000_000;
         
         // For this test case we expect:
         // 1. DEEP: All from wallet and balance manager + some from wrapper
@@ -1268,7 +1187,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         assert_order_plans_eq(
@@ -1300,7 +1220,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 474_576_743;
         let is_bid = false;  // Ask order
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = true;
+        let deep_per_asset = 29_637_955;
         
         // Resource balances - not enough DEEP to avoid using wrapper
         let deep_required = AMOUNT_MEDIUM;
@@ -1310,7 +1231,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
 
         // Calculate fee for this order
-        let fee_amount = calculate_full_fee(quantity, pool_fee_bps, deep_from_wrapper, deep_required);
+        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_wrapper, deep_required);
         
         // Important: Make sure wallet doesn't have enough to cover all fees
         // We'll put 1/3 of the fee in wallet, 2/3 in balance manager
@@ -1331,7 +1252,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         // Since wallet only has fee_from_wallet, it should have 0 left for deposit
@@ -1368,7 +1290,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 1_000;
         let is_bid = true;
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 29_637_955;
         
         // Resource balances
         let deep_required = AMOUNT_SMALL;
@@ -1390,7 +1313,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         // For this test case, order amount should be zero
@@ -1423,7 +1347,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let price = 0;  // Zero price
         let is_bid = true;
         let is_pool_whitelisted = false;
-        let pool_fee_bps = FEE_MEDIUM;
+        let asset_is_base = false;
+        let deep_per_asset = 13_426_181_696;
         
         // Resource balances
         let deep_required = AMOUNT_SMALL;
@@ -1445,7 +1370,8 @@ module deepbook_wrapper::create_limit_order_core_tests {
             quantity,
             price,
             is_bid,
-            pool_fee_bps
+            asset_is_base,
+            deep_per_asset
         );
         
         // For bid orders with zero price, order amount should be zero
