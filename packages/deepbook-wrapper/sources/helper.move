@@ -82,4 +82,12 @@ module deepbook_wrapper::helper {
             quantity // Base tokens for ask
         }
     }
+
+    /// Gets the order deep price parameters for given pool
+    public(package) fun get_order_deep_price_params<BaseToken, QuoteToken>(
+        pool: &Pool<BaseToken, QuoteToken>
+    ): (bool, u64) {
+        let order_deep_price = pool::get_order_deep_price(pool);
+        (order_deep_price.asset_is_base(), order_deep_price.deep_per_asset())
+    }
 }
