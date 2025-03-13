@@ -1,10 +1,19 @@
 module deepbook_wrapper::helper {
     use sui::coin::{Self, Coin};
+    use sui::sui::SUI;
+    use sui::clock::Clock;
+    use std::type_name;
+    use token::deep::DEEP;
     use deepbook::pool::{Self, Pool};
     use deepbook_wrapper::math;
 
     // === Constants ===
     const DEEP_REQUIRED_SLIPPAGE: u64 = 100_000_000; // 10% in billionths
+
+    // === Errors ===
+    /// Error when the reference pool is not eligible for the order
+    #[error]
+    const EIneligibleReferencePool: u64 = 1;
 
     // === Public-Package Functions ===
     /// Get fee basis points from pool parameters
@@ -89,5 +98,61 @@ module deepbook_wrapper::helper {
     ): (bool, u64) {
         let order_deep_price = pool::get_order_deep_price(pool);
         (order_deep_price.asset_is_base(), order_deep_price.deep_per_asset())
+    }
+
+    /// Gets the SUI per DEEP price from a reference pool, normalizing the price regardless of token order
+    /// 
+    /// Parameters:
+    /// - reference_pool: Pool containing SUI/DEEP or DEEP/SUI trading pair
+    /// - clock: System clock for current timestamp
+    /// 
+    /// Returns:
+    /// - u64: Price of 1 DEEP in SUI (normalized to handle both SUI/DEEP and DEEP/SUI pools)
+    /// 
+    /// Requirements:
+    /// - Pool must be whitelisted and registered
+    /// - Pool must be either SUI/DEEP or DEEP/SUI trading pair
+    /// 
+    /// Price normalization:
+    /// - For DEEP/SUI pool: returns price directly
+    /// - For SUI/DEEP pool: returns 1_000_000_000/price
+    /// 
+    /// Aborts with EIneligibleReferencePool if:
+    /// - Pool is not whitelisted/registered
+    /// - Pool does not contain SUI and DEEP tokens
+    public(package) fun get_sui_per_deep<ReferenceBaseAsset, ReferenceQuoteAsset>(
+        reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+        clock: &Clock
+    ): u64 {
+        assert!(
+            reference_pool.whitelisted() && reference_pool.registered_pool(),
+            EIneligibleReferencePool,
+        );
+        let reference_pool_price = reference_pool.mid_price(clock);
+
+        let reference_base_type = type_name::get<ReferenceBaseAsset>();
+        let reference_quote_type = type_name::get<ReferenceQuoteAsset>();
+        let deep_type = type_name::get<DEEP>();
+        let sui_type = type_name::get<SUI>();
+
+        assert!(
+            (reference_base_type == deep_type && reference_quote_type == sui_type) ||
+            (reference_base_type == sui_type && reference_quote_type == deep_type),
+            EIneligibleReferencePool,
+        );
+
+        let reference_deep_is_base = reference_base_type == deep_type;
+
+        // For DEEP/SUI pool, reference_deep_is_base is true, SUI per DEEP is
+        // reference_pool_price
+        // For SUI/DEEP pool, reference_deep_is_base is false, DEEP per SUI is
+        // reference_pool_price
+        let sui_per_deep = if (reference_deep_is_base) {
+            reference_pool_price
+        } else {
+            math::div(1_000_000_000, reference_pool_price)
+        };
+
+        sui_per_deep
     }
 }
