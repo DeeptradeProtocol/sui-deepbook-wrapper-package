@@ -553,8 +553,8 @@ module deepbook_wrapper::order {
         // Step 4: Determine input coin deposit plan
         let deposit_plan = get_input_coin_deposit_plan(
             order_amount,
-            wallet_input_coin - fee_plan.from_user_wallet,
-            balance_manager_input_coin - fee_plan.from_user_balance_manager
+            wallet_input_coin,
+            balance_manager_input_coin
         );
         
         (deep_plan, fee_plan, deposit_plan)
@@ -954,13 +954,11 @@ module deepbook_wrapper::order {
     #[test_only]
     public fun assert_fee_plan_eq(
         actual: FeePlan,
-        expected_fee_coin_type: u8,
         expected_fee_amount: u64,
         expected_from_user_wallet: u64,
         expected_from_user_balance_manager: u64,
         expected_sufficient: bool
     ) {
-        assert!(actual.fee_coin_type == expected_fee_coin_type, 0);
         assert!(actual.fee_amount == expected_fee_amount, 0);
         assert!(actual.from_user_wallet == expected_from_user_wallet, 0);
         assert!(actual.from_user_balance_manager == expected_from_user_balance_manager, 0);
