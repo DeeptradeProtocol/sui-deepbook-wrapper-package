@@ -1,234 +1,118 @@
 #[test_only]
 module deepbook_wrapper::calculate_protocol_fee_tests {
-    use deepbook_wrapper::fee::{calculate_protocol_fee};
+    use deepbook_wrapper::fee::calculate_protocol_fee;
+
+    const SUI_PER_DEEP: u64 = 37_815_000_000;
 
     #[test]
-    /// Test when deep_from_reserves or total_deep_required is zero, result should be zero
+    /// Test when deep_from_reserves is zero, result should be zero
     fun test_zero_values() {
-        // When total_deep_required is zero, result should be zero
-        let fee = calculate_protocol_fee(1000, 500, 0);
-        assert!(fee == 0, 0);
-        
-        // When deep_from_reserves is zero, result should be zero
-        let fee = calculate_protocol_fee(1000, 0, 500);
-        assert!(fee == 0, 0);
-        
-        // When amount is zero, result should be zero
-        let fee = calculate_protocol_fee(0, 500, 1000);
-        assert!(fee == 0, 0);
-        
-        // All zeros should return zero
-        let fee = calculate_protocol_fee(0, 0, 0);
+        let fee = calculate_protocol_fee(SUI_PER_DEEP, 0);
         assert!(fee == 0, 0);
     }
     
     #[test]
-    /// Test when all DEEP is taken from reserves (100%)
-    fun test_full_deep_from_reserves() {
-        let amount = 1000000;
-        let deep_required = 5000;
-        
-        // Using all from reserves (5000/5000 = 100%)
-        let fee = calculate_protocol_fee(amount, deep_required, deep_required);
-        
-        // Expected fee: amount * MAX_PROTOCOL_FEE_BPS / FEE_SCALING = 1000000 * 3000000 / 1000000000 = 3000
-        assert!(fee == 3000, 0); // 0.3% of 1000000
+    /// Test with minimum non-zero DEEP amount
+    fun test_minimum_deep() {
+        let fee = calculate_protocol_fee(SUI_PER_DEEP, 1);
+        // Step 1: 1 * 10_000_000 = 10_000_000
+        // After first scaling: 10_000_000 / 1_000_000_000 = 0 DEEP (rounds down!)
+        // Step 2: 0 * 37_815_000_000 = 0
+        // After second scaling: 0 / 1_000_000_000 = 0 SUI
+        assert!(fee == 0, 0); // Will be 0 due to integer division in first scaling
     }
     
     #[test]
-    /// Test when partial DEEP is taken from reserves (different percentages)
-    fun test_partial_deep_from_reserves() {
-        let amount = 1000000;
-        let total_deep = 10000;
+    /// Test with standard DEEP amounts
+    fun test_standard_amounts() {
+        // Test with 1000 DEEP
+        let fee_1k = calculate_protocol_fee(SUI_PER_DEEP, 1_000);
+        // Step 1: 1_000 * 10_000_000 = 10_000_000_000
+        // After first scaling: 10_000_000_000 / 1_000_000_000 = 10 DEEP
+        // Step 2: 10 * 37_815_000_000 = 378_150_000_000
+        // After second scaling: 378_150_000_000 / 1_000_000_000 = 378 SUI
+        assert!(fee_1k == 378, 0);
         
-        // Using 50% from reserves (5000/10000)
-        let fee_50_percent = calculate_protocol_fee(amount, 5000, total_deep);
-        // Expected: 1000000 * (5000/10000 * 3000000) / 1000000000 = 1500
-        assert!(fee_50_percent == 1500, 0); // 0.15% of 1000000
+        // Test with 10000 DEEP
+        let fee_10k = calculate_protocol_fee(SUI_PER_DEEP, 10_000);
+        // Step 1: 10_000 * 10_000_000 = 100_000_000_000
+        // After first scaling: 100_000_000_000 / 1_000_000_000 = 100 DEEP
+        // Step 2: 100 * 37_815_000_000 = 3_781_500_000_000
+        // After second scaling: 3_781_500_000_000 / 1_000_000_000 = 3_781 SUI
+        assert!(fee_10k == 3_781, 1);
         
-        // Using 25% from reserves (2500/10000)
-        let fee_25_percent = calculate_protocol_fee(amount, 2500, total_deep);
-        // Expected: 1000000 * (2500/10000 * 3000000) / 1000000000 = 750
-        assert!(fee_25_percent == 750, 0); // 0.075% of 1000000
-        
-        // Using 75% from reserves (7500/10000)
-        let fee_75_percent = calculate_protocol_fee(amount, 7500, total_deep);
-        // Expected: 1000000 * (7500/10000 * 3000000) / 1000000000 = 2250
-        assert!(fee_75_percent == 2250, 0); // 0.225% of 1000000
-        
-        // Using 10% from reserves (1000/10000)
-        let fee_10_percent = calculate_protocol_fee(amount, 1000, total_deep);
-        // Expected: 1000000 * (1000/10000 * 3000000) / 1000000000 = 300
-        assert!(fee_10_percent == 300, 0); // 0.03% of 1000000
+        // Note: Not exactly linear due to rounding at each scaling step
+        // fee_10k (3_781) ≠ fee_1k * 10 (3_780)
     }
     
     #[test]
-    /// Test with small proportions of DEEP from reserves
-    fun test_small_proportions() {
-        // Test with small proportions and amounts
-        let small_deep_from_reserves = 1;
-        let large_deep_required = 10000;
-        let amount = 1000000;
-        
-        // 1/10000 = 0.01% of reserves used
-        let fee = calculate_protocol_fee(amount, small_deep_from_reserves, large_deep_required);
-        // Expected: 1000000 * (1/10000 * 3000000) / 1000000000 = 0.3
-        // Due to integer division, this should round down to 0
-        assert!(fee == 0, 0);
-        
-        // Now with a larger amount to make sure we get a non-zero result
-        let large_amount = 10000000000;
-        let fee_large = calculate_protocol_fee(large_amount, small_deep_from_reserves, large_deep_required);
-        // Expected: 10000000000 * (1/10000 * 3000000) / 1000000000 = 3000
-        assert!(fee_large == 3000, 0);
-        
-        // Very small ratio (1/100000)
-        let fee_very_small = calculate_protocol_fee(large_amount, 1, 100000);
-        // Expected: 10000000000 * (1/100000 * 3000000) / 1000000000 = 300
-        assert!(fee_very_small == 300, 0);
-    }
-    
-    #[test]
-    /// Test with various token amounts
-    fun test_various_amounts() {
-        let deep_from_reserves = 500;
-        let total_deep_required = 1000;
-        // 50% from reserves
-        
-        // Small amount
-        let fee_small = calculate_protocol_fee(100, deep_from_reserves, total_deep_required);
-        // Expected: 100 * (500/1000 * 3000000) / 1000000000 = 0.15, rounds to 0
-        assert!(fee_small == 0, 0);
-        
-        // Medium amount
-        let fee_medium = calculate_protocol_fee(10000, deep_from_reserves, total_deep_required);
-        // Expected: 10000 * (500/1000 * 3000000) / 1000000000 = 15
-        assert!(fee_medium == 15, 0);
-        
-        // Large amount
-        let fee_large = calculate_protocol_fee(1000000, deep_from_reserves, total_deep_required);
-        // Expected: 1000000 * (500/1000 * 3000000) / 1000000000 = 1500
-        assert!(fee_large == 1500, 0);
-    }
-    
-    #[test]
-    /// Test rounding behavior with integer division
-    fun test_rounding() {
-        let amount = 1001;
-        let deep_from_reserves = 1;
-        
-        // With total_deep_required = 3, proportion = 1/3
-        let fee1 = calculate_protocol_fee(amount, deep_from_reserves, 3);
-        // Expected: 1000 * (1/3 * 3000000) / 1000000000 ~= 1
-        assert!(fee1 == 1, 0);
-        
-        // With total_deep_required = 4, proportion = 1/4
-        let fee2 = calculate_protocol_fee(amount, deep_from_reserves, 4);
-        // Expected: 1000 * (1/4 * 3000000) / 1000000000 ~= 0.75, rounds to 0
-        assert!(fee2 == 0, 0);
-        
-        // Use a larger amount to see the rounding effect more clearly
-        let larger_amount = 4000;
-        let fee3 = calculate_protocol_fee(larger_amount, deep_from_reserves, 4);
-        // Expected: 4000 * (1/4 * 3000000) / 1000000000 = 3
-        assert!(fee3 == 3, 0);
-    }
-    
-    #[test]
-    /// Test with large values close to u64 max
+    /// Test with large DEEP amounts to verify no overflow
     fun test_large_values() {
-        // Using large but not maximum values to avoid overflow
-        let large_amount = 18446744073709551000; // close to max u64
-        let deep_from_reserves = 1000000;
-        let total_deep = 10000000;
+        // Test with 1 million DEEP
+        let fee = calculate_protocol_fee(SUI_PER_DEEP, 1_000_000);
+        // Step 1: 1_000_000 * 10_000_000 = 10_000_000_000_000
+        // After first scaling: 10_000_000_000_000 / 1_000_000_000 = 10_000 DEEP
+        // Step 2: 10_000 * 37_815_000_000 = 378_150_000_000_000
+        // After second scaling: 378_150_000_000_000 / 1_000_000_000 = 378_150 SUI
+        assert!(fee == 378_150, 0);
         
-        // This should not overflow due to u128 casting in the function
-        let fee = calculate_protocol_fee(large_amount, deep_from_reserves, total_deep);
-        
-        // Expected: large_amount * (1000000/10000000 * 3000000) / 1000000000
-        // = large_amount * 0.3 / 1000 = large_amount * 0.0003
-        // = 18446744073709551000 * 0.0003 = 5534023222112865
-        assert!(fee > 0, 0);
-        
-        // Specifically, it should be approximately 3% of large_amount / 10
-        // Let's calculate the exact expected value
-        let expected = 5534023222112865;
-        assert!(fee == expected, 0);
+        // Test with maximum safe DEEP amount
+        let max_safe_deep = 1_000_000_000; // 1 billion DEEP
+        let fee_max = calculate_protocol_fee(SUI_PER_DEEP, max_safe_deep);
+        // Step 1: 1_000_000_000 * 10_000_000 = 10_000_000_000_000_000
+        // After first scaling: 10_000_000_000_000_000 / 1_000_000_000 = 10_000_000 DEEP
+        // Step 2: 10_000_000 * 37_815_000_000 = 378_150_000_000_000_000
+        // After second scaling: 378_150_000_000_000_000 / 1_000_000_000 = 378_150_000 SUI
+        assert!(fee_max > 0, 1); // Should not overflow
+        assert!(fee_max == 378_150_000, 2);
     }
     
     #[test]
-    /// Test with equal values for deep_from_reserves and total_deep_required
-    fun test_equal_values() {
-        // When deep_from_reserves = total_deep_required (100% from reserves)
-        let amount = 100000;
-        let deep = 5000;
+    /// Test fee calculation precision and rounding
+    fun test_fee_precision() {
+        // Test with amounts that could cause rounding issues
+        let deep_amount = 333;
+        let fee = calculate_protocol_fee(SUI_PER_DEEP, deep_amount);
         
-        let fee = calculate_protocol_fee(amount, deep, deep);
-        // Expected: 100000 * (5000/5000 * 3000000) / 1000000000 = 100000 * 0.003 = 300
-        assert!(fee == 300, 0);
-        
-        // When deep_from_reserves = total_deep_required = amount (just a sanity check)
-        let equal = 10000;
-        let fee_equal = calculate_protocol_fee(equal, equal, equal);
-        // Expected: 10000 * (10000/10000 * 3000000) / 1000000000 = 10000 * 0.003 = 30
-        assert!(fee_equal == 30, 0);
+        // Correct calculation with integer arithmetic:
+        // Step 1: deep_amount * PROTOCOL_FEE_BPS = 333 * 10_000_000 = 3_330_000_000
+        // After first scaling: 3_330_000_000 / 1_000_000_000 = 3 DEEP
+        // Step 2: 3 * 37_815_000_000 = 113_445_000_000
+        // After second scaling: 113_445_000_000 / 1_000_000_000 = 113 SUI
+        assert!(fee == 113, 0);
     }
     
     #[test]
-    /// Test gradual fee increases with increasing proportion
+    /// Test fee scaling is linear with DEEP amount
     fun test_fee_scaling() {
-        let amount = 1000000;
-        let total_deep = 1000;
+        let base_deep = 1_000;
+        let base_fee = calculate_protocol_fee(SUI_PER_DEEP, base_deep);
         
-        // Test fee at 10% increments to verify linear scaling
-        let fee_10 = calculate_protocol_fee(amount, 100, total_deep);  // 10%
-        let fee_20 = calculate_protocol_fee(amount, 200, total_deep);  // 20%
-        let fee_30 = calculate_protocol_fee(amount, 300, total_deep);  // 30%
-        let fee_40 = calculate_protocol_fee(amount, 400, total_deep);  // 40%
-        let fee_50 = calculate_protocol_fee(amount, 500, total_deep);  // 50%
-        let fee_60 = calculate_protocol_fee(amount, 600, total_deep);  // 60%
-        let fee_70 = calculate_protocol_fee(amount, 700, total_deep);  // 70%
-        let fee_80 = calculate_protocol_fee(amount, 800, total_deep);  // 80%
-        let fee_90 = calculate_protocol_fee(amount, 900, total_deep);  // 90%
-        let fee_100 = calculate_protocol_fee(amount, 1000, total_deep); // 100%
+        // Test 2x, 3x, 4x scaling
+        let fee_2x = calculate_protocol_fee(SUI_PER_DEEP, base_deep * 2);
+        let fee_3x = calculate_protocol_fee(SUI_PER_DEEP, base_deep * 3);
+        let fee_4x = calculate_protocol_fee(SUI_PER_DEEP, base_deep * 4);
         
-        // Verify fee increases linearly with proportion
-        assert!(fee_10 == 300, 0);   // 0.03% of 1000000
-        assert!(fee_20 == 600, 0);   // 0.06% of 1000000
-        assert!(fee_30 == 900, 0);   // 0.09% of 1000000
-        assert!(fee_40 == 1200, 0);  // 0.12% of 1000000
-        assert!(fee_50 == 1500, 0);  // 0.15% of 1000000
-        assert!(fee_60 == 1800, 0);  // 0.18% of 1000000
-        assert!(fee_70 == 2100, 0);  // 0.21% of 1000000
-        assert!(fee_80 == 2400, 0);  // 0.24% of 1000000
-        assert!(fee_90 == 2700, 0);  // 0.27% of 1000000
-        assert!(fee_100 == 3000, 0); // 0.30% of 1000000
+        // Verify linear scaling
+        assert!(fee_2x == base_fee * 2, 0);
+        assert!(fee_3x == base_fee * 3, 1);
+        assert!(fee_4x == base_fee * 4, 2);
     }
     
     #[test]
-    /// Verify max fee does not exceed MAX_PROTOCOL_FEE_BPS
-    fun test_max_fee_limit() {
-        let amount = 1000000;
-        let deep = 1000;
+    /// Test with different SUI/DEEP prices
+    fun test_different_sui_deep_prices() {
+        let deep_amount = 1_000;
         
-        // 100% from reserves should apply maximum fee
-        let max_fee = calculate_protocol_fee(amount, deep, deep);
+        // Test with half the standard price
+        let fee_half_price = calculate_protocol_fee(SUI_PER_DEEP / 2, deep_amount);
         
-        // Manual calculation: 1000000 * 3000000 / 1000000000 = 3000
-        let expected_max_fee = 3000; // 0.3% of 1000000
+        // Test with double the standard price
+        let fee_double_price = calculate_protocol_fee(SUI_PER_DEEP * 2, deep_amount);
         
-        assert!(max_fee == expected_max_fee, 0);
-    }
-    
-    #[test]
-    #[expected_failure]
-    /// Test that an error is thrown when deep_from_reserves exceeds total_deep_required
-    fun test_deep_reserves_exceeds_total() {
-        let amount = 1000000;
-        let total_deep_required = 1000;
-        let deep_from_reserves = 1001; // Exceeds total_deep_required
-        
-        // This should abort with EInvalidDeepReservesAmount
-        calculate_protocol_fee(amount, deep_from_reserves, total_deep_required);
+        // Verify fee scales with price
+        let standard_fee = calculate_protocol_fee(SUI_PER_DEEP, deep_amount);
+        assert!(fee_half_price == standard_fee / 2, 0);
+        assert!(fee_double_price == standard_fee * 2, 1);
     }
 } 
