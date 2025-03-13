@@ -1,5 +1,6 @@
 module deepbook_wrapper::order {
     use sui::coin::{Self, Coin};
+    use sui::sui::SUI;
     use sui::clock::Clock;
     use token::deep::DEEP;
     use deepbook_wrapper::math;
@@ -16,7 +17,7 @@ module deepbook_wrapper::order {
       calculate_deep_required,
       transfer_if_nonzero,
       calculate_order_amount,
-      get_order_deep_price_params
+      get_sui_per_deep
     };
     use deepbook_wrapper::fee::{estimate_full_order_fee_core, calculate_full_order_fee};
 
@@ -35,10 +36,9 @@ module deepbook_wrapper::order {
     }
     
     /// Tracks fee charging strategy for an order
-    /// Determines fee coin type, amount, and sources for fee payment
+    /// Determines amount and sources for fee payment
+    /// Fees are always paid in SUI
     public struct FeePlan has copy, drop {
-        /// Coin type for fee charging: 0 = no fee, 1 = base coin, 2 = quote coin
-        fee_coin_type: u8,
         /// Total fee amount to be collected
         fee_amount: u64,
         /// Amount of fee to take from user's wallet
@@ -82,17 +82,38 @@ module deepbook_wrapper::order {
     /// Creates a limit order on DeepBook using coins from various sources
     /// This function orchestrates the entire order creation process:
     /// 1. Sources DEEP coins from user wallet and wrapper reserves if needed
-    /// 2. Collects fees in input coins
+    /// 2. Collects fees in SUI coins
     /// 3. Deposits required input coins from the wallet to the balance manager
     /// 4. Places the order on DeepBook and returns the order info
-    public fun create_limit_order<BaseToken, QuoteToken>(
+    /// 
+    /// Parameters:
+    /// - wrapper: The DeepBook wrapper instance managing the order process
+    /// - whitelisted_pools_registry: Registry of pools whitelisted by our protocol
+    /// - pool: The trading pool where the order will be placed
+    /// - reference_pool: Reference pool used for SUI/DEEP price calculation
+    /// - balance_manager: User's balance manager for managing coin deposits
+    /// - base_coin: Base token coins from user's wallet
+    /// - quote_coin: Quote token coins from user's wallet
+    /// - deep_coin: DEEP coins from user's wallet
+    /// - sui_coin: SUI coins for fee payment
+    /// - price: Order price in quote tokens per base token
+    /// - quantity: Order quantity in base tokens
+    /// - is_bid: True for buy orders, false for sell orders
+    /// - expire_timestamp: Order expiration timestamp
+    /// - order_type: Type of order (e.g., GTC, IOC, FOK)
+    /// - self_matching_option: Self-matching behavior configuration
+    /// - client_order_id: Client-provided order identifier
+    /// - clock: System clock for timestamp verification
+    public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
         wrapper: &mut DeepBookV3RouterWrapper,
         whitelisted_pools_registry: &WhitelistRegistry,
         pool: &mut Pool<BaseToken, QuoteToken>,
+        reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
         balance_manager: &mut BalanceManager,
         mut base_coin: Coin<BaseToken>,
         mut quote_coin: Coin<QuoteToken>,
         mut deep_coin: Coin<DEEP>,
+        mut sui_coin: Coin<SUI>,
         price: u64,
         quantity: u64,
         is_bid: bool,
@@ -108,20 +129,24 @@ module deepbook_wrapper::order {
 
         // Verify the pool is whitelisted by our protocol
         assert!(whitelisted_pools::is_pool_whitelisted(whitelisted_pools_registry, pool), ENotWhitelistedPool);
-        
+
+        // Get SUI per DEEP price from reference pool
+        let sui_per_deep = get_sui_per_deep(reference_pool, clock);
+
         // Extract all the data we need from DeepBook objects
         let is_pool_whitelisted = pool::whitelisted(pool);
         let deep_required = calculate_deep_required(pool, quantity, price);
-        let (asset_is_base, deep_per_asset) = get_order_deep_price_params(pool);
         
         // Get balances from balance manager
         let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
+        let balance_manager_sui = balance_manager::balance<SUI>(balance_manager);
         let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
         let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
         let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
         
         // Get balances from wallet coins
         let deep_in_wallet = coin::value(&deep_coin);
+        let sui_in_wallet = coin::value(&sui_coin);
         let base_in_wallet = coin::value(&base_coin);
         let quote_in_wallet = coin::value(&quote_coin);
         let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
@@ -134,15 +159,16 @@ module deepbook_wrapper::order {
             is_pool_whitelisted,
             deep_required,
             balance_manager_deep,
+            balance_manager_sui,
             balance_manager_input_coin,
             deep_in_wallet,
+            sui_in_wallet,
             wallet_input_coin,
             wrapper_deep_reserves,
             quantity,
             price,
             is_bid,
-            asset_is_base,
-            deep_per_asset
+            sui_per_deep
         );
         
         // Step 1: Execute DEEP plan
@@ -152,8 +178,7 @@ module deepbook_wrapper::order {
         execute_fee_plan(
             wrapper,
             balance_manager,
-            &mut base_coin,
-            &mut quote_coin,
+            &mut sui_coin,
             &fee_plan,
             ctx
         );
@@ -172,6 +197,7 @@ module deepbook_wrapper::order {
         transfer_if_nonzero(base_coin, tx_context::sender(ctx));
         transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
         transfer_if_nonzero(deep_coin, tx_context::sender(ctx));
+        transfer_if_nonzero(sui_coin, tx_context::sender(ctx));
         
         // Step 4: Generate proof and place order
         let proof = balance_manager::generate_proof_as_owner(balance_manager, ctx);
@@ -196,22 +222,38 @@ module deepbook_wrapper::order {
     // === Public-View Functions ===
     /// Estimates the requirements for creating a limit order on DeepBook
     /// Analyzes available resources and requirements to determine if an order can be created
+    /// Uses a reference pool to calculate SUI/DEEP price for fee estimation
     /// 
-    /// Returns a tuple with three values:
+    /// Parameters:
+    /// - wrapper: The DeepBook wrapper instance
+    /// - whitelisted_pools_registry: Registry of pools whitelisted by our protocol
+    /// - pool: The trading pool where the order will be placed
+    /// - reference_pool: Reference pool used for SUI/DEEP price calculation
+    /// - balance_manager: User's balance manager
+    /// - deep_in_wallet: Amount of DEEP coins in user's wallet
+    /// - base_in_wallet: Amount of base tokens in user's wallet
+    /// - quote_in_wallet: Amount of quote tokens in user's wallet
+    /// - quantity: Order quantity in base tokens
+    /// - price: Order price in quote tokens per base token
+    /// - is_bid: True for buy orders, false for sell orders
+    /// 
+    /// Returns:
     /// - bool: Whether the order can be successfully created with available resources
     /// - u64: Amount of DEEP coins required for the order (if non-whitelisted pool)
-    /// - u64: Estimated fee amount in input coins (base for ask orders, quote for bid orders)
-    public fun estimate_order_requirements<BaseToken, QuoteToken>(
+    /// - u64: Estimated fee amount in SUI coins
+    public fun estimate_order_requirements<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
         wrapper: &DeepBookV3RouterWrapper,
         whitelisted_pools_registry: &WhitelistRegistry,
         pool: &Pool<BaseToken, QuoteToken>,
+        reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
         balance_manager: &BalanceManager,
         deep_in_wallet: u64,
         base_in_wallet: u64,
         quote_in_wallet: u64,
         quantity: u64,
         price: u64,
-        is_bid: bool
+        is_bid: bool,
+        clock: &Clock
     ): (bool, u64, u64) {
         // Verify the pool is whitelisted by our protocol. If not, the order can't be created
         if (!whitelisted_pools::is_pool_whitelisted(whitelisted_pools_registry, pool)) {
@@ -227,8 +269,8 @@ module deepbook_wrapper::order {
         // Get pool parameters
         let (pool_tick_size, pool_lot_size, pool_min_size) = pool::pool_book_params(pool);
 
-        // Get the order deep price for the pool
-        let (asset_is_base, deep_per_asset) = get_order_deep_price_params(pool);
+        // Get SUI per DEEP price from reference pool
+        let sui_per_deep = get_sui_per_deep(reference_pool, clock);
         
         // Get balance manager balances
         let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
@@ -242,8 +284,6 @@ module deepbook_wrapper::order {
         estimate_order_requirements_core(
             wrapper_deep_reserves,
             is_pool_whitelisted,
-            asset_is_base,
-            deep_per_asset,
             pool_tick_size,
             pool_lot_size,
             pool_min_size,
@@ -256,7 +296,8 @@ module deepbook_wrapper::order {
             quantity,
             price,
             is_bid,
-            deep_required
+            deep_required,
+            sui_per_deep
         )
     }
 
@@ -361,15 +402,31 @@ module deepbook_wrapper::order {
     /// Takes raw parameters instead of DeepBook objects for improved testability
     /// Evaluates all requirements including DEEP needs, fees, and parameter validation
     /// 
+    /// Parameters:
+    /// - wrapper_deep_reserves: Amount of DEEP available in wrapper reserves
+    /// - is_pool_whitelisted: Whether the pool is whitelisted by DeepBook
+    /// - pool_tick_size: Minimum price increment for orders
+    /// - pool_lot_size: Minimum quantity increment for orders
+    /// - pool_min_size: Minimum order size allowed
+    /// - balance_manager_deep: Amount of DEEP in user's balance manager
+    /// - balance_manager_base: Amount of base tokens in user's balance manager
+    /// - balance_manager_quote: Amount of quote tokens in user's balance manager
+    /// - deep_in_wallet: Amount of DEEP in user's wallet
+    /// - base_in_wallet: Amount of base tokens in user's wallet
+    /// - quote_in_wallet: Amount of quote tokens in user's wallet
+    /// - quantity: Order quantity in base tokens
+    /// - price: Order price in quote tokens per base token
+    /// - is_bid: True for buy orders, false for sell orders
+    /// - deep_required: Amount of DEEP required for the order
+    /// - sui_per_deep: Current SUI/DEEP price from reference pool
+    /// 
     /// Returns a tuple with three values:
     /// - bool: Whether the order can be created with available resources
     /// - u64: Amount of DEEP coins required for the order (if non-whitelisted pool)
-    /// - u64: Estimated fee amount in input coins
+    /// - u64: Estimated fee amount in SUI coins
     public(package) fun estimate_order_requirements_core(
         wrapper_deep_reserves: u64,
         is_pool_whitelisted: bool,
-        asset_is_base: bool,
-        deep_per_asset: u64,
         pool_tick_size: u64,
         pool_lot_size: u64,
         pool_min_size: u64,
@@ -382,7 +439,8 @@ module deepbook_wrapper::order {
         quantity: u64,
         price: u64,
         is_bid: bool,
-        deep_required: u64
+        deep_required: u64,
+        sui_per_deep: u64
     ): (bool, u64, u64) {
         // Get deep plan
         let deep_plan = get_deep_plan(
@@ -403,12 +461,8 @@ module deepbook_wrapper::order {
             is_pool_whitelisted,
             balance_manager_deep,
             deep_in_wallet,
-            quantity,
-            price,
-            is_bid,
-            asset_is_base,
-            deep_per_asset,
-            deep_required
+            deep_required,
+            sui_per_deep
         );
         
         // Validate order parameters
@@ -440,23 +494,39 @@ module deepbook_wrapper::order {
     /// Coordinates all requirements by analyzing available resources and calculating necessary allocations
     /// Creates comprehensive plans for DEEP coins sourcing, fee charging, and input coin deposits
     /// 
+    /// Parameters:
+    /// - is_pool_whitelisted: Whether the pool is whitelisted by DeepBook
+    /// - deep_required: Amount of DEEP required for the order
+    /// - balance_manager_deep: Amount of DEEP in user's balance manager
+    /// - balance_manager_sui: Amount of SUI in user's balance manager
+    /// - balance_manager_input_coin: Amount of input coins (base/quote) in user's balance manager
+    /// - deep_in_wallet: Amount of DEEP in user's wallet
+    /// - sui_in_wallet: Amount of SUI in user's wallet
+    /// - wallet_input_coin: Amount of input coins (base/quote) in user's wallet
+    /// - wrapper_deep_reserves: Amount of DEEP available in wrapper reserves
+    /// - quantity: Order quantity in base tokens
+    /// - price: Order price in quote tokens per base token
+    /// - is_bid: True for buy orders, false for sell orders
+    /// - sui_per_deep: Current SUI/DEEP price from reference pool
+    /// 
     /// Returns a tuple with three structured plans:
     /// - DeepPlan: Coordinates DEEP coin sourcing from user wallet and wrapper reserves
-    /// - FeePlan: Specifies fee coin type, amount, and sources for fee payment
+    /// - FeePlan: Specifies fee amount and sources for SUI fee payment
     /// - InputCoinDepositPlan: Determines how input coins will be sourced for the order
     public(package) fun create_limit_order_core(
         is_pool_whitelisted: bool,
         deep_required: u64,
         balance_manager_deep: u64,
+        balance_manager_sui: u64,
         balance_manager_input_coin: u64,
         deep_in_wallet: u64,
+        sui_in_wallet: u64,
         wallet_input_coin: u64,
         wrapper_deep_reserves: u64,
         quantity: u64,
         price: u64,
         is_bid: bool,
-        asset_is_base: bool,
-        deep_per_asset: u64
+        sui_per_deep: u64
     ): (DeepPlan, FeePlan, InputCoinDepositPlan) {
         // Step 1: Determine DEEP requirements
         let deep_plan = get_deep_plan(
@@ -474,15 +544,10 @@ module deepbook_wrapper::order {
         let fee_plan = get_fee_plan(
             deep_plan.use_wrapper_deep_reserves,
             deep_plan.from_deep_reserves,
-            deep_required,
             is_pool_whitelisted,
-            asset_is_base,
-            deep_per_asset,
-            quantity,
-            price,
-            is_bid,
-            wallet_input_coin,
-            balance_manager_input_coin
+            sui_per_deep,
+            sui_in_wallet,
+            balance_manager_sui
         );
 
         // Step 4: Determine input coin deposit plan
@@ -627,33 +692,33 @@ module deepbook_wrapper::order {
         }
     }
     
-    /// Creates a fee charging plan for order execution - core logic
-    /// Determines fee coin type, amount, and optimal sources for fee payment
-    /// For bid orders, fees are charged in quote coins; for ask orders, in base coins
+    /// Creates a fee charging plan for order execution
+    /// Determines fee amount and optimal sources for fee payment in SUI coins
+    /// 
+    /// Parameters:
+    /// - use_wrapper_deep_reserves: Whether DEEP from wrapper reserves will be used
+    /// - deep_from_reserves: Amount of DEEP to be taken from reserves
+    /// - is_pool_whitelisted: Whether the pool is whitelisted by DeepBook
+    /// - sui_per_deep: Current SUI/DEEP price from reference pool
+    /// - sui_in_wallet: Amount of SUI coins in user's wallet
+    /// - balance_manager_sui: Amount of SUI coins in user's balance manager
     /// 
     /// Returns a FeePlan structure with the following information:
-    /// - fee_coin_type: Coin type for fee charging (0 = no fee, 1 = base coin, 2 = quote coin)
-    /// - fee_amount: Total fee amount to be charged
-    /// - from_user_wallet: Amount of fee to take from user's wallet
-    /// - from_user_balance_manager: Amount of fee to take from user's balance manager
-    /// - user_covers_wrapper_fee: Whether user has enough coins to cover the required fee
+    /// - fee_amount: Total fee amount to be charged in SUI coins
+    /// - from_user_wallet: Amount of SUI to take from user's wallet
+    /// - from_user_balance_manager: Amount of SUI to take from user's balance manager
+    /// - user_covers_wrapper_fee: Whether user has enough SUI to cover the required fee
     public(package) fun get_fee_plan(
         use_wrapper_deep_reserves: bool,
         deep_from_reserves: u64,
-        total_deep_required: u64,
         is_pool_whitelisted: bool,
-        asset_is_base: bool,
-        deep_per_asset: u64,
-        quantity: u64,
-        price: u64,
-        is_bid: bool,
-        wallet_balance: u64,
-        balance_manager_balance: u64
+        sui_per_deep: u64,
+        sui_in_wallet: u64,
+        balance_manager_sui: u64
     ): FeePlan {
         // No fee for whitelisted pools or when not using wrapper DEEP
         if (is_pool_whitelisted || !use_wrapper_deep_reserves) {
             return FeePlan {
-                fee_coin_type: 0,  // No fee
                 fee_amount: 0,
                 from_user_wallet: 0,
                 from_user_balance_manager: 0,
@@ -662,12 +727,11 @@ module deepbook_wrapper::order {
         };
         
         // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
-        let fee_amount = calculate_full_order_fee(quantity, price, is_bid, asset_is_base, deep_per_asset, deep_from_reserves, total_deep_required);
+        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_reserves);
         
         // If no fee, return early
         if (fee_amount == 0) {
             return FeePlan {
-                fee_coin_type: if (is_bid) 2 else 1,  // 1 for base, 2 for quote
                 fee_amount: 0,
                 from_user_wallet: 0,
                 from_user_balance_manager: 0,
@@ -676,11 +740,10 @@ module deepbook_wrapper::order {
         };
 
         // Check if user has enough coins to cover the fee
-        let has_enough = wallet_balance + balance_manager_balance >= fee_amount;
+        let has_enough = sui_in_wallet + balance_manager_sui >= fee_amount;
 
         if (!has_enough) {
             return FeePlan {
-                fee_coin_type: if (is_bid) 2 else 1,  // 1 for base, 2 for quote
                 fee_amount,
                 from_user_wallet: 0,
                 from_user_balance_manager: 0,
@@ -689,10 +752,10 @@ module deepbook_wrapper::order {
         };
         
         // Determine how much to take from wallet vs balance manager
-        let from_wallet = if (wallet_balance >= fee_amount) {
+        let from_wallet = if (sui_in_wallet >= fee_amount) {
             fee_amount
         } else {
-            wallet_balance
+            sui_in_wallet
         };
         
         let from_balance_manager = if (from_wallet < fee_amount) {
@@ -703,7 +766,6 @@ module deepbook_wrapper::order {
         };
         
         FeePlan {
-            fee_coin_type: if (is_bid) 2 else 1,  // 1 for base, 2 for quote
             fee_amount,
             from_user_wallet: from_wallet,
             from_user_balance_manager: from_balance_manager,
@@ -788,20 +850,28 @@ module deepbook_wrapper::order {
         };
     }
     
-    /// Executes the fee charging plan by taking coins from specified sources
+    /// Executes the fee charging plan by taking SUI coins from specified sources
     /// Takes fee coins from user wallet and/or balance manager based on the fee plan
-    /// Supports both base and quote coins depending on the order type (ask/bid)
+    /// All fees are collected in SUI coins and joined to the wrapper's fee balance
+    /// 
+    /// Parameters:
+    /// - wrapper: The DeepBook wrapper instance managing the order process
+    /// - balance_manager: User's balance manager for managing coin deposits
+    /// - sui_coin: SUI coins from user's wallet for fee payment
+    /// - fee_plan: Plan specifying fee amounts and sources
+    /// - ctx: Transaction context for coin operations
     /// 
     /// Steps performed:
-    /// 1. Verifies the user has enough coins to cover required fees
-    /// 2. Takes fee coins from user wallet when specified in the plan
-    /// 3. Takes fee coins from balance manager when needed
+    /// 1. Verifies the user has enough SUI coins to cover required fees
+    /// 2. Takes SUI coins from user wallet when specified in the plan
+    /// 3. Takes SUI coins from balance manager when needed
     /// 4. Joins all collected fees to the wrapper's fee balance
-    fun execute_fee_plan<BaseToken, QuoteToken>(
+    /// 
+    /// Aborts with EInsufficientFeeOrInput if user doesn't have enough SUI to cover fees
+    fun execute_fee_plan(
         wrapper: &mut DeepBookV3RouterWrapper,
         balance_manager: &mut BalanceManager, 
-        base_coin: &mut Coin<BaseToken>,
-        quote_coin: &mut Coin<QuoteToken>,
+        sui_coin: &mut Coin<SUI>,
         fee_plan: &FeePlan,
         ctx: &mut TxContext
     ) {
@@ -815,32 +885,18 @@ module deepbook_wrapper::order {
         
         // Charge fee from wallet if needed
         if (fee_plan.from_user_wallet > 0) {
-            if (fee_plan.fee_coin_type == 1) { // Base coin
-                let fee_coin = coin::split(base_coin, fee_plan.from_user_wallet, ctx);
-                join_fee(wrapper, coin::into_balance(fee_coin));
-            } else if (fee_plan.fee_coin_type == 2) { // Quote coin
-                let fee_coin = coin::split(quote_coin, fee_plan.from_user_wallet, ctx);
-                join_fee(wrapper, coin::into_balance(fee_coin));
-            };
+            let fee_coin = coin::split(sui_coin, fee_plan.from_user_wallet, ctx);
+            join_fee(wrapper, coin::into_balance(fee_coin));
         };
         
         // Charge fee from balance manager if needed
         if (fee_plan.from_user_balance_manager > 0) {
-            if (fee_plan.fee_coin_type == 1) { // Base coin
-                let fee_coin = balance_manager::withdraw<BaseToken>(
-                    balance_manager,
-                    fee_plan.from_user_balance_manager,
-                    ctx
-                );
-                join_fee(wrapper, coin::into_balance(fee_coin));
-            } else if (fee_plan.fee_coin_type == 2) { // Quote coin
-                let fee_coin = balance_manager::withdraw<QuoteToken>(
-                    balance_manager,
-                    fee_plan.from_user_balance_manager,
-                    ctx
-                );
-                join_fee(wrapper, coin::into_balance(fee_coin));
-            };
+            let fee_coin = balance_manager::withdraw<SUI>(
+                balance_manager,
+                fee_plan.from_user_balance_manager,
+                ctx
+            );
+            join_fee(wrapper, coin::into_balance(fee_coin));
         };
     }
 
