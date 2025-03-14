@@ -2,7 +2,7 @@
 name = "deepbook_wrapper"
 version = "0.0.1"
 edition = "2024.beta"
-published-at="0x04f34dd25cd33e46553ceb731a9fa3e955c195b62cf79a5c565c4225cb31667f"
+published-at="0x85f2cfacbd51ba2aa73397531cc7aea73a2ee4cda574926f809d62e088533805"
 
 [dependencies]
 # Local development
@@ -13,5 +13,5 @@ deepbook = { local = "../deepbook", address = "0x2c8d603bc51326b8c13cef9dd07031a
 token = { local = "../token", address = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270" }
 
 [addresses]
-deepbook_wrapper = "0x04f34dd25cd33e46553ceb731a9fa3e955c195b62cf79a5c565c4225cb31667f"
+deepbook_wrapper = "0x85f2cfacbd51ba2aa73397531cc7aea73a2ee4cda574926f809d62e088533805"
 # deepbook_wrapper = "0x0"
