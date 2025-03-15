@@ -2,7 +2,7 @@
 
 [move]
 version = 3
-manifest_digest = "83D6340F21858393A46591235EB78E16C66F71FE20C983D6F4378E8C228E6E94"
+manifest_digest = "143FF2C2AEF625ADA5098A0B78476498B567745AD38D1504A3B403CBC3158A11"
 deps_digest = "060AD7E57DFB13104F21BE5F5C3759D03F0553FC3229247D9A7A6B45F50D03A3"
 dependencies = [
   { id = "Sui", name = "Sui" },
@@ -12,7 +12,7 @@ dependencies = [
 
 [[move.package]]
 id = "MoveStdlib"
-source = { git = "https://github.com/MystenLabs/sui.git", rev = "framework/mainnet", subdir = "crates/sui-framework/packages/move-stdlib" }
+source = { git = "https://github.com/MystenLabs/sui.git", rev = "framework/mainnet", subdir = "crates\\sui-framework\\packages\\move-stdlib" }
 
 [[move.package]]
 id = "Sui"
@@ -24,7 +24,7 @@ dependencies = [
 
 [[move.package]]
 id = "deepbook"
-source = { local = "../deepbook" }
+source = { local = "..\\deepbook" }
 
 dependencies = [
   { id = "Sui", name = "Sui" },
@@ -33,14 +33,14 @@ dependencies = [
 
 [[move.package]]
 id = "token"
-source = { local = "../token" }
+source = { local = "..\\token" }
 
 dependencies = [
   { id = "Sui", name = "Sui" },
 ]
 
 [move.toolchain-version]
-compiler-version = "1.42.2"
+compiler-version = "1.44.3"
 edition = "2024.beta"
 flavor = "sui"
 
@@ -48,6 +48,6 @@ flavor = "sui"
 
 [env.mainnet]
 chain-id = "35834a8a"
-original-published-id = "0x85f2cfacbd51ba2aa73397531cc7aea73a2ee4cda574926f809d62e088533805"
-latest-published-id = "0x85f2cfacbd51ba2aa73397531cc7aea73a2ee4cda574926f809d62e088533805"
+original-published-id = "0x86cfd26fca8ca4dec9bc5ef6b11126b98cdd4ca4a91ea9516ec6ffd94a66336e"
+latest-published-id = "0x86cfd26fca8ca4dec9bc5ef6b11126b98cdd4ca4a91ea9516ec6ffd94a66336e"
 published-version = "1"
