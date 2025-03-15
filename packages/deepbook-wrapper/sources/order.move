@@ -219,6 +219,103 @@ module deepbook_wrapper::order {
         )
     }
 
+    /// Creates a limit order on DeepBook using coins from user's wallet
+    /// This function handles the order creation process for whitelisted pools:
+    /// 1. Verifies the caller owns the balance manager
+    /// 2. Deposits required input coins from the wallet to the balance manager
+    /// 3. Places the order on DeepBook and returns the order info
+    /// 
+    /// Note: This function is optimized for whitelisted pools and doesn't require DEEP tokens
+    /// or additional fee handling since these are not needed for whitelisted pools.
+    /// 
+    /// Parameters:
+    /// - pool: The trading pool where the order will be placed
+    /// - balance_manager: User's balance manager for managing coin deposits
+    /// - base_coin: Base token coins from user's wallet
+    /// - quote_coin: Quote token coins from user's wallet
+    /// - price: Order price in quote tokens per base token
+    /// - quantity: Order quantity in base tokens
+    /// - is_bid: True for buy orders, false for sell orders
+    /// - expire_timestamp: Order expiration timestamp
+    /// - order_type: Type of order (e.g., GTC, IOC, FOK)
+    /// - self_matching_option: Self-matching behavior configuration
+    /// - client_order_id: Client-provided order identifier
+    /// - clock: System clock for timestamp verification
+    public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
+        pool: &mut Pool<BaseToken, QuoteToken>,
+        balance_manager: &mut BalanceManager,
+        mut base_coin: Coin<BaseToken>,
+        mut quote_coin: Coin<QuoteToken>,
+        price: u64,
+        quantity: u64,
+        is_bid: bool,
+        expire_timestamp: u64,
+        order_type: u8,
+        self_matching_option: u8,
+        client_order_id: u64,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ): (deepbook::order_info::OrderInfo) {
+        // Verify the caller owns the balance manager
+        assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+
+        // Extract all the data we need from DeepBook objects
+        let is_pool_whitelisted = pool::whitelisted(pool);
+
+        // Calculate order amount based on order type
+        let order_amount = calculate_order_amount(quantity, price, is_bid);
+
+        // Get balances from balance manager
+        let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
+        let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
+        let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
+        
+        // Get balances from wallet coins
+        let base_in_wallet = coin::value(&base_coin);
+        let quote_in_wallet = coin::value(&quote_coin);
+        let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
+
+        // Step 1: Determine input coin deposit plan
+        let input_coin_deposit_plan = get_input_coin_deposit_plan(
+            order_amount,
+            wallet_input_coin,
+            balance_manager_input_coin
+        );
+
+        // Step 2: Execute input coin deposit plan
+        execute_input_coin_deposit_plan(
+            balance_manager,
+            &mut base_coin,
+            &mut quote_coin,
+            &input_coin_deposit_plan,
+            is_bid,
+            ctx
+        );
+
+        // Step 3:Return unused coins to the caller
+        transfer_if_nonzero(base_coin, tx_context::sender(ctx));
+        transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
+
+        // Step 4: Generate proof and place order
+        let proof = balance_manager::generate_proof_as_owner(balance_manager, ctx);
+        
+        pool::place_limit_order(
+            pool,
+            balance_manager,
+            &proof,
+            client_order_id,
+            order_type,
+            self_matching_option,
+            price,
+            quantity,
+            is_bid,
+            !is_pool_whitelisted, // pay_with_deep is true only if not whitelisted
+            expire_timestamp,
+            clock,
+            ctx
+        )
+    }
+
     // === Public-View Functions ===
     /// Estimates the requirements for creating a limit order on DeepBook
     /// Analyzes available resources and requirements to determine if an order can be created
