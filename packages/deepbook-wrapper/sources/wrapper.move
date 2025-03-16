@@ -1,129 +1,125 @@
-module deepbook_wrapper::wrapper {
-    use sui::balance::{Self, Balance};
-    use sui::coin::{Self, Coin};
-    use sui::bag::{Self, Bag};
-    use token::deep::DEEP;
-    use deepbook_wrapper::admin::AdminCap;
+module deepbook_wrapper::wrapper;
 
-    // === Structs ===
-    /// Main router wrapper struct for DeepBook V3
-    public struct Wrapper has store, key {
-        id: UID,
-        deep_reserves: Balance<DEEP>,
-        charged_fees: Bag,
-    }
-    
-    /// Capability for managing funds in the router
-    public struct FundCup has store, key {
-        id: UID,
-        wrapper_id: ID,
-    }
+use deepbook_wrapper::admin::AdminCap;
+use sui::bag::{Self, Bag};
+use sui::balance::{Self, Balance};
+use sui::coin::{Self, Coin};
+use token::deep::DEEP;
 
-    /// Key struct for storing charged fees by coin type
-    public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
-        dummy_field: bool,
-    }
+// === Structs ===
+/// Main router wrapper struct for DeepBook V3
+public struct Wrapper has key, store {
+    id: UID,
+    deep_reserves: Balance<DEEP>,
+    charged_fees: Bag,
+}
 
-    // === Errors ===
-    /// Error when trying to use a fund capability with a different wrapper than it was created for
-    #[error]
-    const EInvalidFundCap: u64 = 1;
-    
-    // === Public-Mutative Functions ===
-    /// Create a new fund capability for the router
-    public fun create_fund_cap(
-        _admin: &AdminCap,
-        wrapper: &Wrapper,
-        ctx: &mut TxContext
-    ): FundCup {
-        FundCup {
-            id: object::new(ctx),
-            wrapper_id: object::uid_to_inner(&wrapper.id),
-        }
-    }
+/// Capability for managing funds in the router
+public struct FundCup has key, store {
+    id: UID,
+    wrapper_id: ID,
+}
 
-    /// Join DEEP coins into the router's reserves
-    public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
-        balance::join(&mut wrapper.deep_reserves, coin::into_balance(deep_coin));
-    }
+/// Key struct for storing charged fees by coin type
+public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
+    dummy_field: bool,
+}
 
-    /// Withdraw collected fees for a specific coin type
-    public fun withdraw_charged_fee<CoinType>(
-        fund_cap: &FundCup,
-        wrapper: &mut Wrapper,
-        ctx: &mut TxContext
-    ): Coin<CoinType> {
-        assert!(fund_cap.wrapper_id == object::uid_to_inner(&wrapper.id), EInvalidFundCap);
-        
-        let key = ChargedFeeKey<CoinType> { dummy_field: false };
-        if (bag::contains(&wrapper.charged_fees, key)) {
-            coin::from_balance(
-                balance::withdraw_all(
-                    bag::borrow_mut(&mut wrapper.charged_fees, key)
-                ),
-                ctx
-            )
-        } else {
-            coin::zero(ctx)
-        }
-    }
+// === Errors ===
+/// Error when trying to use a fund capability with a different wrapper than it was created for
+#[error]
+const EInvalidFundCap: u64 = 1;
 
-    // === Public-View Functions ===
-    /// Get the value of DEEP in the reserves
-    public fun get_deep_reserves_value(wrapper: &Wrapper): u64 {
-        balance::value(&wrapper.deep_reserves)
+// === Public-Mutative Functions ===
+/// Create a new fund capability for the router
+public fun create_fund_cap(_admin: &AdminCap, wrapper: &Wrapper, ctx: &mut TxContext): FundCup {
+    FundCup {
+        id: object::new(ctx),
+        wrapper_id: object::uid_to_inner(&wrapper.id),
     }
+}
 
-    // === Public-Package Functions ===
-    /// Add collected fees to the wrapper's fee storage
-    public(package) fun join_fee<CoinType>(wrapper: &mut Wrapper, fee: Balance<CoinType>) {
-        if (balance::value(&fee) == 0) {
-            balance::destroy_zero(fee);
-            return
-        };
-        
-        let key = ChargedFeeKey<CoinType> { dummy_field: false };
-        if (bag::contains(&wrapper.charged_fees, key)) {
-            balance::join(
-                bag::borrow_mut(&mut wrapper.charged_fees, key),
-                fee
-            );
-        } else {
-            bag::add(&mut wrapper.charged_fees, key, fee);
-        };
-    }
+/// Join DEEP coins into the router's reserves
+public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
+    balance::join(&mut wrapper.deep_reserves, coin::into_balance(deep_coin));
+}
 
-    /// Get the splitted DEEP coin from the reserves
-    public(package) fun split_deep_reserves(
-      wrapper: &mut Wrapper,
-      amount: u64,
-      ctx: &mut TxContext
-    ): Coin<DEEP> {
+/// Withdraw collected fees for a specific coin type
+public fun withdraw_charged_fee<CoinType>(
+    fund_cap: &FundCup,
+    wrapper: &mut Wrapper,
+    ctx: &mut TxContext,
+): Coin<CoinType> {
+    assert!(fund_cap.wrapper_id == object::uid_to_inner(&wrapper.id), EInvalidFundCap);
+
+    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    if (bag::contains(&wrapper.charged_fees, key)) {
         coin::from_balance(
-            balance::split(&mut wrapper.deep_reserves, amount),
-            ctx
+            balance::withdraw_all(
+                bag::borrow_mut(&mut wrapper.charged_fees, key),
+            ),
+            ctx,
         )
+    } else {
+        coin::zero(ctx)
     }
-    
-    // === Private Functions ===
-    /// Initialize the wrapper module
-    fun init(ctx: &mut TxContext) {
-        let wrapper = Wrapper {
-            id: object::new(ctx),
-            deep_reserves: balance::zero(),
-            charged_fees: bag::new(ctx),
-        };
+}
 
-        // Create a fund capability for the deployer
-        let fund_cap = FundCup {
-            id: object::new(ctx),
-            wrapper_id: object::uid_to_inner(&wrapper.id),
-        };
+// === Public-View Functions ===
+/// Get the value of DEEP in the reserves
+public fun get_deep_reserves_value(wrapper: &Wrapper): u64 {
+    balance::value(&wrapper.deep_reserves)
+}
 
-        // Share the wrapper object
-        transfer::share_object(wrapper);
+// === Public-Package Functions ===
+/// Add collected fees to the wrapper's fee storage
+public(package) fun join_fee<CoinType>(wrapper: &mut Wrapper, fee: Balance<CoinType>) {
+    if (balance::value(&fee) == 0) {
+        balance::destroy_zero(fee);
+        return
+    };
 
-        // Transfer the fund capability to the transaction sender
-        transfer::transfer(fund_cap, tx_context::sender(ctx));
-    }
+    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    if (bag::contains(&wrapper.charged_fees, key)) {
+        balance::join(
+            bag::borrow_mut(&mut wrapper.charged_fees, key),
+            fee,
+        );
+    } else {
+        bag::add(&mut wrapper.charged_fees, key, fee);
+    };
+}
+
+/// Get the splitted DEEP coin from the reserves
+public(package) fun split_deep_reserves(
+    wrapper: &mut Wrapper,
+    amount: u64,
+    ctx: &mut TxContext,
+): Coin<DEEP> {
+    coin::from_balance(
+        balance::split(&mut wrapper.deep_reserves, amount),
+        ctx,
+    )
+}
+
+// === Private Functions ===
+/// Initialize the wrapper module
+fun init(ctx: &mut TxContext) {
+    let wrapper = Wrapper {
+        id: object::new(ctx),
+        deep_reserves: balance::zero(),
+        charged_fees: bag::new(ctx),
+    };
+
+    // Create a fund capability for the deployer
+    let fund_cap = FundCup {
+        id: object::new(ctx),
+        wrapper_id: object::uid_to_inner(&wrapper.id),
+    };
+
+    // Share the wrapper object
+    transfer::share_object(wrapper);
+
+    // Transfer the fund capability to the transaction sender
+    transfer::transfer(fund_cap, tx_context::sender(ctx));
 }
