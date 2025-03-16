@@ -1,17 +1,19 @@
 [package]
 name = "deepbook_wrapper"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024.beta"
-
+published-at="0x0df4a02964a418b406504ecd8fa976025df14022e6c6f4b544372e9098c6395b"
 
 [dependencies]
-# Local development
-# Sui = { local = "../../../sui/crates/sui-framework/packages/sui-framework" }
 # Mainnet version
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
 deepbook = { local = "../deepbook", address = "0x2c8d603bc51326b8c13cef9dd07031a408a48dddb541963357661df5d3204809" }
 token = { local = "../token", address = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270" }
 
+# DeepBook V3 dependencies with specific commit
+# deepbook = { git = "https://github.com/MystenLabs/deepbookv3.git", subdir = "packages/deepbook", rev = "197b5339e69fb95ffce64994869b1b61dcb56c8d" }
+# token = { git = "https://github.com/MystenLabs/deepbookv3.git", subdir = "packages/token", rev = "197b5339e69fb95ffce64994869b1b61dcb56c8d" }
+
 [addresses]
-deepbook_wrapper = "0xe8bbc1cbc9fa45076ec6dfc5be186851cec16571a35ec946468376a7cdc23e40"
+deepbook_wrapper = "0x0df4a02964a418b406504ecd8fa976025df14022e6c6f4b544372e9098c6395b"
 # deepbook_wrapper = "0x0"

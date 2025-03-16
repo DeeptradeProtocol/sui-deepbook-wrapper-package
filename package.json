@@ -1,7 +1,7 @@
 {
   "name": "sui-deepbook-wrapper-contract",
   "version": "1.0.0",
-  "description": "DeepBook V3 wrapper that manages DEEP token fees and collects trading fees from swaps.",
+  "description": "Deepbook wrapper that manages DEEP token fees and collects trading fees from swaps",
   "main": "index.js",
   "directories": {
     "example": "examples"
@@ -9,7 +9,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "avernikoz",
+  "author": "avernikoz@gmail.com",
   "license": "ISC",
   "dependencies": {
     "@mysten/sui": "^1.21.2"
