@@ -3,7 +3,7 @@ module deepbook_wrapper::swap {
     use sui::clock::Clock;
     use deepbook::pool::{Self, Pool};
     use deepbook_wrapper::wrapper::{
-      DeepBookV3RouterWrapper,
+      Wrapper,
       join_fee, join,
       get_deep_reserves_value,
       split_deep_reserves
@@ -14,7 +14,7 @@ module deepbook_wrapper::swap {
     // === Public-Mutative Functions ===
     /// Swap exact base token amount for quote tokens
     public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
-        wrapper: &mut DeepBookV3RouterWrapper,
+        wrapper: &mut Wrapper,
         pool: &mut Pool<BaseToken, QuoteToken>,
         base_in: Coin<BaseToken>,
         min_quote_out: u64,
@@ -49,7 +49,7 @@ module deepbook_wrapper::swap {
     
     /// Swap exact quote token amount for base tokens
     public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
-        wrapper: &mut DeepBookV3RouterWrapper,
+        wrapper: &mut Wrapper,
         pool: &mut Pool<BaseToken, QuoteToken>,
         quote_in: Coin<QuoteToken>,
         min_base_out: u64,

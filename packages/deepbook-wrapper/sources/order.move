@@ -7,7 +7,7 @@ module deepbook_wrapper::order {
     use deepbook::pool::{Self, Pool};
     use deepbook::balance_manager::{Self, BalanceManager};
     use deepbook_wrapper::wrapper::{
-      DeepBookV3RouterWrapper,
+      Wrapper,
       join_fee,
       get_deep_reserves_value,
       split_deep_reserves
@@ -100,7 +100,7 @@ module deepbook_wrapper::order {
     /// - client_order_id: Client-provided order identifier
     /// - clock: System clock for timestamp verification
     public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
-        wrapper: &mut DeepBookV3RouterWrapper,
+        wrapper: &mut Wrapper,
         pool: &mut Pool<BaseToken, QuoteToken>,
         reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
         balance_manager: &mut BalanceManager,
@@ -330,7 +330,7 @@ module deepbook_wrapper::order {
     /// - u64: Amount of DEEP coins required for the order (if non-whitelisted pool)
     /// - u64: Estimated fee amount in SUI coins
     public fun estimate_order_requirements<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
-        wrapper: &DeepBookV3RouterWrapper,
+        wrapper: &Wrapper,
         pool: &Pool<BaseToken, QuoteToken>,
         reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
         balance_manager: &BalanceManager,
@@ -390,7 +390,7 @@ module deepbook_wrapper::order {
     /// - bool: Whether wrapper DEEP reserves will be used for this order
     /// - bool: Whether the wrapper has sufficient DEEP reserves to cover the order needs
     public fun will_use_wrapper_deep_reserves<BaseToken, QuoteToken>(
-        wrapper: &DeepBookV3RouterWrapper,
+        wrapper: &Wrapper,
         pool: &Pool<BaseToken, QuoteToken>,
         balance_manager: &BalanceManager,
         deep_in_wallet: u64,
@@ -907,7 +907,7 @@ module deepbook_wrapper::order {
     /// 3. Takes DEEP coins from wrapper reserves when needed
     /// 4. Deposits all acquired DEEP coins to the balance manager
     fun execute_deep_plan(
-        wrapper: &mut DeepBookV3RouterWrapper,
+        wrapper: &mut Wrapper,
         balance_manager: &mut BalanceManager,
         deep_coin: &mut Coin<DEEP>,
         deep_plan: &DeepPlan,
@@ -951,7 +951,7 @@ module deepbook_wrapper::order {
     /// 
     /// Aborts with EInsufficientFeeOrInput if user doesn't have enough SUI to cover fees
     fun execute_fee_plan(
-        wrapper: &mut DeepBookV3RouterWrapper,
+        wrapper: &mut Wrapper,
         balance_manager: &mut BalanceManager, 
         sui_coin: &mut Coin<SUI>,
         fee_plan: &FeePlan,
