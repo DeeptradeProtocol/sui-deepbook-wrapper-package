@@ -1,46 +1,87 @@
 # sui-deepbook-wrapper-contract
-DeepBook V3 wrapper that manages DEEP token fees and collects trading fees from swaps.
 
-## Fee Collection Design
+DeepBook V3 wrapper that manages DEEP coin fees and collects trading fees from swaps and orders.
+
+## System Design
 
 ### Overview
-The DeepBook wrapper collects fees in the native token of each trade (base token for quote→base swaps, quote token for base→quote swaps).
-These fees are stored in a `Bag` data structure, organized by token type.
+
+The DeepBook wrapper provides two main functionalities:
+
+1. Swap facilitation with fee collection in native coins
+2. Order creation support with DEEP coin provision and SUI-based fee collection
+
+### Swap System
+
+The wrapper collects fees in the native coin of each trade (base coin for quote→base swaps, quote coin for base→quote swaps).
+These fees are stored in a `Bag` data structure, organized by coin type.
+
+### Order System
+
+The wrapper provides DEEP coins from its reserves when users need additional DEEP to cover DeepBook's native fees. This service is only needed when:
+
+- The pool is not whitelisted by DeepBook (whitelisted pools don't require DEEP)
+- The user doesn't have enough DEEP in their wallet or balance manager
+
+## Fee Structure
+
+### Order Fees
+
+The wrapper implements a two-tier fee structure for orders:
+
+1. **Deep Reserves Coverage Fee**
+
+   - Only applies when users borrow DEEP from wrapper reserves
+   - Charged in SUI coins
+   - Amount equals the value of borrowed DEEP coins
+   - Not charged if user has sufficient DEEP or uses whitelisted pools
+
+2. **Protocol Fee**
+   - 1% of the Deep Reserves Coverage Fee
+   - Only applies when Deep Reserves Coverage Fee is charged
+   - Collected in SUI coins
+
+### Fee Exemptions
+
+No fees are charged when:
+
+- User has sufficient DEEP in their wallet or balance manager
+- Trading on pools whitelisted by DeepBook (which don't require DEEP)
 
 ### Design Considerations
 
-- **Fee Storage**: Fees are stored by token type in a Bag data structure
-- **Access Pattern**: Direct access by token type when withdrawing fees
-- **Admin Operations**: Only the admin (when withdrawing fees) might experience slightly higher gas costs as the number of token types grows significantly
-- **DEEP Token Usage**: The wrapper withdraws all available DEEP tokens for each trade, returning unused tokens afterward.
-
-
-### Future Optimizations
-
-While the current implementation is sufficient for current use cases, potential future optimizations could include:
-
-- Periodic consolidation of small fee balances (e.g., bot which would run the withdraw function for small balances, swap to DEEP, and top up wrapper using join method)
-- Selective DEEP withdrawal - only taking the estimated amount needed for each trade instead of the entire wrapper's DEEP reserve
-
-The first optimization would only become necessary if DeepBook transitions to permissionless pool creation AND the ecosystem grows to support thousands of token types with active trading. Given that DeepBook pools are currently permissioned, this is not an immediate concern.
+- **Fee Collection**: Swap fees are collected in native coins of the trade, while order fees are collected in SUI coins
+- **DEEP Usage**: The wrapper provides DEEP only when necessary, optimizing for user convenience and system efficiency
+- **Whitelisted Pools**: Zero-fee operations for whitelisted pools encourage liquidity provision on strategic venues
 
 ## Economic Considerations
 
 ### DEEP Treasury Sustainability
 
-The wrapper provides DEEP tokens from its treasury for trades on non-whitelisted pools, while collecting fees in the traded tokens. This creates a potential economic risk:
+The wrapper maintains a DEEP coin treasury to support both order creation and swaps on non-whitelisted pools. Key economic factors:
 
-- **Risk**: High volume of low-value token trades could deplete the DEEP treasury faster than the collected fees can replenish it (when converted back to DEEP)
-- **Impact**: The wrapper could become economically unsustainable if the value of consumed DEEP exceeds the value of collected fees
+- **Revenue Streams**:
+  - Swap fees in native traded coins
+  - Order fees in SUI coins
+- **Cost Coverage**: Deep Reserves Coverage Fee ensures the wrapper can replenish its DEEP treasury
+- **Protocol Growth**: Protocol Fee – 1% of Deep Reserves Coverage Fee – supports ongoing development and maintenance
 
-### Potential Mitigations
+### Risk Management
 
-Several approaches could address this economic risk:
+Several mechanisms ensure economic sustainability:
 
-1. **Token Whitelisting**: Limit wrapper usage to specific tokens with sufficient value and liquidity
-2. **Dynamic Fee Structure**: Implement variable fees based on token liquidity, value, or historical usage patterns
-3. **DEEP Usage Limits**: Set caps on DEEP consumption per token type or per time period
-4. **Value-Based Fee Model**: Use oracles to charge fees based on the USD value of trades rather than token quantity
-5. **Monitoring & Governance**: Implement monitoring systems and governance mechanisms to adjust parameters or pause support for problematic tokens
+1. **Value-Equivalent Fees**: Deep Reserves Coverage Fee matches the value of provided DEEP
+2. **Selective DEEP Provision**: DEEP only provided when necessary
+3. **Whitelisted Pool Optimization**: Zero-fee operations for strategically important pools
+4. **Multi-Coin Treasury**: Diversified fee collection in both native coins (swaps) and SUI coins (orders)
 
-The initial deployment will focus on supporting established tokens while monitoring economic patterns to ensure long-term sustainability.
+### Future Optimizations
+
+Potential future enhancements could include:
+
+1. **Dynamic Fee Structure**: Adjust fees based on market conditions and DEEP availability
+2. **Advanced Treasury Management**: Automated DEEP replenishment strategies
+3. **Enhanced Pool Whitelisting**: Strategic pool selection for zero-fee trading
+4. **Monitoring Systems**: Real-time tracking of DEEP usage and fee collection
+
+The current implementation provides a solid foundation for sustainable operations while maintaining flexibility for future improvements.
