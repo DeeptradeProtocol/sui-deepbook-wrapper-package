@@ -26,7 +26,9 @@ module deepbook_wrapper::fee {
     /// 
     /// Returns:
     /// - u64: The estimated total fee in SUI coins
-    ///   Returns 0 for whitelisted pools or when user provides all required DEEP
+    /// - u64: Deep reserves coverage fee
+    /// - u64: Protocol fee
+    ///   Returns (0, 0, 0) for whitelisted pools or when user provides all required DEEP
     public fun estimate_full_fee<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
         pool: &Pool<BaseToken, QuoteToken>,
         reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -35,7 +37,7 @@ module deepbook_wrapper::fee {
         quantity: u64,
         price: u64,
         clock: &Clock
-    ): u64 {
+    ): (u64, u64, u64) {
         // Check if pool is whitelisted
         let is_pool_whitelisted = pool::whitelisted(pool);
 
@@ -69,7 +71,9 @@ module deepbook_wrapper::fee {
     /// 
     /// Returns:
     /// - u64: The total fee in SUI coins
-    ///   Returns 0 for whitelisted pools or when user provides all required DEEP
+    /// - u64: Deep reserves coverage fee
+    /// - u64: Protocol fee
+    ///   Returns (0, 0, 0) for whitelisted pools or when user provides all required DEEP
     /// 
     /// Fee consists of two components when using wrapper DEEP reserves:
     /// 1. Deep reserves coverage fee: Cost of DEEP being borrowed
@@ -80,12 +84,12 @@ module deepbook_wrapper::fee {
         deep_in_wallet: u64,
         deep_required: u64,
         sui_per_deep: u64
-    ): u64 {
+    ): (u64, u64, u64) {
         // Determine if user needs to use wrapper DEEP reserves
         let will_use_wrapper_deep = balance_manager_deep + deep_in_wallet < deep_required;
 
         if (is_pool_whitelisted || !will_use_wrapper_deep) {
-            0 // No fee for whitelisted pools or when user provides all DEEP
+            (0, 0, 0) // No fee for whitelisted pools or when user provides all DEEP
         } else {
             // Calculate the amount of DEEP to take from reserves
             let deep_from_reserves = deep_required - balance_manager_deep - deep_in_wallet;
@@ -104,6 +108,8 @@ module deepbook_wrapper::fee {
     /// 
     /// Returns:
     /// - u64: Total fee amount in SUI coins (reserves coverage fee + protocol fee)
+    /// - u64: Deep reserves coverage fee
+    /// - u64: Protocol fee
     /// 
     /// The total fee consists of:
     /// 1. Deep reserves coverage fee: SUI equivalent of borrowed DEEP
@@ -111,7 +117,7 @@ module deepbook_wrapper::fee {
     public(package) fun calculate_full_order_fee(
         sui_per_deep: u64,
         deep_from_reserves: u64
-    ): u64 {
+    ): (u64, u64, u64) {
         // Calculate the deep reserves coverage fee
         let deep_reserves_coverage_fee = calculate_deep_reserves_coverage_order_fee(
             sui_per_deep,
@@ -123,8 +129,10 @@ module deepbook_wrapper::fee {
             sui_per_deep,
             deep_from_reserves
         );
+
+        let total_fee = deep_reserves_coverage_fee + protocol_fee;
         
-        deep_reserves_coverage_fee + protocol_fee
+        (total_fee, deep_reserves_coverage_fee, protocol_fee)
     }
 
     /// Calculates the fee for using DEEP from wrapper reserves

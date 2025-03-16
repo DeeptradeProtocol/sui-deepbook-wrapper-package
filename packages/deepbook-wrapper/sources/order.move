@@ -543,7 +543,7 @@ module deepbook_wrapper::order {
         };
         
         // Calculate fee
-        let fee_estimate = estimate_full_order_fee_core(
+        let (fee_estimate, _, _) = estimate_full_order_fee_core(
             is_pool_whitelisted,
             balance_manager_deep,
             deep_in_wallet,
@@ -813,7 +813,7 @@ module deepbook_wrapper::order {
         };
         
         // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
-        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_reserves);
+        let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_reserves);
         
         // If no fee, return early
         if (fee_amount == 0) {
