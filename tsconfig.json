@@ -14,5 +14,5 @@
     "allowJs": true,
   },
   "compileOnSave": true,
-  "include": ["src", ".eslintrc.js", "examples", "tests", "jest.config.js"],
+  "include": ["examples", "tsconfig.json"],
 }
