@@ -16,13 +16,13 @@ The wrapper acts as an intermediary, managing all DEEP-related fee operations.
 
 ### Swaps
 
-The wrapper provides DEEP coins from its reserves each time user does a swap.
+The Deepbook Wrapper provides DEEP coins from its reserves each time user does a swap.
 The wrapper collects fees in the output coin of each trade (base coin for quote→base swaps, quote coin for base→quote swaps) to cover provided DEEP coins from reserves.
 These fees are stored in a `Bag` data structure, organized by `coinType`.
 
 ### Orders
 
-The wrapper provides DEEP coins from its reserves only when user needs additional DEEP to cover DeepBook's native fees during order placement. When the pool is whitelisted by DeepBook, the wrapper doesn't provide any DEEP, since such pools doesn't have DEEP fees.
+The Deepbook Wrapper provides DEEP coins from its reserves only when user needs additional DEEP to cover DeepBook's native fees during order placement. When the pool is whitelisted by DeepBook, the wrapper doesn't provide any DEEP, since such pools doesn't have DEEP fees.
 Also, if user has enough DEEP in their wallet or balance manager, the wrapper doesn't provide any DEEP.
 
 ## Fee Structure
@@ -34,7 +34,7 @@ The Deepbook Wrapper charges a fee on each swap in the output coin of the swap. 
 ### Order Fees
 
 DeepBook protocol requires DEEP coins as a fees for order placement, the fees calculated based on order price and size. 
-The Wrapper handles these fees in two ways:
+The Deepbook Wrapper handles these fees in two ways:
 
 1. **If user has enough DEEP to cover the order fees**: No additional fees are charged. DEEP coins are provided from the user's wallet balance.
 
@@ -52,13 +52,13 @@ For whitelisted pools, there is no DEEP fees, so no fees are charged.
 
 ## Economic Considerations
 
-### DEEP Treasury Sustainability
+### DEEP Reserves Sustainability
 
 #### Swap Fees
-The wrapper provides DEEP tokens from its treasury for trades on non-whitelisted pools, while collecting fees in the traded tokens. This creates a potential economic risk:
+The Deepbook Wrapper provides DEEP tokens from its reserves for trades on non-whitelisted pools, while collecting fees in the traded tokens. This creates a potential economic risk:
 
-- **Risk**: High volume of low-value token trades could deplete the DEEP treasury faster than the collected fees can replenish it (when converted back to DEEP)
-- **Impact**: The wrapper could become economically unsustainable if the value of consumed DEEP exceeds the value of collected fees
+- **Risk**: High volume of low-value token trades could deplete the DEEP reserves faster than the collected fees can replenish it (when converted back to DEEP)
+- **Impact**: The Deepbook Wrapper could become economically unsustainable if the value of consumed DEEP exceeds the value of collected fees
 
 Several approaches could address this economic risk:
 1. **Token Whitelisting**: Limit wrapper usage to specific tokens with sufficient value and liquidity
@@ -67,7 +67,7 @@ Several approaches could address this economic risk:
 However, this would only become necessary if DeepBook transitions to permissionless pool creation AND the ecosystem grows to support thousands of token types with active trading. Given that DeepBook pools are currently permissioned, this is not an immediate concern.
 
 #### Order Fees
-The wrapper's order fee structure has minimal economic risk. By collecting fees in SUI, we maintain a stable and liquid asset for treasury management. Since reserve coverage fees directly match the DEEP amount needed, there's a fair value exchange. The additional 1% protocol fee helps cover operational costs and treasury maintenance.
+The Deepbook Wrapper's order fee structure has minimal economic risk. By collecting fees in SUI, we maintain a stable and liquid asset for reserves management. Since reserve coverage fees directly match the DEEP amount needed, there's a fair value exchange. The additional 1% protocol fee helps cover operational costs and reserves maintenance.
 
 ## License
 
