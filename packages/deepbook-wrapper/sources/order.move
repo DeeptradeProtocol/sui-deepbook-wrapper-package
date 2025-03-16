@@ -6,7 +6,6 @@ module deepbook_wrapper::order {
     use deepbook_wrapper::math;
     use deepbook::pool::{Self, Pool};
     use deepbook::balance_manager::{Self, BalanceManager};
-    use deepbook_wrapper::whitelisted_pools::{Self, WhitelistRegistry};
     use deepbook_wrapper::wrapper::{
       DeepBookV3RouterWrapper,
       join_fee,
@@ -106,7 +105,6 @@ module deepbook_wrapper::order {
     /// - clock: System clock for timestamp verification
     public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
         wrapper: &mut DeepBookV3RouterWrapper,
-        whitelisted_pools_registry: &WhitelistRegistry,
         pool: &mut Pool<BaseToken, QuoteToken>,
         reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
         balance_manager: &mut BalanceManager,
@@ -126,9 +124,6 @@ module deepbook_wrapper::order {
     ): (deepbook::order_info::OrderInfo) {
         // Verify the caller owns the balance manager
         assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
-
-        // Verify the pool is whitelisted by our protocol
-        assert!(whitelisted_pools::is_pool_whitelisted(whitelisted_pools_registry, pool), ENotWhitelistedPool);
 
         // Get SUI per DEEP price from reference pool
         let sui_per_deep = get_sui_per_deep(reference_pool, clock);
@@ -340,7 +335,6 @@ module deepbook_wrapper::order {
     /// - u64: Estimated fee amount in SUI coins
     public fun estimate_order_requirements<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
         wrapper: &DeepBookV3RouterWrapper,
-        whitelisted_pools_registry: &WhitelistRegistry,
         pool: &Pool<BaseToken, QuoteToken>,
         reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
         balance_manager: &BalanceManager,
@@ -352,11 +346,6 @@ module deepbook_wrapper::order {
         is_bid: bool,
         clock: &Clock
     ): (bool, u64, u64) {
-        // Verify the pool is whitelisted by our protocol. If not, the order can't be created
-        if (!whitelisted_pools::is_pool_whitelisted(whitelisted_pools_registry, pool)) {
-            return (false, 0, 0)
-        };
-
         // Get wrapper deep reserves
         let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
         
