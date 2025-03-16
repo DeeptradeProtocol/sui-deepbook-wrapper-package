@@ -1,87 +1,76 @@
-# sui-deepbook-wrapper-contract
+# Deepbook Wrapper
 
-DeepBook V3 wrapper that manages DEEP coin fees and collects trading fees from swaps and orders.
+The Deepbook Wrapper is a "wrapper" package for DeepBook V3 that enables trading without requiring users to hold DEEP coins.
+
+## Overview
+
+This wrapper simplifies the trading experience by automatically handling DEEP coin requirements:
+
+- **Swaps**: Covers DEEP fees from reserves in exchange for a portion of output tokens
+- **Orders**: Covers DEEP fees from reserves in exchange for a portion of user's SUI
+
+The wrapper acts as an intermediary, managing all DEEP-related fee operations.
+
 
 ## System Design
 
-### Overview
+### Swaps
 
-The DeepBook wrapper provides two main functionalities:
+The wrapper provides DEEP coins from its reserves each time user does a swap.
+The wrapper collects fees in the output coin of each trade (base coin for quote→base swaps, quote coin for base→quote swaps) to cover provided DEEP coins from reserves.
+These fees are stored in a `Bag` data structure, organized by `coinType`.
 
-1. Swap facilitation with fee collection in native coins
-2. Order creation support with DEEP coin provision and SUI-based fee collection
+### Orders
 
-### Swap System
-
-The wrapper collects fees in the native coin of each trade (base coin for quote→base swaps, quote coin for base→quote swaps).
-These fees are stored in a `Bag` data structure, organized by coin type.
-
-### Order System
-
-The wrapper provides DEEP coins from its reserves when users need additional DEEP to cover DeepBook's native fees. This service is only needed when:
-
-- The pool is not whitelisted by DeepBook (whitelisted pools don't require DEEP)
-- The user doesn't have enough DEEP in their wallet or balance manager
+The wrapper provides DEEP coins from its reserves only when user needs additional DEEP to cover DeepBook's native fees during order placement. When the pool is whitelisted by DeepBook, the wrapper doesn't provide any DEEP, since such pools doesn't have DEEP fees.
+Also, if user has enough DEEP in their wallet or balance manager, the wrapper doesn't provide any DEEP.
 
 ## Fee Structure
 
+### Swap Fees
+
+The Deepbook Wrapper charges a fee on each swap in the output coin of the swap. The fee structure directly mirrors DeepBook's `taker_fee` parameter, which is set and controlled by DeepBook governance (currently 0.01% for stablecoin pools and 0.1% for other pools). The Wrapper simply adopts these rates without modification.
+
 ### Order Fees
 
-The wrapper implements a two-tier fee structure for orders:
+DeepBook protocol requires DEEP coins as a fees for order placement, the fees calculated based on order price and size. 
+The Wrapper handles these fees in two ways:
 
-1. **Deep Reserves Coverage Fee**
+1. **If user has enough DEEP to cover the order fees**: No additional fees are charged. DEEP coins are provided from the user's wallet balance.
 
-   - Only applies when users borrow DEEP from wrapper reserves
-   - Charged in SUI coins
-   - Amount equals the value of borrowed DEEP coins
-   - Not charged if user has sufficient DEEP or uses whitelisted pools
+2. **If user needs DEEP to cover the order fees**: Two fees apply when borrowing DEEP from Wrapper reserves:
+   - **DEEP Reserve Coverage Fee**: Equal to the required DEEP amount converted to SUI value; paid in SUI coins;
+   - **Protocol Fee**: 1% of the reserve coverage fee; paid in SUI coin.
 
-2. **Protocol Fee**
-   - 1% of the Deep Reserves Coverage Fee
-   - Only applies when Deep Reserves Coverage Fee is charged
-   - Collected in SUI coins
+**Fee Scaling**: The more DEEP a user has in their wallet, the lower the fees:
+- When user has all DEEP required for order: 0% reserve coverage fee + 0% protocol fee
+- When user has partial DEEP required: reserve coverage fee + 1% protocol fee
+- When user has no DEEP: reserve coverage fee + 1% protocol fee
 
-### Fee Exemptions
-
-No fees are charged when:
-
-- User has sufficient DEEP in their wallet or balance manager
-- Trading on pools whitelisted by DeepBook (which don't require DEEP)
-
-### Design Considerations
-
-- **Fee Collection**: Swap fees are collected in native coins of the trade, while order fees are collected in SUI coins
-- **DEEP Usage**: The wrapper provides DEEP only when necessary, optimizing for user convenience and system efficiency
-- **Whitelisted Pools**: Zero-fee operations for whitelisted pools encourage liquidity provision on strategic venues
+This structure incentivizes users to hold DEEP coins while ensuring trading accessibility for everyone.
+For whitelisted pools, there is no DEEP fees, so no fees are charged.
 
 ## Economic Considerations
 
 ### DEEP Treasury Sustainability
 
-The wrapper maintains a DEEP coin treasury to support both order creation and swaps on non-whitelisted pools. Key economic factors:
+#### Swap Fees
+The wrapper provides DEEP tokens from its treasury for trades on non-whitelisted pools, while collecting fees in the traded tokens. This creates a potential economic risk:
 
-- **Revenue Streams**:
-  - Swap fees in native traded coins
-  - Order fees in SUI coins
-- **Cost Coverage**: Deep Reserves Coverage Fee ensures the wrapper can replenish its DEEP treasury
-- **Protocol Growth**: Protocol Fee – 1% of Deep Reserves Coverage Fee – supports ongoing development and maintenance
+- **Risk**: High volume of low-value token trades could deplete the DEEP treasury faster than the collected fees can replenish it (when converted back to DEEP)
+- **Impact**: The wrapper could become economically unsustainable if the value of consumed DEEP exceeds the value of collected fees
 
-### Risk Management
+Several approaches could address this economic risk:
+1. **Token Whitelisting**: Limit wrapper usage to specific tokens with sufficient value and liquidity
+2. **SUI-based Fees**: Collect swap fees in SUI instead of output tokens, matching the order fee model
 
-Several mechanisms ensure economic sustainability:
+However, this would only become necessary if DeepBook transitions to permissionless pool creation AND the ecosystem grows to support thousands of token types with active trading. Given that DeepBook pools are currently permissioned, this is not an immediate concern.
 
-1. **Value-Equivalent Fees**: Deep Reserves Coverage Fee matches the value of provided DEEP
-2. **Selective DEEP Provision**: DEEP only provided when necessary
-3. **Whitelisted Pool Optimization**: Zero-fee operations for strategically important pools
-4. **Multi-Coin Treasury**: Diversified fee collection in both native coins (swaps) and SUI coins (orders)
+#### Order Fees
+The wrapper's order fee structure has minimal economic risk. By collecting fees in SUI, we maintain a stable and liquid asset for treasury management. Since reserve coverage fees directly match the DEEP amount needed, there's a fair value exchange. The additional 1% protocol fee helps cover operational costs and treasury maintenance.
 
-### Future Optimizations
+## License
 
-Potential future enhancements could include:
+This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
 
-1. **Dynamic Fee Structure**: Adjust fees based on market conditions and DEEP availability
-2. **Advanced Treasury Management**: Automated DEEP replenishment strategies
-3. **Enhanced Pool Whitelisting**: Strategic pool selection for zero-fee trading
-4. **Monitoring Systems**: Real-time tracking of DEEP usage and fee collection
-
-The current implementation provides a solid foundation for sustainable operations while maintaining flexibility for future improvements.
+This tool uses several dependencies from [Mysten Labs](https://github.com/MystenLabs/sui), which are licensed under Apache-2.0.
