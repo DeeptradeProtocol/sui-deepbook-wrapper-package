@@ -11,11 +11,9 @@ module deepbook_wrapper::create_limit_order_core_tests {
     };
     use deepbook_wrapper::helper::{calculate_order_amount};
     use deepbook_wrapper::fee::{calculate_full_order_fee};
-    use std::debug::print;
 
     // ===== Constants =====
     // Token amounts
-    const AMOUNT_TINY: u64 = 100;                  // 100
     const AMOUNT_SMALL: u64 = 1_000;               // 1,000
     const AMOUNT_MEDIUM: u64 = 1_000_000;          // 1 million
     const AMOUNT_LARGE: u64 = 1_000_000_000;       // 1 billion
@@ -166,7 +164,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid);
-        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+        let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
         
         // For this test case we expect:
         // 1. DEEP: All from wallet and balance manager + some from wrapper
@@ -300,7 +298,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid);
-        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+        let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
         
         // Set up a scenario where fees need to come from both sources
         let fee_from_wallet = fee_amount / 2;
@@ -492,7 +490,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
 
         // Calculate expected values
         let order_amount = calculate_order_amount(quantity, price, is_bid);
-        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+        let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
         
         // Set up SUI balances to cover fees
         let balance_manager_sui = 0;
@@ -812,7 +810,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - balance_manager_deep;
         
         // Calculate fee for wrapper DEEP usage
-        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+        let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
         
         let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
             is_pool_whitelisted,
@@ -872,7 +870,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - deep_in_wallet;
 
         // Calculate fee for wrapper DEEP usage
-        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+        let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
         
         // All resources from wallet
         let sui_in_wallet = fee_amount;
@@ -1051,7 +1049,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         
         // Calculate fee for wrapper DEEP usage
-        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+        let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
         
         // Wallet has enough for fees but not enough for the deposit
         let sui_in_wallet = fee_amount;
@@ -1114,7 +1112,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
         
         // Calculate fee for wrapper DEEP usage
-        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+        let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
         
         // Set up SUI and input coin balances
         let sui_in_wallet = fee_amount;
@@ -1176,7 +1174,7 @@ module deepbook_wrapper::create_limit_order_core_tests {
         let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
 
         // Calculate fee for wrapper DEEP usage
-        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+        let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
         
         // Important: Make sure wallet doesn't have enough to cover all fees
         // We'll put 1/3 of the fee in wallet, 2/3 in balance manager

@@ -6,9 +6,8 @@ module deepbook_wrapper::order {
     use deepbook_wrapper::math;
     use deepbook::pool::{Self, Pool};
     use deepbook::balance_manager::{Self, BalanceManager};
-    use deepbook_wrapper::whitelisted_pools::{Self, WhitelistRegistry};
     use deepbook_wrapper::wrapper::{
-      DeepBookV3RouterWrapper,
+      Wrapper,
       join_fee,
       get_deep_reserves_value,
       split_deep_reserves
@@ -74,10 +73,6 @@ module deepbook_wrapper::order {
     #[error]
     const EInvalidOwner: u64 = 3;
 
-    /// Error when the pool is not whitelisted by our protocol
-    #[error]
-    const ENotWhitelistedPool: u64 = 4;
-
     // === Public-Mutative Functions ===
     /// Creates a limit order on DeepBook using coins from various sources
     /// This function orchestrates the entire order creation process:
@@ -105,8 +100,7 @@ module deepbook_wrapper::order {
     /// - client_order_id: Client-provided order identifier
     /// - clock: System clock for timestamp verification
     public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
-        wrapper: &mut DeepBookV3RouterWrapper,
-        whitelisted_pools_registry: &WhitelistRegistry,
+        wrapper: &mut Wrapper,
         pool: &mut Pool<BaseToken, QuoteToken>,
         reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
         balance_manager: &mut BalanceManager,
@@ -126,9 +120,6 @@ module deepbook_wrapper::order {
     ): (deepbook::order_info::OrderInfo) {
         // Verify the caller owns the balance manager
         assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
-
-        // Verify the pool is whitelisted by our protocol
-        assert!(whitelisted_pools::is_pool_whitelisted(whitelisted_pools_registry, pool), ENotWhitelistedPool);
 
         // Get SUI per DEEP price from reference pool
         let sui_per_deep = get_sui_per_deep(reference_pool, clock);
@@ -339,8 +330,7 @@ module deepbook_wrapper::order {
     /// - u64: Amount of DEEP coins required for the order (if non-whitelisted pool)
     /// - u64: Estimated fee amount in SUI coins
     public fun estimate_order_requirements<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
-        wrapper: &DeepBookV3RouterWrapper,
-        whitelisted_pools_registry: &WhitelistRegistry,
+        wrapper: &Wrapper,
         pool: &Pool<BaseToken, QuoteToken>,
         reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
         balance_manager: &BalanceManager,
@@ -352,11 +342,6 @@ module deepbook_wrapper::order {
         is_bid: bool,
         clock: &Clock
     ): (bool, u64, u64) {
-        // Verify the pool is whitelisted by our protocol. If not, the order can't be created
-        if (!whitelisted_pools::is_pool_whitelisted(whitelisted_pools_registry, pool)) {
-            return (false, 0, 0)
-        };
-
         // Get wrapper deep reserves
         let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
         
@@ -405,7 +390,7 @@ module deepbook_wrapper::order {
     /// - bool: Whether wrapper DEEP reserves will be used for this order
     /// - bool: Whether the wrapper has sufficient DEEP reserves to cover the order needs
     public fun will_use_wrapper_deep_reserves<BaseToken, QuoteToken>(
-        wrapper: &DeepBookV3RouterWrapper,
+        wrapper: &Wrapper,
         pool: &Pool<BaseToken, QuoteToken>,
         balance_manager: &BalanceManager,
         deep_in_wallet: u64,
@@ -554,7 +539,7 @@ module deepbook_wrapper::order {
         };
         
         // Calculate fee
-        let fee_estimate = estimate_full_order_fee_core(
+        let (fee_estimate, _, _) = estimate_full_order_fee_core(
             is_pool_whitelisted,
             balance_manager_deep,
             deep_in_wallet,
@@ -824,7 +809,7 @@ module deepbook_wrapper::order {
         };
         
         // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
-        let fee_amount = calculate_full_order_fee(sui_per_deep, deep_from_reserves);
+        let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_reserves);
         
         // If no fee, return early
         if (fee_amount == 0) {
@@ -922,7 +907,7 @@ module deepbook_wrapper::order {
     /// 3. Takes DEEP coins from wrapper reserves when needed
     /// 4. Deposits all acquired DEEP coins to the balance manager
     fun execute_deep_plan(
-        wrapper: &mut DeepBookV3RouterWrapper,
+        wrapper: &mut Wrapper,
         balance_manager: &mut BalanceManager,
         deep_coin: &mut Coin<DEEP>,
         deep_plan: &DeepPlan,
@@ -966,7 +951,7 @@ module deepbook_wrapper::order {
     /// 
     /// Aborts with EInsufficientFeeOrInput if user doesn't have enough SUI to cover fees
     fun execute_fee_plan(
-        wrapper: &mut DeepBookV3RouterWrapper,
+        wrapper: &mut Wrapper,
         balance_manager: &mut BalanceManager, 
         sui_coin: &mut Coin<SUI>,
         fee_plan: &FeePlan,
