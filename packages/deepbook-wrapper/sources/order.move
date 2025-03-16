@@ -73,10 +73,6 @@ module deepbook_wrapper::order {
     #[error]
     const EInvalidOwner: u64 = 3;
 
-    /// Error when the pool is not whitelisted by our protocol
-    #[error]
-    const ENotWhitelistedPool: u64 = 4;
-
     // === Public-Mutative Functions ===
     /// Creates a limit order on DeepBook using coins from various sources
     /// This function orchestrates the entire order creation process:

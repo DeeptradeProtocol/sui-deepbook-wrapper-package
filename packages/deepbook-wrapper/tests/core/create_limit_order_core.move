@@ -11,11 +11,9 @@ module deepbook_wrapper::create_limit_order_core_tests {
     };
     use deepbook_wrapper::helper::{calculate_order_amount};
     use deepbook_wrapper::fee::{calculate_full_order_fee};
-    use std::debug::print;
 
     // ===== Constants =====
     // Token amounts
-    const AMOUNT_TINY: u64 = 100;                  // 100
     const AMOUNT_SMALL: u64 = 1_000;               // 1,000
     const AMOUNT_MEDIUM: u64 = 1_000_000;          // 1 million
     const AMOUNT_LARGE: u64 = 1_000_000_000;       // 1 billion
