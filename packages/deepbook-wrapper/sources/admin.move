@@ -1,11 +1,11 @@
 /// Module that manages administrative capabilities for the DeepBook wrapper.
 /// The AdminCap is created once during module initialization and is given to the
-/// package publisher. It cannot be transferred between addresses and is used to
+/// package publisher. It can be transferred between addresses and is used to
 /// authorize privileged operations in the wrapper module.
 module deepbook_wrapper::admin;
 
 /// Capability that marks the holder as an admin of the DeepBook wrapper
-public struct AdminCap has key {
+public struct AdminCap has key, store {
     id: UID,
 }
 
