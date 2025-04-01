@@ -8,7 +8,7 @@ const WITHDRAW_AMOUNT = 1; // 1 DEEP
 (async () => {
   const tx = new Transaction();
 
-  const rawAmount = BigInt(WITHDRAW_AMOUNT) * BigInt(10 ** DEEP_DECIMALS);
+  const rawAmount = WITHDRAW_AMOUNT * 10 ** DEEP_DECIMALS;
 
   const withdrawnCoin = tx.moveCall({
     target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves`,
