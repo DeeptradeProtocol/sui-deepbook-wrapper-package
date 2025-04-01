@@ -16,7 +16,7 @@ public struct Wrapper has key, store {
 }
 
 /// Capability for managing funds in the router
-public struct FundCup has key, store {
+public struct FundCap has key, store {
     id: UID,
     wrapper_id: ID,
 }
@@ -33,8 +33,8 @@ const EInvalidFundCap: u64 = 1;
 
 // === Public-Mutative Functions ===
 /// Create a new fund capability for the router
-public fun create_fund_cap(_admin: &AdminCap, wrapper: &Wrapper, ctx: &mut TxContext): FundCup {
-    FundCup {
+public fun create_fund_cap(_admin: &AdminCap, wrapper: &Wrapper, ctx: &mut TxContext): FundCap {
+    FundCap {
         id: object::new(ctx),
         wrapper_id: object::uid_to_inner(&wrapper.id),
     }
@@ -47,7 +47,7 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
 
 /// Withdraw collected deep reserves coverage fees for a specific coin type
 public fun withdraw_deep_reserves_coverage_fee<CoinType>(
-    fund_cap: &FundCup,
+    fund_cap: &FundCap,
     wrapper: &mut Wrapper,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
@@ -68,7 +68,7 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
 
 /// Withdraw collected protocol fees for a specific coin type
 public fun withdraw_protocol_fee<CoinType>(
-    fund_cap: &FundCup,
+    fund_cap: &FundCap,
     wrapper: &mut Wrapper,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
@@ -153,7 +153,7 @@ fun init(ctx: &mut TxContext) {
     };
 
     // Create a fund capability for the deployer
-    let fund_cap = FundCup {
+    let fund_cap = FundCap {
         id: object::new(ctx),
         wrapper_id: object::uid_to_inner(&wrapper.id),
     };
