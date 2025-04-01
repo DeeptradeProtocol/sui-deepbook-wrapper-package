@@ -45,36 +45,33 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     balance::join(&mut wrapper.deep_reserves, coin::into_balance(deep_coin));
 }
 
-/// Withdraw collected deep reserves coverage fees for a specific coin type
+/// Withdraw collected deep reserves coverage fees for a specific coin type using fund capability
 public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     fund_cap: &FundCap,
     wrapper: &mut Wrapper,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
     assert!(fund_cap.wrapper_id == object::uid_to_inner(&wrapper.id), EInvalidFundCap);
-
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
-    if (bag::contains(&wrapper.deep_reserves_coverage_fees, key)) {
-        coin::from_balance(
-            balance::withdraw_all(
-                bag::borrow_mut(&mut wrapper.deep_reserves_coverage_fees, key),
-            ),
-            ctx,
-        )
-    } else {
-        coin::zero(ctx)
-    }
+    withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
 }
 
-/// Withdraw collected protocol fees for a specific coin type
-public fun withdraw_protocol_fee<CoinType>(
-    fund_cap: &FundCap,
+/// Withdraw collected deep reserves coverage fees for a specific coin type using admin capability
+public fun admin_withdraw_deep_reserves_coverage_fee<CoinType>(
+    _admin: &AdminCap,
     wrapper: &mut Wrapper,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
-    assert!(fund_cap.wrapper_id == object::uid_to_inner(&wrapper.id), EInvalidFundCap);
+    withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
+}
 
+/// Withdraw collected protocol fees for a specific coin type using admin capability
+public fun admin_withdraw_protocol_fee<CoinType>(
+    _admin: &AdminCap,
+    wrapper: &mut Wrapper,
+    ctx: &mut TxContext,
+): Coin<CoinType> {
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    
     if (bag::contains(&wrapper.protocol_fees, key)) {
         coin::from_balance(
             balance::withdraw_all(
@@ -163,4 +160,23 @@ fun init(ctx: &mut TxContext) {
 
     // Transfer the fund capability to the transaction sender
     transfer::transfer(fund_cap, tx_context::sender(ctx));
+}
+
+/// Internal helper function to handle the common withdrawal logic
+fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
+    wrapper: &mut Wrapper,
+    ctx: &mut TxContext,
+): Coin<CoinType> {
+    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    
+    if (bag::contains(&wrapper.deep_reserves_coverage_fees, key)) {
+        coin::from_balance(
+            balance::withdraw_all(
+                bag::borrow_mut(&mut wrapper.deep_reserves_coverage_fees, key),
+            ),
+            ctx,
+        )
+    } else {
+        coin::zero(ctx)
+    }
 }
