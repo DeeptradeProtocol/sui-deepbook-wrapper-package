@@ -7,7 +7,7 @@ use sui::coin::{Self, Coin};
 use token::deep::DEEP;
 
 // === Structs ===
-/// Main router wrapper struct for DeepBook V3
+/// Wrapper struct for DeepBook V3
 public struct Wrapper has key, store {
     id: UID,
     deep_reserves: Balance<DEEP>,
@@ -15,7 +15,7 @@ public struct Wrapper has key, store {
     protocol_fees: Bag,
 }
 
-/// Capability for managing funds in the router
+/// Capability for managing funds in the wrapper
 public struct FundCap has key, store {
     id: UID,
     wrapper_id: ID,
@@ -32,7 +32,7 @@ public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
 const EInvalidFundCap: u64 = 1;
 
 // === Public-Mutative Functions ===
-/// Create a new fund capability for the router
+/// Create a new fund capability for the wrapper
 public fun create_fund_cap(_admin: &AdminCap, wrapper: &Wrapper, ctx: &mut TxContext): FundCap {
     FundCap {
         id: object::new(ctx),
@@ -40,7 +40,7 @@ public fun create_fund_cap(_admin: &AdminCap, wrapper: &Wrapper, ctx: &mut TxCon
     }
 }
 
-/// Join DEEP coins into the router's reserves
+/// Join DEEP coins into the wrapper's reserves
 public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     balance::join(&mut wrapper.deep_reserves, coin::into_balance(deep_coin));
 }
@@ -82,6 +82,19 @@ public fun admin_withdraw_protocol_fee<CoinType>(
     } else {
         coin::zero(ctx)
     }
+}
+
+/// Withdraw DEEP coins from the wrapper's reserves
+public fun withdraw_deep_reserves(
+    _admin: &AdminCap,
+    wrapper: &mut Wrapper,
+    amount: u64,
+    ctx: &mut TxContext,
+): Coin<DEEP> {
+    coin::from_balance(
+        balance::split(&mut wrapper.deep_reserves, amount),
+        ctx,
+    )
 }
 
 // === Public-View Functions ===
