@@ -16,15 +16,3 @@ fun init(ctx: &mut TxContext) {
         tx_context::sender(ctx),
     )
 }
-
-// === Test-Only Functions ===
-#[test_only]
-public fun create_for_testing(ctx: &mut TxContext): AdminCap {
-    AdminCap { id: object::new(ctx) }
-}
-
-#[test_only]
-#[allow(lint(custom_state_change))]
-public fun transfer_for_testing(admin_cap: AdminCap, recipient: address) {
-    transfer::transfer(admin_cap, recipient)
-}
