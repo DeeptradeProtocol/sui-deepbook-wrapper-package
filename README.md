@@ -69,6 +69,16 @@ However, this would only become necessary if DeepBook transitions to permissionl
 #### Order Fees
 The Deepbook Wrapper's order fee structure has minimal economic risk. By collecting fees in SUI, we maintain a stable and liquid asset for reserves management. Since reserve coverage fees directly match the DEEP amount needed, there's a fair value exchange. The additional 1% protocol fee helps cover operational costs and reserves maintenance.
 
+
+## Deployment
+
+1. Uncomment `0x0` address in Move.toml before deploying contract
+2. Run command:
+`sui client publish --gas-budget 220000000 --skip-dependency-verification`
+3. Use new `address` of deployed package in Move.toml
+4. Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
+5. Add DEEP coins to reserves by `examples/wrapper/join.ts`
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
