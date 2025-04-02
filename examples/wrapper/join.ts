@@ -6,7 +6,7 @@ import { DEEP_COIN_TYPE, DEEP_DECIMALS, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } 
 const DEEP_AMOUNT = 2; // Change this to the amount you want to join
 
 // Convert human-readable amount to raw amount
-const rawAmount = BigInt(DEEP_AMOUNT) * BigInt(10 ** DEEP_DECIMALS);
+const rawAmount = DEEP_AMOUNT * 10 ** DEEP_DECIMALS;
 
 // yarn ts-node examples/wrapper/join.ts > join.log 2>&1
 (async () => {

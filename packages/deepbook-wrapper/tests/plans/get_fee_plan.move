@@ -28,13 +28,14 @@ public fun test_whitelisted_pool_requires_no_fee() {
         balance_manager_sui,
     );
 
-    // Whitelisted pools should have no fee regardless of other factors
+    // Whitelisted pools should have no fees regardless of other parameters
     assert_fee_plan_eq(
         plan,
-        0, // fee_amount = 0
-        0, // from_user_wallet = 0
-        0, // from_user_balance_manager = 0
-        true, // user_covers_wrapper_fee = true
+        0, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        true // user_covers_wrapper_fee
     );
 }
 
@@ -56,13 +57,14 @@ public fun test_not_using_wrapper_deep_requires_no_fee() {
         balance_manager_sui,
     );
 
-    // Not using wrapper DEEP should have no fee
+    // Not using wrapper DEEP should have no fees regardless of other parameters
     assert_fee_plan_eq(
         plan,
-        0, // fee_amount = 0
-        0, // from_user_wallet = 0
-        0, // from_user_balance_manager = 0
-        true, // user_covers_wrapper_fee = true
+        0, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        true // user_covers_wrapper_fee
     );
 }
 
@@ -76,14 +78,14 @@ public fun test_fee_from_wallet_only() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = expected_fee * 2; // Plenty in wallet
+    let sui_in_wallet = total_fee * 2; // Plenty in wallet
     let balance_manager_sui = 0; // Nothing in balance manager
 
     let plan = get_fee_plan(
@@ -95,13 +97,14 @@ public fun test_fee_from_wallet_only() {
         balance_manager_sui,
     );
 
-    // Fee should be entirely taken from wallet
+    // All fees should be taken from wallet since BM is empty
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = deep coverage fee + protocol fee
-        expected_fee, // from_user_wallet = all fee
-        0, // from_user_balance_manager = 0
-        true, // user_covers_wrapper_fee = true
+        coverage_fee,  // coverage_fee_from_wallet
+        0,            // coverage_fee_from_balance_manager
+        protocol_fee, // protocol_fee_from_wallet
+        0,           // protocol_fee_from_balance_manager
+        true         // user_covers_wrapper_fee
     );
 }
 
@@ -113,15 +116,15 @@ public fun test_fee_from_balance_manager_only() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = 0; // Nothing in wallet
-    let balance_manager_sui = expected_fee * 2; // Plenty in balance manager
+    let balance_manager_sui = total_fee * 2; // Plenty in balance manager
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -132,13 +135,14 @@ public fun test_fee_from_balance_manager_only() {
         balance_manager_sui,
     );
 
-    // Fee should be entirely taken from balance manager
+    // All fees should be taken from balance manager since wallet is empty
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = deep coverage fee + protocol fee
-        0, // from_user_wallet = 0
-        expected_fee, // from_user_balance_manager = all fee
-        true, // user_covers_wrapper_fee = true
+        0,             // coverage_fee_from_wallet
+        coverage_fee,  // coverage_fee_from_balance_manager
+        0,            // protocol_fee_from_wallet
+        protocol_fee, // protocol_fee_from_balance_manager
+        true         // user_covers_wrapper_fee
     );
 }
 
@@ -150,18 +154,16 @@ public fun test_fee_split_between_wallet_and_balance_manager() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
-    let wallet_part = expected_fee / 3; // 1/3 in wallet
-    let balance_manager_part = expected_fee - wallet_part; // 2/3 in balance manager
-
-    let sui_in_wallet = wallet_part;
-    let balance_manager_sui = balance_manager_part;
+    // Put 2/3 in BM, 1/3 in wallet
+    let balance_manager_sui = (total_fee * 2) / 3;
+    let sui_in_wallet = total_fee - balance_manager_sui;
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -172,13 +174,31 @@ public fun test_fee_split_between_wallet_and_balance_manager() {
         balance_manager_sui,
     );
 
-    // Fee should be split between wallet and balance manager
+    // Coverage fee is taken first from BM
+    let coverage_from_bm = if (balance_manager_sui >= coverage_fee) {
+        coverage_fee
+    } else {
+        balance_manager_sui
+    };
+    let coverage_from_wallet = coverage_fee - coverage_from_bm;
+
+    // Protocol fee is taken from remaining BM funds, then wallet
+    let remaining_bm = balance_manager_sui - coverage_from_bm;
+    let protocol_from_bm = if (remaining_bm >= protocol_fee) {
+        protocol_fee
+    } else {
+        remaining_bm
+    };
+    let protocol_from_wallet = protocol_fee - protocol_from_bm;
+
+    // Verify fee distribution
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = deep coverage fee + protocol fee
-        wallet_part, // from_user_wallet = wallet_part
-        balance_manager_part, // from_user_balance_manager = balance_manager_part
-        true, // user_covers_wrapper_fee = true
+        coverage_from_wallet,  // coverage_fee_from_wallet
+        coverage_from_bm,     // coverage_fee_from_balance_manager
+        protocol_from_wallet, // protocol_fee_from_wallet
+        protocol_from_bm,    // protocol_fee_from_balance_manager
+        true                // user_covers_wrapper_fee
     );
 }
 
@@ -192,16 +212,16 @@ public fun test_insufficient_fee_resources() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = expected_fee / 4; // 25% in wallet
-    let balance_manager_sui = expected_fee / 4; // 25% in balance manager
     // Total available is 50% of required fee
+    let sui_in_wallet = total_fee / 4;      // 25% in wallet
+    let balance_manager_sui = total_fee / 4; // 25% in balance manager
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -212,13 +232,14 @@ public fun test_insufficient_fee_resources() {
         balance_manager_sui,
     );
 
-    // Should indicate insufficient resources
+    // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = total calculated fee
-        0, // from_user_wallet = 0 (insufficient resources)
-        0, // from_user_balance_manager = 0 (insufficient resources)
-        false, // user_covers_wrapper_fee = false
+        0,     // coverage_fee_from_wallet
+        0,     // coverage_fee_from_balance_manager
+        0,     // protocol_fee_from_wallet
+        0,     // protocol_fee_from_balance_manager
+        false  // user_covers_wrapper_fee
     );
 }
 
@@ -230,16 +251,16 @@ public fun test_almost_sufficient_fee_resources() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = expected_fee / 2; // 50% in wallet
-    let balance_manager_sui = (expected_fee / 2) - 1; // Almost 50% in balance manager (1 short)
     // Total available is 1 less than required fee
+    let sui_in_wallet = total_fee / 2;                  // 50% in wallet
+    let balance_manager_sui = (total_fee / 2) - 1;      // Almost 50% in balance manager (1 short)
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -250,13 +271,14 @@ public fun test_almost_sufficient_fee_resources() {
         balance_manager_sui,
     );
 
-    // Should indicate insufficient resources
+    // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = total calculated fee
-        0, // from_user_wallet = 0 (insufficient resources)
-        0, // from_user_balance_manager = 0 (insufficient resources)
-        false, // user_covers_wrapper_fee = false
+        0,     // coverage_fee_from_wallet
+        0,     // coverage_fee_from_balance_manager
+        0,     // protocol_fee_from_wallet
+        0,     // protocol_fee_from_balance_manager
+        false  // user_covers_wrapper_fee
     );
 }
 
@@ -270,15 +292,15 @@ public fun test_exact_fee_match_with_wallet() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = expected_fee; // Exact match
-    let balance_manager_sui = 0; // Nothing in balance manager
+    let sui_in_wallet = total_fee; // Exact match
+    let balance_manager_sui = 0;   // Nothing in balance manager
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -289,13 +311,14 @@ public fun test_exact_fee_match_with_wallet() {
         balance_manager_sui,
     );
 
-    // Fee should be exactly covered by wallet
+    // All fees should be taken from wallet since BM is empty
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = total fee in SUI
-        expected_fee, // from_user_wallet = exact fee
-        0, // from_user_balance_manager = 0
-        true, // user_covers_wrapper_fee = true
+        coverage_fee,  // coverage_fee_from_wallet
+        0,            // coverage_fee_from_balance_manager
+        protocol_fee, // protocol_fee_from_wallet
+        0,           // protocol_fee_from_balance_manager
+        true         // user_covers_wrapper_fee
     );
 }
 
@@ -307,15 +330,15 @@ public fun test_exact_fee_match_with_balance_manager() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = 0; // Nothing in wallet
-    let balance_manager_sui = expected_fee; // Exact match
+    let sui_in_wallet = 0;           // Nothing in wallet
+    let balance_manager_sui = total_fee; // Exact match
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -326,13 +349,14 @@ public fun test_exact_fee_match_with_balance_manager() {
         balance_manager_sui,
     );
 
-    // Fee should be exactly covered by balance manager
+    // All fees should be taken from balance manager since wallet is empty
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = total fee in SUI
-        0, // from_user_wallet = 0
-        expected_fee, // from_user_balance_manager = exact fee
-        true, // user_covers_wrapper_fee = true
+        0,             // coverage_fee_from_wallet
+        coverage_fee,  // coverage_fee_from_balance_manager
+        0,            // protocol_fee_from_wallet
+        protocol_fee, // protocol_fee_from_balance_manager
+        true         // user_covers_wrapper_fee
     );
 }
 
@@ -344,18 +368,16 @@ public fun test_exact_fee_match_combined() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
-    let wallet_part = expected_fee / 2; // Half in wallet
-    let balance_manager_part = expected_fee - wallet_part; // Rest in balance manager
-
-    let sui_in_wallet = wallet_part;
-    let balance_manager_sui = balance_manager_part;
+    // Put half in each source
+    let balance_manager_sui = total_fee / 2;
+    let sui_in_wallet = total_fee - balance_manager_sui;
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -366,13 +388,31 @@ public fun test_exact_fee_match_combined() {
         balance_manager_sui,
     );
 
-    // Fee should be exactly covered by combined sources
+    // Coverage fee should be taken from BM first
+    let coverage_from_bm = if (balance_manager_sui >= coverage_fee) {
+        coverage_fee
+    } else {
+        balance_manager_sui
+    };
+    let coverage_from_wallet = coverage_fee - coverage_from_bm;
+
+    // Protocol fee should be taken from remaining BM funds, then wallet
+    let remaining_bm = balance_manager_sui - coverage_from_bm;
+    let protocol_from_bm = if (remaining_bm >= protocol_fee) {
+        protocol_fee
+    } else {
+        remaining_bm
+    };
+    let protocol_from_wallet = protocol_fee - protocol_from_bm;
+
+    // Verify fee distribution
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = total fee in SUI
-        wallet_part, // from_user_wallet = wallet part
-        balance_manager_part, // from_user_balance_manager = balance manager part
-        true, // user_covers_wrapper_fee = true
+        coverage_from_wallet,  // coverage_fee_from_wallet
+        coverage_from_bm,     // coverage_fee_from_balance_manager
+        protocol_from_wallet, // protocol_fee_from_wallet
+        protocol_from_bm,    // protocol_fee_from_balance_manager
+        true                // user_covers_wrapper_fee
     );
 }
 
@@ -386,18 +426,16 @@ public fun test_large_deep_reserves_fee() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
-    let wallet_part = expected_fee / 4; // 25% in wallet
-    let balance_manager_part = expected_fee - wallet_part; // 75% in balance manager
-
-    let sui_in_wallet = wallet_part;
-    let balance_manager_sui = balance_manager_part;
+    // Put 75% in BM, 25% in wallet
+    let balance_manager_sui = (total_fee * 3) / 4;
+    let sui_in_wallet = total_fee - balance_manager_sui;
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -408,13 +446,31 @@ public fun test_large_deep_reserves_fee() {
         balance_manager_sui,
     );
 
-    // Fee should be covered by combined sources
+    // Coverage fee should be taken from BM first
+    let coverage_from_bm = if (balance_manager_sui >= coverage_fee) {
+        coverage_fee
+    } else {
+        balance_manager_sui
+    };
+    let coverage_from_wallet = coverage_fee - coverage_from_bm;
+
+    // Protocol fee should be taken from remaining BM funds, then wallet
+    let remaining_bm = balance_manager_sui - coverage_from_bm;
+    let protocol_from_bm = if (remaining_bm >= protocol_fee) {
+        protocol_fee
+    } else {
+        remaining_bm
+    };
+    let protocol_from_wallet = protocol_fee - protocol_from_bm;
+
+    // Verify fee distribution
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = total fee in SUI
-        wallet_part, // from_user_wallet = wallet part
-        balance_manager_part, // from_user_balance_manager = balance manager part
-        true, // user_covers_wrapper_fee = true
+        coverage_from_wallet,  // coverage_fee_from_wallet
+        coverage_from_bm,     // coverage_fee_from_balance_manager
+        protocol_from_wallet, // protocol_fee_from_wallet
+        protocol_from_bm,    // protocol_fee_from_balance_manager
+        true                // user_covers_wrapper_fee
     );
 }
 
@@ -426,15 +482,15 @@ public fun test_minimal_deep_reserves_fee() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
     // Ensure we have enough balance to cover even minimal fee
-    let sui_in_wallet = expected_fee;
+    let sui_in_wallet = total_fee;
     let balance_manager_sui = 0;
 
     let plan = get_fee_plan(
@@ -447,14 +503,16 @@ public fun test_minimal_deep_reserves_fee() {
     );
 
     // Even minimal DEEP amount should result in some fee
-    assert!(expected_fee > 0, 0);
+    assert!(total_fee > 0, 0);
 
+    // All fees should be taken from wallet since BM is empty
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = total fee in SUI
-        expected_fee, // from_user_wallet = all fee
-        0, // from_user_balance_manager = 0
-        true, // user_covers_wrapper_fee = true
+        coverage_fee,  // coverage_fee_from_wallet
+        0,            // coverage_fee_from_balance_manager
+        protocol_fee, // protocol_fee_from_wallet
+        0,           // protocol_fee_from_balance_manager
+        true         // user_covers_wrapper_fee
     );
 }
 
@@ -466,15 +524,15 @@ public fun test_wallet_exactly_one_token_short() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = expected_fee - 1; // 1 SUI short
-    let balance_manager_sui = 0; // Nothing in balance manager
+    let sui_in_wallet = total_fee - 1; // 1 SUI short
+    let balance_manager_sui = 0;       // Nothing in balance manager
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -485,13 +543,14 @@ public fun test_wallet_exactly_one_token_short() {
         balance_manager_sui,
     );
 
-    // Not enough resources
+    // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = total calculated fee
-        0, // from_user_wallet = 0 (insufficient resources)
-        0, // from_user_balance_manager = 0 (insufficient resources)
-        false, // user_covers_wrapper_fee = false
+        0,     // coverage_fee_from_wallet
+        0,     // coverage_fee_from_balance_manager
+        0,     // protocol_fee_from_wallet
+        0,     // protocol_fee_from_balance_manager
+        false  // user_covers_wrapper_fee
     );
 }
 
@@ -503,15 +562,15 @@ public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Calculate both fees in SUI
-    let deep_coverage_fee = calculate_deep_reserves_coverage_order_fee(
+    let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
-    let expected_fee = deep_coverage_fee + protocol_fee;
+    let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = 0; // Empty wallet
-    let balance_manager_sui = expected_fee - 1; // 1 SUI short
+    let sui_in_wallet = 0;              // Empty wallet
+    let balance_manager_sui = total_fee - 1; // 1 SUI short
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -522,13 +581,14 @@ public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
         balance_manager_sui,
     );
 
-    // Not enough resources
+    // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        expected_fee, // fee_amount = total calculated fee
-        0, // from_user_wallet = 0
-        0, // from_user_balance_manager = 0 (not enough in balance manager)
-        false, // user_covers_wrapper_fee = false
+        0,     // coverage_fee_from_wallet
+        0,     // coverage_fee_from_balance_manager
+        0,     // protocol_fee_from_wallet
+        0,     // protocol_fee_from_balance_manager
+        false  // user_covers_wrapper_fee
     );
 }
 

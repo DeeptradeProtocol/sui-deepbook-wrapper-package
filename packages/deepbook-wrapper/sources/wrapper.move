@@ -11,11 +11,12 @@ use token::deep::DEEP;
 public struct Wrapper has key, store {
     id: UID,
     deep_reserves: Balance<DEEP>,
-    charged_fees: Bag,
+    deep_reserves_coverage_fees: Bag,
+    protocol_fees: Bag,
 }
 
 /// Capability for managing funds in the wrapper
-public struct FundCup has key, store {
+public struct FundCap has key, store {
     id: UID,
     wrapper_id: ID,
 }
@@ -32,8 +33,8 @@ const EInvalidFundCap: u64 = 1;
 
 // === Public-Mutative Functions ===
 /// Create a new fund capability for the wrapper
-public fun create_fund_cap(_admin: &AdminCap, wrapper: &Wrapper, ctx: &mut TxContext): FundCup {
-    FundCup {
+public fun create_fund_cap(_admin: &AdminCap, wrapper: &Wrapper, ctx: &mut TxContext): FundCap {
+    FundCap {
         id: object::new(ctx),
         wrapper_id: object::uid_to_inner(&wrapper.id),
     }
@@ -44,19 +45,37 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     balance::join(&mut wrapper.deep_reserves, coin::into_balance(deep_coin));
 }
 
-/// Withdraw collected fees for a specific coin type
-public fun withdraw_charged_fee<CoinType>(
-    fund_cap: &FundCup,
+/// Withdraw collected deep reserves coverage fees for a specific coin type using fund capability
+public fun withdraw_deep_reserves_coverage_fee<CoinType>(
+    fund_cap: &FundCap,
     wrapper: &mut Wrapper,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
     assert!(fund_cap.wrapper_id == object::uid_to_inner(&wrapper.id), EInvalidFundCap);
+    withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
+}
 
+/// Withdraw collected deep reserves coverage fees for a specific coin type using admin capability
+public fun admin_withdraw_deep_reserves_coverage_fee<CoinType>(
+    _admin: &AdminCap,
+    wrapper: &mut Wrapper,
+    ctx: &mut TxContext,
+): Coin<CoinType> {
+    withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
+}
+
+/// Withdraw collected protocol fees for a specific coin type using admin capability
+public fun admin_withdraw_protocol_fee<CoinType>(
+    _admin: &AdminCap,
+    wrapper: &mut Wrapper,
+    ctx: &mut TxContext,
+): Coin<CoinType> {
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
-    if (bag::contains(&wrapper.charged_fees, key)) {
+    
+    if (bag::contains(&wrapper.protocol_fees, key)) {
         coin::from_balance(
             balance::withdraw_all(
-                bag::borrow_mut(&mut wrapper.charged_fees, key),
+                bag::borrow_mut(&mut wrapper.protocol_fees, key),
             ),
             ctx,
         )
@@ -85,21 +104,39 @@ public fun get_deep_reserves_value(wrapper: &Wrapper): u64 {
 }
 
 // === Public-Package Functions ===
-/// Add collected fees to the wrapper's fee storage
-public(package) fun join_fee<CoinType>(wrapper: &mut Wrapper, fee: Balance<CoinType>) {
+/// Add collected deep reserves coverage fees to the wrapper's fee storage
+public(package) fun join_deep_reserves_coverage_fee<CoinType>(wrapper: &mut Wrapper, fee: Balance<CoinType>) {
     if (balance::value(&fee) == 0) {
         balance::destroy_zero(fee);
         return
     };
 
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
-    if (bag::contains(&wrapper.charged_fees, key)) {
+    if (bag::contains(&wrapper.deep_reserves_coverage_fees, key)) {
         balance::join(
-            bag::borrow_mut(&mut wrapper.charged_fees, key),
+            bag::borrow_mut(&mut wrapper.deep_reserves_coverage_fees, key),
             fee,
         );
     } else {
-        bag::add(&mut wrapper.charged_fees, key, fee);
+        bag::add(&mut wrapper.deep_reserves_coverage_fees, key, fee);
+    };
+}
+
+/// Add collected protocol fees to the wrapper's fee storage
+public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Balance<CoinType>) {
+    if (balance::value(&fee) == 0) {
+        balance::destroy_zero(fee);
+        return
+    };
+
+    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    if (bag::contains(&wrapper.protocol_fees, key)) {
+        balance::join(
+            bag::borrow_mut(&mut wrapper.protocol_fees, key),
+            fee,
+        );
+    } else {
+        bag::add(&mut wrapper.protocol_fees, key, fee);
     };
 }
 
@@ -121,11 +158,12 @@ fun init(ctx: &mut TxContext) {
     let wrapper = Wrapper {
         id: object::new(ctx),
         deep_reserves: balance::zero(),
-        charged_fees: bag::new(ctx),
+        deep_reserves_coverage_fees: bag::new(ctx),
+        protocol_fees: bag::new(ctx),
     };
 
     // Create a fund capability for the deployer
-    let fund_cap = FundCup {
+    let fund_cap = FundCap {
         id: object::new(ctx),
         wrapper_id: object::uid_to_inner(&wrapper.id),
     };
@@ -135,4 +173,23 @@ fun init(ctx: &mut TxContext) {
 
     // Transfer the fund capability to the transaction sender
     transfer::transfer(fund_cap, tx_context::sender(ctx));
+}
+
+/// Internal helper function to handle the common withdrawal logic
+fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
+    wrapper: &mut Wrapper,
+    ctx: &mut TxContext,
+): Coin<CoinType> {
+    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    
+    if (bag::contains(&wrapper.deep_reserves_coverage_fees, key)) {
+        coin::from_balance(
+            balance::withdraw_all(
+                bag::borrow_mut(&mut wrapper.deep_reserves_coverage_fees, key),
+            ),
+            ctx,
+        )
+    } else {
+        coin::zero(ctx)
+    }
 }

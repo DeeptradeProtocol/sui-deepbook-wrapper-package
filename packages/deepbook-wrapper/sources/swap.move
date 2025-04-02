@@ -5,7 +5,7 @@ use deepbook_wrapper::fee::{calculate_swap_fee, charge_swap_fee};
 use deepbook_wrapper::helper::get_fee_bps;
 use deepbook_wrapper::wrapper::{
     Wrapper,
-    join_fee,
+    join_deep_reserves_coverage_fee,
     join,
     get_deep_reserves_value,
     split_deep_reserves
@@ -44,7 +44,7 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
     join(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
-    join_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
+    join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
 
     (base_remainder, result_quote)
 }
@@ -79,7 +79,7 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
     join(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
-    join_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
+    join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
 
     (result_base, quote_remainder)
 }

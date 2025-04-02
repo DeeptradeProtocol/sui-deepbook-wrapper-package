@@ -10,7 +10,13 @@ use deepbook_wrapper::helper::{
     get_sui_per_deep
 };
 use deepbook_wrapper::math;
-use deepbook_wrapper::wrapper::{Wrapper, join_fee, get_deep_reserves_value, split_deep_reserves};
+use deepbook_wrapper::wrapper::{
+    Wrapper,
+    join_deep_reserves_coverage_fee,
+    join_protocol_fee,
+    get_deep_reserves_value,
+    split_deep_reserves,
+};
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
 use sui::sui::SUI;
@@ -34,13 +40,15 @@ public struct DeepPlan has copy, drop {
 /// Determines amount and sources for fee payment
 /// Fees are always paid in SUI
 public struct FeePlan has copy, drop {
-    /// Total fee amount to be collected
-    fee_amount: u64,
-    /// Amount of fee to take from user's wallet
-    from_user_wallet: u64,
-    /// Amount of fee to take from user's balance manager
-    from_user_balance_manager: u64,
-    /// Whether user has enough coins on his wallet and balance manager to cover the required fee
+    /// Amount of coverage fee to take from user's wallet
+    coverage_fee_from_wallet: u64,
+    /// Amount of coverage fee to take from user's balance manager
+    coverage_fee_from_balance_manager: u64,
+    /// Amount of protocol fee to take from user's wallet
+    protocol_fee_from_wallet: u64,
+    /// Amount of protocol fee to take from user's balance manager
+    protocol_fee_from_balance_manager: u64,
+    /// Whether user has enough coins to cover both fees
     user_covers_wrapper_fee: bool,
 }
 
@@ -60,14 +68,17 @@ public struct InputCoinDepositPlan has copy, drop {
 #[error]
 const EInsufficientDeepReserves: u64 = 1;
 
-/// Error when user doesn't have enough coins on his wallet and balance manager
-/// to cover the required fee and(or) create the order with desired amount
+/// Error when user doesn't have enough coins to cover the required fee
 #[error]
-const EInsufficientFeeOrInput: u64 = 2;
+const EInsufficientFee: u64 = 2;
+
+/// Error when user doesn't have enough input coins to create the order
+#[error]
+const EInsufficientInput: u64 = 3;
 
 /// Error when the caller is not the owner of the balance manager
 #[error]
-const EInvalidOwner: u64 = 3;
+const EInvalidOwner: u64 = 4;
 
 // === Public-Mutative Functions ===
 /// Creates a limit order on DeepBook using coins from various sources
@@ -779,22 +790,30 @@ public(package) fun get_deep_plan(
     }
 }
 
-/// Creates a fee charging plan for order execution
-/// Determines fee amount and optimal sources for fee payment in SUI coins
-///
-/// Parameters:
-/// - use_wrapper_deep_reserves: Whether DEEP from wrapper reserves will be used
-/// - deep_from_reserves: Amount of DEEP to be taken from reserves
-/// - is_pool_whitelisted: Whether the pool is whitelisted by DeepBook
-/// - sui_per_deep: Current SUI/DEEP price from reference pool
-/// - sui_in_wallet: Amount of SUI coins in user's wallet
-/// - balance_manager_sui: Amount of SUI coins in user's balance manager
-///
-/// Returns a FeePlan structure with the following information:
-/// - fee_amount: Total fee amount to be charged in SUI coins
-/// - from_user_wallet: Amount of SUI to take from user's wallet
-/// - from_user_balance_manager: Amount of SUI to take from user's balance manager
-/// - user_covers_wrapper_fee: Whether user has enough SUI to cover the required fee
+/// Creates a fee plan for order execution by determining optimal sources for fee payment in SUI coins.
+/// Returns early with zero fees for whitelisted pools or when not using wrapper DEEP.
+/// 
+/// # Arguments
+/// * `use_wrapper_deep_reserves` - Whether the order requires DEEP from wrapper reserves
+/// * `deep_from_reserves` - Amount of DEEP to be taken from wrapper reserves
+/// * `is_pool_whitelisted` - Whether the pool is whitelisted by DeepBook
+/// * `sui_per_deep` - Current SUI/DEEP price from reference pool
+/// * `sui_in_wallet` - Amount of SUI available in user's wallet
+/// * `balance_manager_sui` - Amount of SUI available in user's balance manager
+/// 
+/// # Returns
+/// * `FeePlan` - Struct containing:
+///   - Coverage fee amounts from wallet and balance manager
+///   - Protocol fee amounts from wallet and balance manager
+///   - Whether user has sufficient funds to cover fees
+/// 
+/// # Flow
+/// 1. Returns zero fee plan if pool is whitelisted or not using wrapper DEEP
+/// 2. Calculates total fee, coverage fee, and protocol fee
+/// 3. Returns zero fee plan if total fee is zero
+/// 4. Returns insufficient fee plan if user lacks total funds
+/// 5. Plans coverage fee collection from available sources
+/// 6. Plans protocol fee collection from remaining funds
 public(package) fun get_fee_plan(
     use_wrapper_deep_reserves: bool,
     deep_from_reserves: u64,
@@ -805,58 +824,47 @@ public(package) fun get_fee_plan(
 ): FeePlan {
     // No fee for whitelisted pools or when not using wrapper DEEP
     if (is_pool_whitelisted || !use_wrapper_deep_reserves) {
-        return FeePlan {
-            fee_amount: 0,
-            from_user_wallet: 0,
-            from_user_balance_manager: 0,
-            user_covers_wrapper_fee: true,
-        }
+        return zero_fee_plan()
     };
 
     // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
-    let (fee_amount, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_reserves);
+    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_reserves);
 
     // If no fee, return early
-    if (fee_amount == 0) {
-        return FeePlan {
-            fee_amount: 0,
-            from_user_wallet: 0,
-            from_user_balance_manager: 0,
-            user_covers_wrapper_fee: true,
-        }
+    if (total_fee == 0) {
+        return zero_fee_plan()
     };
 
-    // Check if user has enough coins to cover the fee
-    let has_enough = sui_in_wallet + balance_manager_sui >= fee_amount;
-
-    if (!has_enough) {
-        return FeePlan {
-            fee_amount,
-            from_user_wallet: 0,
-            from_user_balance_manager: 0,
-            user_covers_wrapper_fee: false,
-        }
+    // Check if user has enough total SUI
+    let total_available = sui_in_wallet + balance_manager_sui;
+    if (total_available < total_fee) {
+        return insufficient_fee_plan()
     };
 
-    // Determine how much to take from wallet vs balance manager
-    let from_wallet = if (sui_in_wallet >= fee_amount) {
-        fee_amount
-    } else {
-        sui_in_wallet
-    };
+    // Plan coverage fee collection
+    let (coverage_from_wallet, coverage_from_bm) = plan_fee_collection(
+        coverage_fee,
+        sui_in_wallet,
+        balance_manager_sui
+    );
 
-    let from_balance_manager = if (from_wallet < fee_amount) {
-        let remaining = fee_amount - from_wallet;
-        remaining
-    } else {
-        0 // Wallet has covered the fee, no need to take from balance manager
-    };
+    // Adjust available amounts for protocol fee planning
+    let remaining_in_wallet = sui_in_wallet - coverage_from_wallet;
+    let remaining_in_bm = balance_manager_sui - coverage_from_bm;
+
+    // Plan protocol fee collection
+    let (protocol_from_wallet, protocol_from_bm) = plan_fee_collection(
+        protocol_fee,
+        remaining_in_wallet,
+        remaining_in_bm
+    );
 
     FeePlan {
-        fee_amount,
-        from_user_wallet: from_wallet,
-        from_user_balance_manager: from_balance_manager,
-        user_covers_wrapper_fee: has_enough,
+        coverage_fee_from_wallet: coverage_from_wallet,
+        coverage_fee_from_balance_manager: coverage_from_bm,
+        protocol_fee_from_wallet: protocol_from_wallet,
+        protocol_fee_from_balance_manager: protocol_from_bm,
+        user_covers_wrapper_fee: true,
     }
 }
 
@@ -901,6 +909,52 @@ public(package) fun get_input_coin_deposit_plan(
     }
 }
 
+/// Plans optimal fee collection strategy from available sources, prioritizing balance manager usage.
+/// Returns early with zero amounts if no fee to collect.
+/// 
+/// # Arguments
+/// * `fee_amount` - Amount of fee to be collected
+/// * `available_in_wallet` - Amount of coins available in user's wallet
+/// * `available_in_bm` - Amount of coins available in user's balance manager
+/// 
+/// # Returns
+/// * `(u64, u64)` - Tuple containing:
+///   - Amount to collect from wallet
+///   - Amount to collect from balance manager
+/// 
+/// # Flow
+/// 1. Returns (0, 0) if fee amount is zero
+/// 2. Verifies total available funds are sufficient
+/// 3. Takes entire amount from balance manager if possible
+/// 4. Otherwise, takes maximum from balance manager and remainder from wallet
+/// 
+/// # Aborts
+/// * `EInsufficientFee` - If total available funds are less than required fee
+public(package) fun plan_fee_collection(
+    fee_amount: u64,
+    available_in_wallet: u64,
+    available_in_bm: u64,
+): (u64, u64) {
+    // If no fee to collect, return zeros
+    if (fee_amount == 0) {
+        return (0, 0)
+    };
+
+    // Verify user has enough total funds before proceeding
+    assert!(available_in_wallet + available_in_bm >= fee_amount, EInsufficientFee);
+
+    // Safely plan fee collection knowing user has enough funds
+    if (available_in_bm >= fee_amount) {
+        // Take all from balance manager if possible
+        (0, fee_amount)
+    } else {
+        // Take what we can from balance manager and rest from wallet
+        let from_bm = available_in_bm;
+        let from_wallet = fee_amount - from_bm;
+        (from_wallet, from_bm)
+    }
+}
+
 // === Private Functions ===
 /// Executes the DEEP coin sourcing plan by acquiring coins from specified sources
 /// Sources DEEP coins from user wallet and/or wrapper reserves based on the deep plan
@@ -938,23 +992,27 @@ fun execute_deep_plan(
 }
 
 /// Executes the fee charging plan by taking SUI coins from specified sources
-/// Takes fee coins from user wallet and/or balance manager based on the fee plan
-/// All fees are collected in SUI coins and joined to the wrapper's fee balance
-///
-/// Parameters:
-/// - wrapper: The DeepBook wrapper instance managing the order process
-/// - balance_manager: User's balance manager for managing coin deposits
-/// - sui_coin: SUI coins from user's wallet for fee payment
-/// - fee_plan: Plan specifying fee amounts and sources
-/// - ctx: Transaction context for coin operations
-///
-/// Steps performed:
-/// 1. Verifies the user has enough SUI coins to cover required fees
-/// 2. Takes SUI coins from user wallet when specified in the plan
-/// 3. Takes SUI coins from balance manager when needed
-/// 4. Joins all collected fees to the wrapper's fee balance
-///
-/// Aborts with EInsufficientFeeOrInput if user doesn't have enough SUI to cover fees
+/// Takes fees in SUI coins from user's wallet and balance manager.
+/// Splits the collection into two parts: coverage fees and protocol fees.
+/// 
+/// # Arguments
+/// * `wrapper` - Main wrapper object that will receive the fees
+/// * `balance_manager` - User's balance manager to withdraw fees from
+/// * `sui_coin` - User's SUI coins to take fees from
+/// * `fee_plan` - Plan that specifies how much to take from each source
+/// * `ctx` - Transaction context
+/// 
+/// # Flow
+/// 1. Checks if user can pay fees
+/// 2. Collects coverage fees:
+///    - Takes from wallet if needed
+///    - Takes from balance manager if needed
+/// 3. Collects protocol fees:
+///    - Takes from wallet if needed
+///    - Takes from balance manager if needed
+/// 
+/// # Aborts
+/// * `EInsufficientFee` - If user cannot cover the fees
 fun execute_fee_plan(
     wrapper: &mut Wrapper,
     balance_manager: &mut BalanceManager,
@@ -962,25 +1020,34 @@ fun execute_fee_plan(
     fee_plan: &FeePlan,
     ctx: &mut TxContext,
 ) {
-    // Verify there are enough coins to cover the fee
-    if (fee_plan.fee_amount > 0) {
-        assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFeeOrInput);
-    };
+    assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFee);
 
-    // Charge fee from wallet if needed
-    if (fee_plan.from_user_wallet > 0) {
-        let fee_coin = coin::split(sui_coin, fee_plan.from_user_wallet, ctx);
-        join_fee(wrapper, coin::into_balance(fee_coin));
+    // Collect coverage fee
+    if (fee_plan.coverage_fee_from_wallet > 0) {
+        let fee = coin::split(sui_coin, fee_plan.coverage_fee_from_wallet, ctx);
+        join_deep_reserves_coverage_fee(wrapper, coin::into_balance(fee));
     };
-
-    // Charge fee from balance manager if needed
-    if (fee_plan.from_user_balance_manager > 0) {
-        let fee_coin = balance_manager::withdraw<SUI>(
+    if (fee_plan.coverage_fee_from_balance_manager > 0) {
+        let fee = balance_manager::withdraw<SUI>(
             balance_manager,
-            fee_plan.from_user_balance_manager,
+            fee_plan.coverage_fee_from_balance_manager,
             ctx,
         );
-        join_fee(wrapper, coin::into_balance(fee_coin));
+        join_deep_reserves_coverage_fee(wrapper, coin::into_balance(fee));
+    };
+
+    // Collect protocol fee
+    if (fee_plan.protocol_fee_from_wallet > 0) {
+        let fee = coin::split(sui_coin, fee_plan.protocol_fee_from_wallet, ctx);
+        join_protocol_fee(wrapper, coin::into_balance(fee));
+    };
+    if (fee_plan.protocol_fee_from_balance_manager > 0) {
+        let fee = balance_manager::withdraw<SUI>(
+            balance_manager,
+            fee_plan.protocol_fee_from_balance_manager,
+            ctx,
+        );
+        join_protocol_fee(wrapper, coin::into_balance(fee));
     };
 }
 
@@ -1002,7 +1069,7 @@ fun execute_input_coin_deposit_plan<BaseToken, QuoteToken>(
 ) {
     // Verify there are enough coins to satisfy the deposit requirements
     if (deposit_plan.order_amount > 0) {
-        assert!(deposit_plan.user_has_enough_input_coin, EInsufficientFeeOrInput);
+        assert!(deposit_plan.user_has_enough_input_coin, EInsufficientInput);
     };
 
     // Deposit coins from wallet if needed
@@ -1017,6 +1084,28 @@ fun execute_input_coin_deposit_plan<BaseToken, QuoteToken>(
             balance_manager::deposit(balance_manager, payment, ctx);
         };
     };
+}
+
+/// Makes a fee plan where no fees need to be collected
+fun zero_fee_plan(): FeePlan {
+    create_empty_fee_plan(true)
+}
+
+/// Makes a fee plan for when user doesn't have enough funds
+fun insufficient_fee_plan(): FeePlan {
+    create_empty_fee_plan(false)
+}
+
+/// Helper to create a fee plan with no fees and specified coverage status
+/// The coverage status tells if user can pay fees (true) or not (false)
+fun create_empty_fee_plan(user_covers_fee: bool): FeePlan {
+    FeePlan {
+        coverage_fee_from_wallet: 0,
+        coverage_fee_from_balance_manager: 0,
+        protocol_fee_from_wallet: 0,
+        protocol_fee_from_balance_manager: 0,
+        user_covers_wrapper_fee: user_covers_fee,
+    }
 }
 
 // === Test-Only Functions ===
@@ -1037,14 +1126,16 @@ public fun assert_deep_plan_eq(
 #[test_only]
 public fun assert_fee_plan_eq(
     actual: FeePlan,
-    expected_fee_amount: u64,
-    expected_from_user_wallet: u64,
-    expected_from_user_balance_manager: u64,
+    expected_coverage_from_wallet: u64,
+    expected_coverage_from_bm: u64,
+    expected_protocol_from_wallet: u64,
+    expected_protocol_from_bm: u64,
     expected_sufficient: bool,
 ) {
-    assert!(actual.fee_amount == expected_fee_amount, 0);
-    assert!(actual.from_user_wallet == expected_from_user_wallet, 0);
-    assert!(actual.from_user_balance_manager == expected_from_user_balance_manager, 0);
+    assert!(actual.coverage_fee_from_wallet == expected_coverage_from_wallet, 0);
+    assert!(actual.coverage_fee_from_balance_manager == expected_coverage_from_bm, 0);
+    assert!(actual.protocol_fee_from_wallet == expected_protocol_from_wallet, 0);
+    assert!(actual.protocol_fee_from_balance_manager == expected_protocol_from_bm, 0);
     assert!(actual.user_covers_wrapper_fee == expected_sufficient, 0);
 }
 

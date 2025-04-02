@@ -16,19 +16,73 @@ import { WRAPPER_OBJECT_ID } from "../constants";
 
   const wrapperObject = wrapperObjectResponse.data.content.fields;
 
-  // Get the bag ID from the charged_fees field using type assertion
-  const bagId = (wrapperObject as any).charged_fees?.fields?.id?.id;
-  if (!bagId) {
-    throw new Error("Could not find charged_fees bag ID");
+  // Get the bag IDs for both fee types
+  const deepReservesBagId = (wrapperObject as any).deep_reserves_coverage_fees?.fields?.id?.id;
+  const protocolFeesBagId = (wrapperObject as any).protocol_fees?.fields?.id?.id;
+
+  if (!deepReservesBagId) {
+    throw new Error("Could not find deep_reserves_coverage_fees bag ID");
   }
+
+  if (!protocolFeesBagId) {
+    throw new Error("Could not find protocol_fees bag ID");
+  }
+
+  // Process both fee types
+  const deepReservesFees = await processFeesBag(deepReservesBagId);
+  const protocolFees = await processFeesBag(protocolFeesBagId);
+
+  // Print summaries
+  printFeeSummary("Deep Reserves Coverage Fees", deepReservesFees.coinSummary, deepReservesFees.coinMetadata);
+  printFeeSummary("Protocol Fees", protocolFees.coinSummary, protocolFees.coinMetadata);
+})();
+
+interface CoinMetadata {
+  symbol: string;
+  decimals: number;
+}
+
+interface CoinSummary {
+  [key: string]: bigint;
+}
+
+// Helper function to format amounts with proper decimal places
+function formatAmount(amount: bigint, decimals: number): string {
+  const amountStr = amount.toString().padStart(decimals + 1, "0");
+  const decimalPoint = amountStr.length - decimals;
+  const formattedAmount = amountStr.slice(0, decimalPoint) + (decimals > 0 ? "." + amountStr.slice(decimalPoint) : "");
+  return formattedAmount.replace(/\.?0+$/, "");
+}
+
+// Fetch coin metadata for a specific coin type
+async function getCoinMetadata(coinType: string): Promise<CoinMetadata> {
+  try {
+    const metadata = await provider.getCoinMetadata({ coinType });
+    if (metadata) {
+      return {
+        symbol: metadata.symbol,
+        decimals: metadata.decimals,
+      };
+    }
+  } catch (error) {
+    console.log(`Could not fetch metadata for ${coinType}: ${error}`);
+  }
+  return {
+    symbol: coinType.split("::").pop() || "UNKNOWN",
+    decimals: 9,
+  };
+}
+
+// Process fees from a specific bag
+async function processFeesBag(bagId: string): Promise<{
+  coinSummary: CoinSummary;
+  coinMetadata: { [key: string]: CoinMetadata };
+}> {
+  const coinSummary: CoinSummary = {};
+  const coinMetadata: { [key: string]: CoinMetadata } = {};
 
   // Fetch all dynamic fields in the bag
   const dynamicFields = await provider.getDynamicFields({ parentId: bagId });
-
-  // Create a summary of coin types and amounts
-  const coinSummary: { [key: string]: bigint } = {};
-  // Store coin metadata for formatting
-  const coinMetadata: { [key: string]: { symbol: string; decimals: number } } = {};
 
   // Fetch each field's content
   for (const field of dynamicFields.data) {
@@ -58,37 +112,21 @@ import { WRAPPER_OBJECT_ID } from "../constants";
 
         // Fetch coin metadata if we haven't already
         if (!coinMetadata[coinType]) {
-          try {
-            const metadata = await provider.getCoinMetadata({ coinType });
-            if (metadata) {
-              coinMetadata[coinType] = {
-                symbol: metadata.symbol,
-                decimals: metadata.decimals,
-              };
-            }
-          } catch (error) {
-            console.log(`Could not fetch metadata for ${coinType}: ${error}`);
-            coinMetadata[coinType] = { symbol: coinType.split("::").pop() || "UNKNOWN", decimals: 9 };
-          }
+          coinMetadata[coinType] = await getCoinMetadata(coinType);
         }
       }
     }
   }
 
-  console.log("\nCoin Summary:");
+  return { coinSummary, coinMetadata };
+}
+
+// Print summary of fees
+function printFeeSummary(title: string, coinSummary: CoinSummary, coinMetadata: { [key: string]: CoinMetadata }) {
+  console.log(`\n${title}:`);
   for (const [coinType, amount] of Object.entries(coinSummary)) {
-    const metadata = coinMetadata[coinType] || { symbol: coinType.split("::").pop() || "UNKNOWN", decimals: 9 };
+    const metadata = coinMetadata[coinType];
     const formattedAmount = formatAmount(amount, metadata.decimals);
     console.log(`${metadata.symbol}: ${formattedAmount} (${amount} raw)`);
   }
-})();
-
-// Helper function to format amounts with proper decimal places
-function formatAmount(amount: bigint, decimals: number): string {
-  const amountStr = amount.toString().padStart(decimals + 1, "0");
-  const decimalPoint = amountStr.length - decimals;
-  const formattedAmount = amountStr.slice(0, decimalPoint) + (decimals > 0 ? "." + amountStr.slice(decimalPoint) : "");
-
-  // Remove trailing zeros after decimal point
-  return formattedAmount.replace(/\.?0+$/, "");
 }
