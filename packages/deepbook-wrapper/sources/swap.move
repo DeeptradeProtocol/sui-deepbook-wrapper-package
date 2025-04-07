@@ -14,7 +14,24 @@ use sui::clock::Clock;
 use sui::coin::{Self, Coin};
 
 // === Public-Mutative Functions ===
-/// Swap exact base token amount for quote tokens
+/// Swaps a specific amount of base tokens for quote tokens.
+/// 
+/// # Arguments
+/// * `wrapper` - The Wrapper object holding protocol state and DEEP reserves
+/// * `pool` - The DeepBook liquidity pool for this trading pair
+/// * `base_in` - The base tokens being provided for the swap
+/// * `min_quote_out` - Minimum amount of quote tokens to receive (slippage protection)
+/// * `clock` - Clock object for timestamp information
+/// * `ctx` - Transaction context
+/// 
+/// # Returns
+/// * `(Coin<BaseToken>, Coin<QuoteToken>)` - Any unused base tokens and the received quote tokens
+/// 
+/// # Flow
+/// 1. Handles DEEP payment for non-whitelisted pools
+/// 2. Executes swap through DeepBook
+/// 3. Processes wrapper fees
+/// 4. Returns remaining base and received quote tokens
 public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
@@ -23,6 +40,7 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
+    // Determine if DEEP payment is needed based on pool whitelist status
     let deep_payment = if (pool::whitelisted(pool)) {
         coin::zero(ctx)
     } else {
@@ -30,6 +48,7 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
         split_deep_reserves(wrapper, deep_reserves_value, ctx)
     };
 
+    // Execute swap through DeepBook's native swap function
     let (base_remainder, quote_out, deep_remainder) = pool::swap_exact_quantity(
         pool,
         base_in,
@@ -40,6 +59,7 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
         ctx,
     );
 
+    // Apply wrapper protocol fees to the output
     let mut result_quote = quote_out;
     join(wrapper, deep_remainder);
 
@@ -49,7 +69,24 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
     (base_remainder, result_quote)
 }
 
-/// Swap exact quote token amount for base tokens
+/// Swaps a specific amount of quote tokens for base tokens.
+/// 
+/// # Arguments
+/// * `wrapper` - The Wrapper object holding protocol state and DEEP reserves
+/// * `pool` - The DeepBook liquidity pool for this trading pair
+/// * `quote_in` - The quote tokens being provided for the swap
+/// * `min_base_out` - Minimum amount of base tokens to receive (slippage protection)
+/// * `clock` - Clock object for timestamp information
+/// * `ctx` - Transaction context
+/// 
+/// # Returns
+/// * `(Coin<BaseToken>, Coin<QuoteToken>)` - The received base tokens and any unused quote tokens
+/// 
+/// # Flow
+/// 1. Handles DEEP payment for non-whitelisted pools
+/// 2. Executes swap through DeepBook
+/// 3. Processes wrapper fees
+/// 4. Returns received base and remaining quote tokens
 public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
@@ -58,6 +95,7 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
+    // Determine if DEEP payment is needed based on pool whitelist status
     let deep_payment = if (pool::whitelisted(pool)) {
         coin::zero(ctx)
     } else {
@@ -65,6 +103,7 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
         split_deep_reserves(wrapper, deep_reserves_value, ctx)
     };
 
+    // Execute swap through DeepBook's native swap function
     let (base_out, quote_remainder, deep_remainder) = pool::swap_exact_quantity(
         pool,
         coin::zero(ctx),
@@ -75,6 +114,7 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
         ctx,
     );
 
+    // Apply wrapper protocol fees to the output
     let mut result_base = base_out;
     join(wrapper, deep_remainder);
 
@@ -86,6 +126,23 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
 
 // === Public-View Functions ===
 /// Calculate the expected output quantity accounting for both DeepBook fees and wrapper fees
+/// 
+/// # Arguments
+/// * `pool` - The DeepBook liquidity pool for this trading pair
+/// * `base_quantity` - Amount of base tokens to swap (set to 0 if swapping quote)
+/// * `quote_quantity` - Amount of quote tokens to swap (set to 0 if swapping base)
+/// * `clock` - Clock object for timestamp information
+/// 
+/// # Returns
+/// * `(u64, u64, u64)` - Tuple containing:
+///   - Expected base token output
+///   - Expected quote token output
+///   - Required DEEP amount for transaction
+/// 
+/// # Flow
+/// 1. Gets raw output quantities from DeepBook
+/// 2. Applies wrapper protocol fees to the appropriate output amount based on swap direction
+/// 3. Returns final expected output quantities and required DEEP
 public fun get_quantity_out<BaseToken, QuoteToken>(
     pool: &Pool<BaseToken, QuoteToken>,
     base_quantity: u64,

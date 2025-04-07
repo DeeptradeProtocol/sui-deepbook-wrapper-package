@@ -290,7 +290,7 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Step 3:Return unused coins to the caller
+    // Step 3: Return unused coins to the caller
     transfer_if_nonzero(base_coin, tx_context::sender(ctx));
     transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
 
