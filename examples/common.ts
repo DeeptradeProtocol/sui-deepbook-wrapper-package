@@ -8,7 +8,7 @@ if (!process.env.SUI_WALLET_SEED_PHRASE?.length && !process.env.SUI_WALLET_PRIVA
   throw new Error("Empty mnemonic or private key");
 }
 
-export const suiProviderUrl = "https://sui-rpc.publicnode.com";
+export const suiProviderUrl = "https://fullnode.mainnet.sui.io";
 export const provider = new SuiClient({ url: suiProviderUrl });
 
 export const mnemonic = normalizeMnemonic(process.env.SUI_WALLET_SEED_PHRASE ?? "");
