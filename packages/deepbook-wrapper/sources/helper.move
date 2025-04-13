@@ -152,3 +152,39 @@ public(package) fun get_sui_per_deep<ReferenceBaseAsset, ReferenceQuoteAsset>(
 
     sui_per_deep
 }
+
+/// Calculates base quantity and DEEP requirements for a market order based on order type
+/// For bids, converts quote quantity into base quantity and floors to lot size
+/// For asks, uses base quantity directly
+///
+/// Parameters:
+/// - pool: The trading pool where the order will be placed
+/// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
+/// - is_bid: True for buy orders, false for sell orders
+/// - clock: System clock for timestamp verification
+///
+/// Returns:
+/// - u64: Base quantity to use in place_market_order
+/// - u64: Amount of DEEP required for the order
+public(package) fun calculate_market_order_params<BaseToken, QuoteToken>(
+    pool: &Pool<BaseToken, QuoteToken>,
+    order_amount: u64,
+    is_bid: bool,
+    clock: &Clock,
+): (u64, u64) {
+    // Calculate base quantity and DEEP requirements:
+    // - For bids: Convert quote quantity to base quantity via `get_quantity_out`, floor to lot size.
+    //             Since `get_quantity_out` goes through order book same way as actual order placement,
+    //             we can use its `deep_req` value
+    // - For asks: Use order_amount directly as base quantity. Since `get_quantity_out` goes through
+    //             order book same way as actual order placement, we can use its `deep_req` value
+    if (is_bid) {
+        let (base_out, _, deep_req) = pool.get_quantity_out(0, order_amount, clock);
+        let (_, lot_size, _) = pool.pool_book_params();
+        let floored_base_out = base_out - base_out % lot_size;
+        (floored_base_out, deep_req)
+    } else {
+        let (_, _, deep_req) = pool.get_quantity_out(order_amount, 0, clock);
+        (order_amount, deep_req)
+    }
+}
