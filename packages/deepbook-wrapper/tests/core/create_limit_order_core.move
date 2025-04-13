@@ -115,9 +115,7 @@ public fun test_bid_order_sufficient_resources() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -204,9 +202,7 @@ public fun test_bid_order_with_wrapper_deep() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -271,9 +267,7 @@ public fun test_bid_order_whitelisted_pool() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -355,9 +349,7 @@ public fun test_bid_order_fee_from_both_sources() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -417,9 +409,7 @@ public fun test_bid_order_insufficient_deep_no_wrapper() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -479,9 +469,7 @@ public fun test_bid_order_quote_only_in_balance_manager() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -546,9 +534,7 @@ public fun test_bid_order_large_values() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -608,9 +594,7 @@ public fun test_bid_order_exact_resources() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -661,6 +645,9 @@ public fun test_ask_order_sufficient_resources() {
 
     let deep_from_wallet = deep_required - balance_manager_deep;
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     // For this test case we expect:
     // 1. DEEP: Half from wallet, half from balance manager
     // 2. No fees since user doesn't use wrapper DEEP
@@ -676,9 +663,7 @@ public fun test_ask_order_sufficient_resources() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -725,6 +710,9 @@ public fun test_ask_order_whitelisted_pool() {
 
     let wrapper_deep_reserves = AMOUNT_MEDIUM;
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     // For this test case we expect:
     // 1. DEEP: None needed (whitelisted pool)
     // 2. Fees: None (whitelisted pool)
@@ -740,9 +728,7 @@ public fun test_ask_order_whitelisted_pool() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -789,6 +775,9 @@ public fun test_ask_order_insufficient_deep_and_base() {
 
     let wrapper_deep_reserves = AMOUNT_SMALL; // Not enough DEEP in wrapper
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -799,9 +788,7 @@ public fun test_ask_order_insufficient_deep_and_base() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -853,6 +840,9 @@ public fun test_ask_order_base_only_in_balance_manager() {
     // Calculate fee for wrapper DEEP usage
     let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -863,9 +853,7 @@ public fun test_ask_order_base_only_in_balance_manager() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -918,6 +906,9 @@ public fun test_ask_order_large_values() {
     let sui_in_wallet = coverage_fee + protocol_fee;
     let wallet_input_coin = quantity;
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -928,9 +919,7 @@ public fun test_ask_order_large_values() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -977,6 +966,9 @@ public fun test_ask_order_exact_resources() {
 
     let wrapper_deep_reserves = 0;
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -987,9 +979,7 @@ public fun test_ask_order_exact_resources() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -1036,6 +1026,9 @@ public fun test_ask_order_complex_distribution() {
 
     let wrapper_deep_reserves = deep_required;
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -1046,9 +1039,7 @@ public fun test_ask_order_complex_distribution() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -1100,6 +1091,9 @@ public fun test_ask_order_insufficient_base() {
     let sui_in_wallet = coverage_fee + protocol_fee;
     let wallet_input_coin = AMOUNT_SMALL;
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -1110,9 +1104,7 @@ public fun test_ask_order_insufficient_base() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -1164,6 +1156,9 @@ public fun test_ask_order_with_wrapper_deep() {
     let sui_in_wallet = coverage_fee + protocol_fee;
     let wallet_input_coin = quantity - balance_manager_input_coin;
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -1174,9 +1169,7 @@ public fun test_ask_order_with_wrapper_deep() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -1251,6 +1244,9 @@ public fun test_ask_order_fee_from_both_sources() {
     // Set up input coin balances - all base coins in balance manager
     let wallet_input_coin = 0;
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -1261,9 +1257,7 @@ public fun test_ask_order_fee_from_both_sources() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -1312,6 +1306,9 @@ public fun test_zero_quantity_order() {
 
     let wrapper_deep_reserves = AMOUNT_MEDIUM;
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -1322,9 +1319,7 @@ public fun test_zero_quantity_order() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
@@ -1372,6 +1367,9 @@ public fun test_zero_price_order() {
 
     let wrapper_deep_reserves = AMOUNT_MEDIUM;
 
+    // Calculate expected values
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
+
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -1382,9 +1380,7 @@ public fun test_zero_price_order() {
         sui_in_wallet,
         wallet_input_coin,
         wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
+        order_amount,
         sui_per_deep,
     );
 
