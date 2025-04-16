@@ -1,13 +1,14 @@
 module deepbook_wrapper::order;
 
-use deepbook::balance_manager::{Self, BalanceManager};
+use deepbook::balance_manager::{Self, BalanceManager, TradeProof};
 use deepbook::pool::{Self, Pool};
 use deepbook_wrapper::fee::{estimate_full_order_fee_core, calculate_full_order_fee};
 use deepbook_wrapper::helper::{
     calculate_deep_required,
     transfer_if_nonzero,
     calculate_order_amount,
-    get_sui_per_deep
+    get_sui_per_deep,
+    calculate_market_order_params,
 };
 use deepbook_wrapper::math;
 use deepbook_wrapper::wrapper::{
@@ -82,15 +83,19 @@ const EInvalidOwner: u64 = 4;
 
 // === Public-Mutative Functions ===
 /// Creates a limit order on DeepBook using coins from various sources
-/// This function orchestrates the entire order creation process:
-/// 1. Sources DEEP coins from user wallet and wrapper reserves if needed
-/// 2. Collects fees in SUI coins
-/// 3. Deposits required input coins from the wallet to the balance manager
-/// 4. Places the order on DeepBook and returns the order info
+/// This function orchestrates the entire limit order creation process through the following steps:
+/// 1. Creates plans for:
+///    - DEEP coin sourcing from user wallet and wrapper reserves
+///    - Fee collection in SUI coins
+///    - Input coin deposits from wallet to balance manager
+/// 2. Executes the plans through shared preparation logic that:
+///    - Sources DEEP coins according to the DEEP plan
+///    - Collects fees according to the fee plan
+///    - Deposits input coins according to the input coin deposit plan
+/// 3. Places the limit order on DeepBook and returns the order info
 ///
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
-/// - whitelisted_pools_registry: Registry of pools whitelisted by our protocol
 /// - pool: The trading pool where the order will be placed
 /// - reference_pool: Reference pool used for SUI/DEEP price calculation
 /// - balance_manager: User's balance manager for managing coin deposits
@@ -111,10 +116,10 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
     balance_manager: &mut BalanceManager,
-    mut base_coin: Coin<BaseToken>,
-    mut quote_coin: Coin<QuoteToken>,
-    mut deep_coin: Coin<DEEP>,
-    mut sui_coin: Coin<SUI>,
+    base_coin: Coin<BaseToken>,
+    quote_coin: Coin<QuoteToken>,
+    deep_coin: Coin<DEEP>,
+    sui_coin: Coin<SUI>,
     price: u64,
     quantity: u64,
     is_bid: bool,
@@ -125,83 +130,34 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
     clock: &Clock,
     ctx: &mut TxContext,
 ): (deepbook::order_info::OrderInfo) {
-    // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
-
-    // Get SUI per DEEP price from reference pool
-    let sui_per_deep = get_sui_per_deep(reference_pool, clock);
-
-    // Extract all the data we need from DeepBook objects
-    let is_pool_whitelisted = pool::whitelisted(pool);
+    // Calculate DEEP required for limit order
     let deep_required = calculate_deep_required(pool, quantity, price);
 
-    // Get balances from balance manager
-    let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
-    let balance_manager_sui = balance_manager::balance<SUI>(balance_manager);
-    let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
-    let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
-    let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
+    // Get pool whitelisted status
+    let is_pool_whitelisted = pool.whitelisted();
 
-    // Get balances from wallet coins
-    let deep_in_wallet = coin::value(&deep_coin);
-    let sui_in_wallet = coin::value(&sui_coin);
-    let base_in_wallet = coin::value(&base_coin);
-    let quote_in_wallet = coin::value(&quote_coin);
-    let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
+    // Calculate order amount based on order type
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    // Get wrapper deep reserves
-    let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
-
-    // Get the order plans from the core logic
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
-        is_pool_whitelisted,
-        deep_required,
-        balance_manager_deep,
-        balance_manager_sui,
-        balance_manager_input_coin,
-        deep_in_wallet,
-        sui_in_wallet,
-        wallet_input_coin,
-        wrapper_deep_reserves,
-        quantity,
-        price,
-        is_bid,
-        sui_per_deep,
-    );
-
-    // Step 1: Execute DEEP plan
-    execute_deep_plan(wrapper, balance_manager, &mut deep_coin, &deep_plan, ctx);
-
-    // Step 2: Execute fee charging plan
-    execute_fee_plan(
+    // Prepare order execution
+    let proof = prepare_order_execution(
         wrapper,
-        balance_manager,
-        &mut sui_coin,
-        &fee_plan,
-        ctx,
-    );
-
-    // Step 3: Execute input coin deposit plan
-    execute_input_coin_deposit_plan(
-        balance_manager,
-        &mut base_coin,
-        &mut quote_coin,
-        &input_coin_deposit_plan,
-        is_bid,
-        ctx,
-    );
-
-    // Return unused coins to the caller
-    transfer_if_nonzero(base_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(deep_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(sui_coin, tx_context::sender(ctx));
-
-    // Step 4: Generate proof and place order
-    let proof = balance_manager::generate_proof_as_owner(balance_manager, ctx);
-
-    pool::place_limit_order(
         pool,
+        reference_pool,
+        balance_manager,
+        base_coin,
+        quote_coin,
+        deep_coin,
+        sui_coin,
+        deep_required,
+        order_amount,
+        is_bid,
+        clock,
+        ctx,
+    );
+
+    // Place limit order
+    pool.place_limit_order(
         balance_manager,
         &proof,
         client_order_id,
@@ -217,11 +173,96 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
     )
 }
 
-/// Creates a limit order on DeepBook using coins from user's wallet
-/// This function handles the order creation process for whitelisted pools:
-/// 1. Verifies the caller owns the balance manager
-/// 2. Deposits required input coins from the wallet to the balance manager
-/// 3. Places the order on DeepBook and returns the order info
+/// Creates a market order on DeepBook using coins from various sources
+/// This function orchestrates the entire market order creation process through the following steps:
+/// 1. Creates plans for:
+///    - DEEP coin sourcing from user wallet and wrapper reserves
+///    - Fee collection in SUI coins
+///    - Input coin deposits from wallet to balance manager
+/// 2. Executes the plans through shared preparation logic that:
+///    - Sources DEEP coins according to the DEEP plan
+///    - Collects fees according to the fee plan
+///    - Deposits input coins according to the input coin deposit plan
+/// 3. Places the market order on DeepBook and returns the order info
+///
+/// Parameters:
+/// - wrapper: The DeepBook wrapper instance managing the order process
+/// - pool: The trading pool where the order will be placed
+/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - balance_manager: User's balance manager for managing coin deposits
+/// - base_coin: Base token coins from user's wallet
+/// - quote_coin: Quote token coins from user's wallet
+/// - deep_coin: DEEP coins from user's wallet
+/// - sui_coin: SUI coins for fee payment
+/// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks). For bids, this amount
+///                 will be converted into base quantity using current order book state
+/// - is_bid: True for buy orders, false for sell orders
+/// - self_matching_option: Self-matching behavior configuration
+/// - client_order_id: Client-provided order identifier
+/// - clock: System clock for timestamp verification
+public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+    wrapper: &mut Wrapper,
+    pool: &mut Pool<BaseToken, QuoteToken>,
+    reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    balance_manager: &mut BalanceManager,
+    base_coin: Coin<BaseToken>,
+    quote_coin: Coin<QuoteToken>,
+    deep_coin: Coin<DEEP>,
+    sui_coin: Coin<SUI>,
+    order_amount: u64,
+    is_bid: bool,
+    self_matching_option: u8,
+    client_order_id: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+): (deepbook::order_info::OrderInfo) {
+    // Calculate base quantity and DEEP required for market order
+    let (base_quantity, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
+        pool,
+        order_amount,
+        is_bid,
+        clock,
+    );
+
+    // Get pool whitelisted status
+    let is_pool_whitelisted = pool.whitelisted();
+
+    // Prepare order execution
+    let proof = prepare_order_execution(
+        wrapper,
+        pool,
+        reference_pool,
+        balance_manager,
+        base_coin,
+        quote_coin,
+        deep_coin,
+        sui_coin,
+        deep_required,
+        order_amount,
+        is_bid,
+        clock,
+        ctx,
+    );
+
+    // Place market order
+    pool.place_market_order(
+        balance_manager,
+        &proof,
+        client_order_id,
+        self_matching_option,
+        base_quantity,
+        is_bid,
+        !is_pool_whitelisted, // pay_with_deep is true only if not whitelisted
+        clock,
+        ctx,
+    )
+}
+
+/// Creates a limit order on DeepBook using coins from user's wallet for whitelisted pools
+/// This function orchestrates the order creation process:
+/// 1. Calculates required order amount based on price and quantity
+/// 2. Prepares order execution by handling coin deposits (see `prepare_whitelisted_order_execution`)
+/// 3. Places the limit order on DeepBook and returns the order info
 ///
 /// Note: This function is optimized for whitelisted pools and doesn't require DEEP tokens
 /// or additional fee handling since these are not needed for whitelisted pools.
@@ -242,8 +283,8 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
 public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     pool: &mut Pool<BaseToken, QuoteToken>,
     balance_manager: &mut BalanceManager,
-    mut base_coin: Coin<BaseToken>,
-    mut quote_coin: Coin<QuoteToken>,
+    base_coin: Coin<BaseToken>,
+    quote_coin: Coin<QuoteToken>,
     price: u64,
     quantity: u64,
     is_bid: bool,
@@ -254,49 +295,20 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (deepbook::order_info::OrderInfo) {
-    // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
-
-    // Extract all the data we need from DeepBook objects
-    let is_pool_whitelisted = pool::whitelisted(pool);
-
     // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    // Get balances from balance manager
-    let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
-    let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
-    let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
-
-    // Get balances from wallet coins
-    let base_in_wallet = coin::value(&base_coin);
-    let quote_in_wallet = coin::value(&quote_coin);
-    let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
-
-    // Step 1: Determine input coin deposit plan
-    let input_coin_deposit_plan = get_input_coin_deposit_plan(
-        order_amount,
-        wallet_input_coin,
-        balance_manager_input_coin,
-    );
-
-    // Step 2: Execute input coin deposit plan
-    execute_input_coin_deposit_plan(
+    // Prepare order execution
+    let proof = prepare_whitelisted_order_execution(
         balance_manager,
-        &mut base_coin,
-        &mut quote_coin,
-        &input_coin_deposit_plan,
+        base_coin,
+        quote_coin,
+        order_amount,
         is_bid,
         ctx,
     );
 
-    // Step 3: Return unused coins to the caller
-    transfer_if_nonzero(base_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
-
-    // Step 4: Generate proof and place order
-    let proof = balance_manager::generate_proof_as_owner(balance_manager, ctx);
-
+    // Place limit order
     pool::place_limit_order(
         pool,
         balance_manager,
@@ -307,8 +319,71 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
         price,
         quantity,
         is_bid,
-        !is_pool_whitelisted, // pay_with_deep is true only if not whitelisted
+        false, // pay_with_deep is false for whitelisted pools
         expire_timestamp,
+        clock,
+        ctx,
+    )
+}
+
+/// Creates a market order on DeepBook using coins from user's wallet for whitelisted pools
+/// This function orchestrates the order creation process:
+/// 1. Calculates base quantity from order amount using current order book state
+/// 2. Prepares order execution by handling coin deposits (see `prepare_whitelisted_order_execution`)
+/// 3. Places the market order on DeepBook and returns the order info
+///
+/// Note: This function is optimized for whitelisted pools and doesn't require DEEP tokens
+/// or additional fee handling since these are not needed for whitelisted pools.
+///
+/// Parameters:
+/// - pool: The trading pool where the order will be placed
+/// - balance_manager: User's balance manager for managing coin deposits
+/// - base_coin: Base token coins from user's wallet
+/// - quote_coin: Quote token coins from user's wallet
+/// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
+/// - is_bid: True for buy orders, false for sell orders
+/// - self_matching_option: Self-matching behavior configuration
+/// - client_order_id: Client-provided order identifier
+/// - clock: System clock for order book state
+public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
+    pool: &mut Pool<BaseToken, QuoteToken>,
+    balance_manager: &mut BalanceManager,
+    base_coin: Coin<BaseToken>,
+    quote_coin: Coin<QuoteToken>,
+    order_amount: u64,
+    is_bid: bool,
+    self_matching_option: u8,
+    client_order_id: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+): (deepbook::order_info::OrderInfo) {
+    // Calculate base quantity for market order
+    let (base_quantity, _) = calculate_market_order_params<BaseToken, QuoteToken>(
+        pool,
+        order_amount,
+        is_bid,
+        clock,
+    );
+
+    // Prepare order execution
+    let proof = prepare_whitelisted_order_execution(
+        balance_manager,
+        base_coin,
+        quote_coin,
+        order_amount,
+        is_bid,
+        ctx,
+    );
+
+    // Place market order
+    pool.place_market_order(
+        balance_manager,
+        &proof,
+        client_order_id,
+        self_matching_option,
+        base_quantity,
+        is_bid,
+        false, // pay_with_deep is false for whitelisted pools
         clock,
         ctx,
     )
@@ -602,9 +677,7 @@ public(package) fun estimate_order_requirements_core(
 /// - sui_in_wallet: Amount of SUI in user's wallet
 /// - wallet_input_coin: Amount of input coins (base/quote) in user's wallet
 /// - wrapper_deep_reserves: Amount of DEEP available in wrapper reserves
-/// - quantity: Order quantity in base tokens
-/// - price: Order price in quote tokens per base token
-/// - is_bid: True for buy orders, false for sell orders
+/// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
 /// - sui_per_deep: Current SUI/DEEP price from reference pool
 ///
 /// Returns a tuple with three structured plans:
@@ -621,9 +694,7 @@ public(package) fun create_limit_order_core(
     sui_in_wallet: u64,
     wallet_input_coin: u64,
     wrapper_deep_reserves: u64,
-    quantity: u64,
-    price: u64,
-    is_bid: bool,
+    order_amount: u64,
     sui_per_deep: u64,
 ): (DeepPlan, FeePlan, InputCoinDepositPlan) {
     // Step 1: Determine DEEP requirements
@@ -635,10 +706,7 @@ public(package) fun create_limit_order_core(
         wrapper_deep_reserves,
     );
 
-    // Step 2: Calculate order amount based on order type
-    let order_amount = calculate_order_amount(quantity, price, is_bid);
-
-    // Step 3: Determine fee charging plan based on order type
+    // Step 2: Determine fee charging plan based on order type
     let fee_plan = get_fee_plan(
         deep_plan.use_wrapper_deep_reserves,
         deep_plan.from_deep_reserves,
@@ -648,7 +716,7 @@ public(package) fun create_limit_order_core(
         balance_manager_sui,
     );
 
-    // Step 4: Determine input coin deposit plan
+    // Step 3: Determine input coin deposit plan
     let deposit_plan = get_input_coin_deposit_plan(
         order_amount,
         wallet_input_coin,
@@ -956,6 +1024,182 @@ public(package) fun plan_fee_collection(
 }
 
 // === Private Functions ===
+/// Prepares order execution by handling all common order creation logic:
+/// 1. Verifies the caller owns the balance manager
+/// 2. Creates plans for DEEP sourcing, fee collection, and input coin deposit
+/// 3. Executes the plans in sequence:
+///    - Sources DEEP coins from user wallet and wrapper reserves according to DeepPlan
+///    - Collects fees in SUI coins according to FeePlan
+///    - Deposits required input coins according to InputCoinDepositPlan
+/// 4. Returns unused coins to the caller
+/// 5. Returns the balance manager proof needed for order placement
+///
+/// This function contains the shared execution logic between limit and market orders,
+/// processing the plans created by create_limit_order_core.
+///
+/// Parameters:
+/// - wrapper: The DeepBook wrapper instance managing the order process
+/// - pool: The trading pool where the order will be placed
+/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - balance_manager: User's balance manager for managing coin deposits
+/// - base_coin: Base token coins from user's wallet
+/// - quote_coin: Quote token coins from user's wallet
+/// - deep_coin: DEEP coins from user's wallet
+/// - sui_coin: SUI coins for fee payment
+/// - deep_required: Amount of DEEP required for the order
+/// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
+/// - is_bid: True for buy orders, false for sell orders
+/// - clock: System clock for timestamp verification
+fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+    wrapper: &mut Wrapper,
+    pool: &Pool<BaseToken, QuoteToken>,
+    reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    balance_manager: &mut BalanceManager,
+    mut base_coin: Coin<BaseToken>,
+    mut quote_coin: Coin<QuoteToken>,
+    mut deep_coin: Coin<DEEP>,
+    mut sui_coin: Coin<SUI>,
+    deep_required: u64,
+    order_amount: u64,
+    is_bid: bool,
+    clock: &Clock,
+    ctx: &mut TxContext,
+): TradeProof {
+    // Verify the caller owns the balance manager
+    assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+
+    // Get SUI per DEEP price from reference pool
+    let sui_per_deep = get_sui_per_deep(reference_pool, clock);
+
+    // Extract all the data we need from DeepBook objects
+    let is_pool_whitelisted = pool.whitelisted();
+
+    // Get balances from balance manager
+    let balance_manager_deep = balance_manager.balance<DEEP>();
+    let balance_manager_sui = balance_manager.balance<SUI>();
+    let balance_manager_base = balance_manager.balance<BaseToken>();
+    let balance_manager_quote = balance_manager.balance<QuoteToken>();
+    let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
+
+    // Get balances from wallet coins
+    let deep_in_wallet = deep_coin.value();
+    let sui_in_wallet = sui_coin.value();
+    let base_in_wallet = base_coin.value();
+    let quote_in_wallet = quote_coin.value();
+    let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
+
+    // Get wrapper deep reserves
+    let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
+
+    // Get the order plans from the core logic
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+        is_pool_whitelisted,
+        deep_required,
+        balance_manager_deep,
+        balance_manager_sui,
+        balance_manager_input_coin,
+        deep_in_wallet,
+        sui_in_wallet,
+        wallet_input_coin,
+        wrapper_deep_reserves,
+        order_amount,
+        sui_per_deep,
+    );
+
+    // Step 1: Execute DEEP plan
+    execute_deep_plan(wrapper, balance_manager, &mut deep_coin, &deep_plan, ctx);
+
+    // Step 2: Execute fee charging plan
+    execute_fee_plan(
+        wrapper,
+        balance_manager,
+        &mut sui_coin,
+        &fee_plan,
+        ctx,
+    );
+
+    // Step 3: Execute input coin deposit plan
+    execute_input_coin_deposit_plan(
+        balance_manager,
+        &mut base_coin,
+        &mut quote_coin,
+        &input_coin_deposit_plan,
+        is_bid,
+        ctx,
+    );
+
+    // Return unused coins to the caller
+    transfer_if_nonzero(base_coin, tx_context::sender(ctx));
+    transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
+    transfer_if_nonzero(deep_coin, tx_context::sender(ctx));
+    transfer_if_nonzero(sui_coin, tx_context::sender(ctx));
+
+    // Generate and return proof
+    balance_manager.generate_proof_as_owner(ctx)
+}
+
+/// Prepares order execution for whitelisted pools by handling coin deposits
+/// This function contains the shared logic for both limit and market orders in whitelisted pools,
+/// focusing only on input coin management without DEEP or fee handling
+///
+/// Steps:
+/// 1. Verifies the caller owns the balance manager
+/// 2. Creates and executes input coin deposit plan
+/// 3. Returns unused coins to the caller
+/// 4. Returns the balance manager proof needed for order placement
+///
+/// Parameters:
+/// - balance_manager: User's balance manager for managing coin deposits
+/// - base_coin: Base token coins from user's wallet
+/// - quote_coin: Quote token coins from user's wallet
+/// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
+/// - is_bid: True for buy orders, false for sell orders
+fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
+    balance_manager: &mut BalanceManager,
+    mut base_coin: Coin<BaseToken>,
+    mut quote_coin: Coin<QuoteToken>,
+    order_amount: u64,
+    is_bid: bool,
+    ctx: &mut TxContext,
+): TradeProof {
+    // Verify the caller owns the balance manager
+    assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+
+    // Get balances from balance manager
+    let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
+    let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
+    let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
+
+    // Get balances from wallet coins
+    let base_in_wallet = coin::value(&base_coin);
+    let quote_in_wallet = coin::value(&quote_coin);
+    let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
+
+    // Step 1: Determine input coin deposit plan
+    let input_coin_deposit_plan = get_input_coin_deposit_plan(
+        order_amount,
+        wallet_input_coin,
+        balance_manager_input_coin,
+    );
+
+    // Step 2: Execute input coin deposit plan
+    execute_input_coin_deposit_plan(
+        balance_manager,
+        &mut base_coin,
+        &mut quote_coin,
+        &input_coin_deposit_plan,
+        is_bid,
+        ctx,
+    );
+
+    // Step 3: Return unused coins to the caller
+    transfer_if_nonzero(base_coin, tx_context::sender(ctx));
+    transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
+
+    // Step 4: Generate and return proof
+    balance_manager::generate_proof_as_owner(balance_manager, ctx)
+}
+
 /// Executes the DEEP coin sourcing plan by acquiring coins from specified sources
 /// Sources DEEP coins from user wallet and/or wrapper reserves based on the deep plan
 /// Deposits all acquired DEEP coins to the user's balance manager for order placement
