@@ -72,12 +72,13 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 
 ## Deployment
 
-1. Uncomment `0x0` address in Move.toml before deploying contract
-2. Run command:
+1. Go to `packages/deepbook-wrapper` directory
+2. Uncomment `0x0` address in Move.toml before deploying contract
+3. Run command:
 `sui client publish --gas-budget 220000000 --skip-dependency-verification`
-3. Use new `address` of deployed package in Move.toml
-4. Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
-5. Add DEEP coins to reserves by `examples/wrapper/join.ts`
+4. Use new `address` of deployed package in Move.toml
+5. Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
+6. Add DEEP coins to reserves by `examples/wrapper/join.ts`
 
 ## License
 
