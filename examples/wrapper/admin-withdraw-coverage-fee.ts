@@ -1,6 +1,6 @@
 import { keypair, provider, user } from "../common";
 import { ADMIN_CAP_OBJECT_ID, NS_COIN_TYPE, WRAPPER_PACKAGE_ID } from "../constants";
-import { getWithdrawFeeTx } from "./withdraw-coverage-fee";
+import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 
 // yarn ts-node examples/wrapper/admin-withdraw-coverage-fee.ts > admin-withdraw-coverage-fee.log 2>&1
 (async () => {
