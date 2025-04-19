@@ -3,7 +3,7 @@ import { keypair, provider } from "../common";
 import { DEEP_COIN_TYPE, DEEP_DECIMALS, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
 
 // How many DEEP tokens to join (in human-readable format)
-const DEEP_AMOUNT = 2; // Change this to the amount you want to join
+const DEEP_AMOUNT = 100; // Change this to the amount you want to join
 
 // Convert human-readable amount to raw amount
 const rawAmount = DEEP_AMOUNT * 10 ** DEEP_DECIMALS;
