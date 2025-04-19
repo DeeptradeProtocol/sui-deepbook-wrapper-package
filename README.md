@@ -85,9 +85,15 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 
 1. Run `examples/wrapper/get-charged-fee-info.ts` to get the list of coins with charged fees (coverage fees and protocol fees).
 2. Run `examples/wrapper/admin-withdraw-all-coins-coverage-fee.ts` to withdraw all coins coverage fees (coverage fees charged in output coin of each swap and for limit/market orders in SUI).
-3. Run `examples/wrapper/admin-withdraw-protocol-fee.ts` to withdraw all protocol fees (protocol fees charged in SUI).
+3. Run `examples/wrapper/admin-withdraw-protocol-fee.ts` to withdraw all protocol fees (protocol fees charged in SUI, pool creation fees charged in DEEP).
 4. Run `examples/wrapper/withdraw-all-deep-reserves.ts` to withdraw all DEEP coins from reserves.
 
+
+## Pool Creation Fees
+
+When creating a new trading pool, there are two separate fees:
+
+DeepBook protocol requires 500 DEEP coins as a fee for each new pool creation. Additionally, the Wrapper charges 100 DEEP coins as its pool creation fee.
 
 ## License
 
