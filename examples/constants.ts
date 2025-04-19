@@ -3,6 +3,7 @@ export const WRAPPER_PACKAGE_ID = "0x1271ca74fee31ee2ffb4d6373eafb9ada44cdef0700
 export const ADMIN_CAP_OBJECT_ID = "0xad40c95a5710b573791ea0ee284eb3f76c8b0f534921ae3dea9979ca59b2b6af";
 export const WRAPPER_OBJECT_ID = "0x8ce7432ce43088e2d8eea7270708eaff850261630975f92300ce00a0e796164b";
 export const FUND_CAP_OBJECT_ID = "0xebc2b6f0285444dae56e190b208a14adc2157cf8e97cdf5e2d94e3a0621ad0f0";
+export const CREATE_POOL_CONFIG_OBJECT_ID = "";
 
 // Coin types
 export const DEEP_COIN_TYPE = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP";
