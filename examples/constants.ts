@@ -1,8 +1,8 @@
 // Wrapper package data
-export const WRAPPER_PACKAGE_ID = "0x1271ca74fee31ee2ffb4d6373eafb9ada44cdef0700ca34ec650b21de60cc80b";
-export const ADMIN_CAP_OBJECT_ID = "0xad40c95a5710b573791ea0ee284eb3f76c8b0f534921ae3dea9979ca59b2b6af";
-export const WRAPPER_OBJECT_ID = "0x8ce7432ce43088e2d8eea7270708eaff850261630975f92300ce00a0e796164b";
-export const FUND_CAP_OBJECT_ID = "0xebc2b6f0285444dae56e190b208a14adc2157cf8e97cdf5e2d94e3a0621ad0f0";
+export const WRAPPER_PACKAGE_ID = "0xd7ca30ad715278a28f01c572ac7be3168e9800321f1b3f96eb9d13dfc856419c";
+export const ADMIN_CAP_OBJECT_ID = "0xf8bba85b752e91112596e66ea72a9ea67feece403ca982d8629308804af731dc";
+export const WRAPPER_OBJECT_ID = "0x33744a4ca9a1f0b96f20be165c3c4844aa1ceced81adcfca3d8c57a29f99735d";
+export const FUND_CAP_OBJECT_ID = "0xa973748ab53f547c9a8163717c028a8bdd67254af777f6b18dccecf1e9d7be31";
 
 // Coin types
 export const DEEP_COIN_TYPE = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP";
