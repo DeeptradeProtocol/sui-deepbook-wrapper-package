@@ -79,6 +79,15 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 4. Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
 5. Add DEEP coins to reserves by `examples/wrapper/join.ts`
 
+
+## Fee & Reserves Withdrawal (Admin Only)
+
+1. Run `examples/wrapper/get-charged-fee-info.ts` to get the list of coins with charged fees (coverage fees and protocol fees).
+2. Run `examples/wrapper/admin-withdraw-all-coins-coverage-fee.ts` to withdraw all coins coverage fees (coverage fees charged in output coin of each swap and for limit/market orders in SUI).
+3. Run `examples/wrapper/admin-withdraw-protocol-fee.ts` to withdraw all protocol fees (protocol fees charged in SUI).
+4. Run `examples/wrapper/withdraw-all-deep-reserves.ts` to withdraw all DEEP coins from reserves.
+
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
