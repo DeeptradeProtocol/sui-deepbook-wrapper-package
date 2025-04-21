@@ -1,5 +1,6 @@
 module deepbook_wrapper::pool;
 
+use sui::event;
 use sui::coin::{Self, Coin};
 use deepbook::pool::{Self};
 use deepbook::constants::{Self};
@@ -19,6 +20,14 @@ public struct CreatePoolConfig has key, store {
     id: UID,
     // Protocol fee can be updated by the admin
     protocol_fee: u64,
+}
+
+/// Pool created event emitted when a pool is created with help of the wrapper
+public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop, store {
+    pool_id: ID,
+    tick_size: u64,
+    lot_size: u64,
+    min_size: u64,
 }
 
 // === Errors ===
@@ -79,14 +88,24 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     transfer_if_nonzero(creation_fee, tx_context::sender(ctx));
 
     // Create the permissionless pool
-    pool::create_permissionless_pool<BaseAsset, QuoteAsset>(
+    let pool_id = pool::create_permissionless_pool<BaseAsset, QuoteAsset>(
         registry, 
         tick_size, 
         lot_size, 
         min_size, 
         deepbook_fee_coin, 
         ctx,
-    )
+    );
+
+    // Emit event for the newly created pool
+    event::emit(PoolCreated<BaseAsset, QuoteAsset> {
+        pool_id,
+        tick_size,
+        lot_size,
+        min_size,
+    });
+
+    pool_id
 }
 
 /// Update the protocol fee for creating a pool
