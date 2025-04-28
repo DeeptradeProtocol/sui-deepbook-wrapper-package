@@ -80,6 +80,17 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 5. Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
 6. Add DEEP coins to reserves by `examples/wrapper/join.ts`
 
+## Upgrade
+
+1. Go to `packages/deepbook-wrapper` directory
+2. Set `address` to `0x0` in `Move.toml`
+3. Run command:
+`sui client upgrade --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
+4. (optional) Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
+5. Set `address` to new `address` of deployed package in `Move.toml`
+6. Build `sui move build`
+
+
 
 ## Fee & Reserves Withdrawal (Admin Only)
 
