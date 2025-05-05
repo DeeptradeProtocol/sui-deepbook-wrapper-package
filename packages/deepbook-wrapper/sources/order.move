@@ -907,13 +907,7 @@ public(package) fun create_input_fee_order_core(
     wallet_input_coin: u64,
     order_amount: u64,
 ): (InputCoinFeePlan, InputCoinDepositPlan) {
-    // Step 1: Calculate DeepBook fee
-    let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, taker_fee);
-    
-    // Step 2: Calculate total amount needed (order amount + DeepBook fee)
-    let total_amount = order_amount + deepbook_fee;
-
-    // Step 3: Determine fee charging plan
+    // Step 1: Determine fee charging plan
     let fee_plan = get_input_coin_fee_plan(
         is_pool_whitelisted,
         taker_fee,
@@ -922,9 +916,15 @@ public(package) fun create_input_fee_order_core(
         balance_manager_input_coin,
     );
 
-    // Step 4: Calculate remaining balances after fee deduction
+    // Step 2: Calculate remaining balances after fee deduction
     let remaining_in_wallet = wallet_input_coin - fee_plan.protocol_fee_from_wallet;
     let remaining_in_bm = balance_manager_input_coin - fee_plan.protocol_fee_from_balance_manager;
+
+    // Step 3: Calculate DeepBook fee
+    let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, taker_fee);
+    
+    // Step 4: Calculate total amount needed to be on the balance manager
+    let total_amount = order_amount + deepbook_fee;
 
     // Step 5: Determine input coin deposit plan with remaining balances
     let deposit_plan = get_input_coin_deposit_plan(
