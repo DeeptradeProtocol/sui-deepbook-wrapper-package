@@ -290,7 +290,7 @@ public fun test_exact_fee_match_combined() {
 public fun test_large_order_amount() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
-    let amount = 1_000_000_000_000; // Very large order amount
+    let amount = 1_000_000_000_000_000; // Very large order amount
 
     // Calculate protocol fee
     let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
