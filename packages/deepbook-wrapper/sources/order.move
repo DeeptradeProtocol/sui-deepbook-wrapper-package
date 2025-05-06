@@ -1832,3 +1832,15 @@ public fun assert_input_coin_deposit_plan_eq(
     assert!(actual.from_user_wallet == expected_from_user_wallet, 0);
     assert!(actual.user_has_enough_input_coin == expected_sufficient, 0);
 }
+
+#[test_only]
+public fun assert_input_coin_fee_plan_eq(
+    actual: InputCoinFeePlan,
+    expected_protocol_from_wallet: u64,
+    expected_protocol_from_bm: u64,
+    expected_sufficient: bool,
+) {
+    assert!(actual.protocol_fee_from_wallet == expected_protocol_from_wallet, 0);
+    assert!(actual.protocol_fee_from_balance_manager == expected_protocol_from_bm, 0);
+    assert!(actual.user_covers_wrapper_fee == expected_sufficient, 0);
+}
