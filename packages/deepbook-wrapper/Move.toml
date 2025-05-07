@@ -2,7 +2,7 @@
 name = "deepbook_wrapper"
 version = "0.0.3"
 edition = "2024.beta"
-published-at="0xc6fa96e203d7858e1925563bdc2c75d1c2ff57af90cad46a7ad3364573e20fb0"
+published-at="0x90cffe4f0670e0c4d3413c124c364301fc0e73c709ada13ba86f2398c44a135a"
 
 [dependencies]
 # Mainnet version
@@ -15,5 +15,5 @@ token = { local = "../token", address = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa
 # token = { git = "https://github.com/MystenLabs/deepbookv3.git", subdir = "packages/token", rev = "197b5339e69fb95ffce64994869b1b61dcb56c8d" }
 
 [addresses]
-deepbook_wrapper = "0xc6fa96e203d7858e1925563bdc2c75d1c2ff57af90cad46a7ad3364573e20fb0"
+deepbook_wrapper = "0x90cffe4f0670e0c4d3413c124c364301fc0e73c709ada13ba86f2398c44a135a"
 # deepbook_wrapper = "0x0"
