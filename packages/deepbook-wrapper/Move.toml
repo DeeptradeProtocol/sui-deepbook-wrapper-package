@@ -1,6 +1,6 @@
 [package]
 name = "deepbook_wrapper"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2024.beta"
 published-at="0x90cffe4f0670e0c4d3413c124c364301fc0e73c709ada13ba86f2398c44a135a"
 
