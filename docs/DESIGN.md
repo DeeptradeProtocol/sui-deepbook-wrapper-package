@@ -1,6 +1,8 @@
 # DeepBook Wrapper Design
 
-## Fees Calculation
+## Fee Structure
+
+### DEEP-based Fees
 
 The `order::create_limit_order` function creates a limit order. It requires two pools as arguments:
 
@@ -18,6 +20,33 @@ The process works like this:
 5. Charge this amount from the user as a **DEEP Reserve Coverage Fee**
 6. Calculate 1% of the coverage fee
 7. Charge this 1% as a **Protocol Fee**
+
+### Input Coin Fees
+
+DeepBook v3.1 introduced an alternative fee mechanism based on the input coin rather than DEEP tokens. Under this model, users pay fees in the same token they're using to create the order.
+
+For example, when creating an order to exchange SUI for USDC, the fee is paid in additional SUI. The fee amount is calculated as:
+
+- DeepBook fee = Input Amount × Taker Fee Rate × FEE_PENALTY_MULTIPLIER
+- Protocol fee = Input Amount × Taker Fee Rate × INPUT_COIN_PROTOCOL_FEE_MULTIPLIER
+
+For instance, with:
+
+- Taker fee rate: 0.1%
+- Fee penalty multiplier: 1.25
+- Input coin protocol fee multiplier: 0.75
+- Input amount: 5 SUI
+
+The DeepBook fee would be 5 × 0.1% × 1.25 = 0.00625 SUI
+The protocol fee would be 5 × 0.1% × 0.75 = 0.00375 SUI
+The total fee paid by the user would be 0.00625 + 0.00375 = 0.01 SUI
+
+The contract provides dedicated functions in the order module for handling input coin fees:
+
+- `create_limit_order_input_fee`
+- `create_market_order_input_fee`
+
+These functions handle the protocol fee calculation and ensure the user's balance manager has sufficient input coins to cover both the order amount and the DeepBook fee. If needed, they automatically source additional input coins from the user's wallet.
 
 ## Separate Functions for Different Pool Types
 

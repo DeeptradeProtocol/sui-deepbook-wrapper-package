@@ -1,6 +1,7 @@
 module deepbook_wrapper::fee;
 
 use deepbook::pool::{Self, Pool};
+use deepbook::constants::{fee_penalty_multiplier};
 use deepbook_wrapper::helper::{calculate_deep_required, get_sui_per_deep, calculate_market_order_params};
 use deepbook_wrapper::math;
 use sui::balance::{Self, Balance};
@@ -10,6 +11,9 @@ use sui::coin::{Self, Coin};
 // === Constants ===
 /// Fee rate for protocol fee in billionths (1%)
 const PROTOCOL_FEE_BPS: u64 = 10_000_000;
+
+/// Protocol fee multiplier when fee is paid in input coins (75% of taker fee)
+const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
 
 // === Public-View Functions ===
 /// Calculates the total fee estimate for a limit order in SUI coins
@@ -223,17 +227,50 @@ public(package) fun calculate_protocol_fee(sui_per_deep: u64, deep_from_reserves
     protocol_fee_in_sui
 }
 
-/// Calculates a basic swap fee based on an amount and a fee rate.
-/// Used primarily for calculating fees in traditional DEX swaps.
+/// Calculates protocol fee based on DeepBook's taker fee when paid in input coins
+/// Protocol fee is calculated as INPUT_COIN_PROTOCOL_FEE_MULTIPLIER of the DeepBook fee
+///
+/// # Parameters
+/// * `amount` - The amount to calculate fee on
+/// * `taker_fee` - DeepBook's taker fee rate in billionths
+///
+/// # Returns
+/// * `u64` - The calculated protocol fee amount
+public(package) fun calculate_input_coin_protocol_fee(amount: u64, taker_fee: u64): u64 {
+  let deepbook_fee = calculate_fee_by_rate(taker_fee, amount);
+  let protocol_fee = math::mul(deepbook_fee, INPUT_COIN_PROTOCOL_FEE_MULTIPLIER);
+
+  protocol_fee
+}
+
+/// Calculates DeepBook's fee when paid in input coins, applying the fee penalty multiplier
+/// The fee is calculated by first applying the fee penalty multiplier to the taker fee rate,
+/// then calculating the fee based on the resulting rate
+///
+/// # Parameters
+/// * `amount` - The amount to calculate fee on
+/// * `taker_fee` - DeepBook's taker fee rate in billionths
+///
+/// # Returns
+/// * `u64` - The calculated DeepBook fee amount with penalty multiplier applied
+public(package) fun calculate_input_coin_deepbook_fee(amount: u64, taker_fee: u64): u64 {
+  let fee_penalty_multiplier = fee_penalty_multiplier();
+  let input_coin_fee_rate = math::mul(taker_fee, fee_penalty_multiplier);
+  let input_coin_fee = calculate_fee_by_rate(amount, input_coin_fee_rate);
+
+  input_coin_fee
+}
+
+/// Calculates fee by applying a rate to an amount
+/// 
+/// # Parameters
+/// * `amount` - The amount to calculate fee on
+/// * `fee_rate` - The fee rate in billionths (e.g., 1,000,000 = 0.1%)
 ///
 /// # Returns
 /// * `u64` - The calculated fee amount
-///
-/// # Parameters
-/// * `amount` - The amount of tokens to calculate fee on
-/// * `fee_bps` - The fee rate in billionths (e.g., 1,000,000 = 0.1%)
-public(package) fun calculate_swap_fee(amount: u64, fee_bps: u64): u64 {
-    math::mul(amount, fee_bps)
+public(package) fun calculate_fee_by_rate(amount: u64, fee_rate: u64): u64 {
+    math::mul(amount, fee_rate)
 }
 
 /// Charges a swap fee on a coin and returns the fee amount as a Balance.
@@ -251,5 +288,5 @@ public(package) fun charge_swap_fee<CoinType>(
 ): Balance<CoinType> {
     let coin_balance = coin::balance_mut(coin);
     let value = balance::value(coin_balance);
-    balance::split(coin_balance, calculate_swap_fee(value, fee_bps))
+    balance::split(coin_balance, calculate_fee_by_rate(value, fee_bps))
 }
