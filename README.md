@@ -14,6 +14,10 @@ The wrapper acts as an intermediary, managing all DEEP-related fee operations.
 
 ## System Design
 
+For detailed technical specifications and implementation details, please refer to:
+- [DeepBook Wrapper Design](docs/DESIGN.md)
+
+
 ### Swaps
 
 The Deepbook Wrapper provides DEEP coins from its reserves each time user does a swap.
