@@ -31,6 +31,19 @@ Also, if user has enough DEEP in their wallet or balance manager, the wrapper do
 
 The Deepbook Wrapper charges a fee on each swap in the output coin of the swap. The fee structure directly mirrors DeepBook's `taker_fee` parameter, which is set and controlled by DeepBook governance (currently 0.01% for stablecoin pools and 0.1% for other pools). The Wrapper simply adopts these rates without modification.
 
+Initially (before 3.1 version of DeepBook) swaps require DEEP coin as a fee that was charged by DeepBook protocol.
+
+Obviously, not all users has DEEP coins on their balance, so we've created the wrapper package, which allows users to borrow amount of DEEP that was required for particular swap, in exchange of a small fee that wrapper package charges (`taker_fee` for each market).
+The fee that was charged for that determined in the output token of a swap.
+For instance, if it's swap USDC to SUI, the fee would be determined in SUI coin.
+
+As of DeepBook version 3.1, it introduce ability to charge fee in input coin for swaps. 
+Since that, the existing fee charging model could be described as following:
+DeepBook charge fee in `input coin`, `taker fee` * `fee penalty multiplier`, where `fee penalty multiplier` is `1.25`.
+
+Deepbook Wrapper charge fee in `output coin`, so it remains the same as it was before and equal to the `taker_fee`.
+
+
 ### Order Fees
 
 DeepBook protocol requires DEEP coins as a fees for order placement, the fees calculated based on order price and size. 
