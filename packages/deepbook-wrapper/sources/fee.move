@@ -1,8 +1,12 @@
 module deepbook_wrapper::fee;
 
+use deepbook::constants::fee_penalty_multiplier;
 use deepbook::pool::{Self, Pool};
-use deepbook::constants::{fee_penalty_multiplier};
-use deepbook_wrapper::helper::{calculate_deep_required, get_sui_per_deep, calculate_market_order_params};
+use deepbook_wrapper::helper::{
+    calculate_deep_required,
+    get_sui_per_deep,
+    calculate_market_order_params
+};
 use deepbook_wrapper::math;
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
@@ -16,6 +20,56 @@ const PROTOCOL_FEE_BPS: u64 = 10_000_000;
 const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
 
 // === Public-View Functions ===
+/// Calculates the total fee estimate for a limit order in SUI coins
+/// Uses a reference pool to get SUI/DEEP price for fee calculation
+/// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
+///
+/// Parameters:
+/// - pool: The trading pool where the order will be placed
+/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - deep_in_balance_manager: Amount of DEEP available in user's balance manager
+/// - deep_in_wallet: Amount of DEEP in user's wallet
+/// - quantity: Order quantity in base tokens
+/// - price: Order price in quote tokens per base token
+/// - clock: System clock for timestamp verification
+///
+/// Returns:
+/// - u64: The estimated total fee in SUI coins
+/// - u64: Deep reserves coverage fee
+/// - u64: Protocol fee
+/// - u64: DEEP required for the order
+///   Returns (0, 0, 0, deep_required) for whitelisted pools or when user provides all required DEEP
+public fun estimate_full_fee_limit_v2<
+    BaseToken,
+    QuoteToken,
+    ReferenceBaseAsset,
+    ReferenceQuoteAsset,
+>(
+    pool: &Pool<BaseToken, QuoteToken>,
+    reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    deep_in_balance_manager: u64,
+    deep_in_wallet: u64,
+    quantity: u64,
+    price: u64,
+    clock: &Clock,
+): (u64, u64, u64, u64) {
+    // Get DEEP required for the order
+    let deep_required = calculate_deep_required(pool, quantity, price);
+
+    // Estimate full fee for limit order using original method
+    let (total_fee, deep_reserves_coverage_fee, protocol_fee) = estimate_full_fee_limit(
+        pool,
+        reference_pool,
+        deep_in_balance_manager,
+        deep_in_wallet,
+        quantity,
+        price,
+        clock,
+    );
+
+    (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
+}
+
 /// Calculates the total fee estimate for a limit order in SUI coins
 /// Uses a reference pool to get SUI/DEEP price for fee calculation
 /// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
@@ -60,6 +114,61 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
         deep_required,
         sui_per_deep,
     )
+}
+
+/// Calculates the total fee estimate for a market order in SUI coins
+/// Uses a reference pool to get SUI/DEEP price for fee calculation
+/// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
+///
+/// Parameters:
+/// - pool: The trading pool where the order will be placed
+/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - deep_in_balance_manager: Amount of DEEP available in user's balance manager
+/// - deep_in_wallet: Amount of DEEP in user's wallet
+/// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
+/// - is_bid: True for buy orders, false for sell orders
+/// - clock: System clock for order book state
+///
+/// Returns:
+/// - u64: The estimated total fee in SUI coins
+/// - u64: Deep reserves coverage fee
+/// - u64: Protocol fee
+/// - u64: DEEP required for the order
+///   Returns (0, 0, 0, deep_required) for whitelisted pools or when user provides all required DEEP
+public fun estimate_full_fee_market_v2<
+    BaseToken,
+    QuoteToken,
+    ReferenceBaseAsset,
+    ReferenceQuoteAsset,
+>(
+    pool: &Pool<BaseToken, QuoteToken>,
+    reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    deep_in_balance_manager: u64,
+    deep_in_wallet: u64,
+    order_amount: u64,
+    is_bid: bool,
+    clock: &Clock,
+): (u64, u64, u64, u64) {
+    // Get DEEP required for the order
+    let (_, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
+        pool,
+        order_amount,
+        is_bid,
+        clock,
+    );
+
+    // Estimate full fee for market order using original method
+    let (total_fee, deep_reserves_coverage_fee, protocol_fee) = estimate_full_fee_market(
+        pool,
+        reference_pool,
+        deep_in_balance_manager,
+        deep_in_wallet,
+        order_amount,
+        is_bid,
+        clock,
+    );
+
+    (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
 }
 
 /// Calculates the total fee estimate for a market order in SUI coins
@@ -237,10 +346,10 @@ public(package) fun calculate_protocol_fee(sui_per_deep: u64, deep_from_reserves
 /// # Returns
 /// * `u64` - The calculated protocol fee amount
 public(package) fun calculate_input_coin_protocol_fee(amount: u64, taker_fee: u64): u64 {
-  let deepbook_fee = calculate_fee_by_rate(taker_fee, amount);
-  let protocol_fee = math::mul(deepbook_fee, INPUT_COIN_PROTOCOL_FEE_MULTIPLIER);
+    let deepbook_fee = calculate_fee_by_rate(taker_fee, amount);
+    let protocol_fee = math::mul(deepbook_fee, INPUT_COIN_PROTOCOL_FEE_MULTIPLIER);
 
-  protocol_fee
+    protocol_fee
 }
 
 /// Calculates DeepBook's fee when paid in input coins, applying the fee penalty multiplier
@@ -254,15 +363,15 @@ public(package) fun calculate_input_coin_protocol_fee(amount: u64, taker_fee: u6
 /// # Returns
 /// * `u64` - The calculated DeepBook fee amount with penalty multiplier applied
 public(package) fun calculate_input_coin_deepbook_fee(amount: u64, taker_fee: u64): u64 {
-  let fee_penalty_multiplier = fee_penalty_multiplier();
-  let input_coin_fee_rate = math::mul(taker_fee, fee_penalty_multiplier);
-  let input_coin_fee = calculate_fee_by_rate(amount, input_coin_fee_rate);
+    let fee_penalty_multiplier = fee_penalty_multiplier();
+    let input_coin_fee_rate = math::mul(taker_fee, fee_penalty_multiplier);
+    let input_coin_fee = calculate_fee_by_rate(amount, input_coin_fee_rate);
 
-  input_coin_fee
+    input_coin_fee
 }
 
 /// Calculates fee by applying a rate to an amount
-/// 
+///
 /// # Parameters
 /// * `amount` - The amount to calculate fee on
 /// * `fee_rate` - The fee rate in billionths (e.g., 1,000,000 = 0.1%)
