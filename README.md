@@ -99,7 +99,7 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 
 ## Upgrade
 
-1. Go to `packages/deepbook-wrapper` directory
+1. Go to `packages/deepbook-wrapper` directory (`cd packages/deepbook-wrapper/`)
 2. Set `address` to `0x0` in `Move.toml`
 3. Run command:
 `sui client upgrade --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
