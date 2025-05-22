@@ -71,7 +71,7 @@ public fun admin_withdraw_protocol_fee<CoinType>(
     ctx: &mut TxContext,
 ): Coin<CoinType> {
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
-    
+
     if (bag::contains(&wrapper.protocol_fees, key)) {
         coin::from_balance(
             balance::withdraw_all(
@@ -105,7 +105,10 @@ public fun get_deep_reserves_value(wrapper: &Wrapper): u64 {
 
 // === Public-Package Functions ===
 /// Add collected deep reserves coverage fees to the wrapper's fee storage
-public(package) fun join_deep_reserves_coverage_fee<CoinType>(wrapper: &mut Wrapper, fee: Balance<CoinType>) {
+public(package) fun join_deep_reserves_coverage_fee<CoinType>(
+    wrapper: &mut Wrapper,
+    fee: Balance<CoinType>,
+) {
     if (balance::value(&fee) == 0) {
         balance::destroy_zero(fee);
         return
@@ -181,7 +184,7 @@ fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
     ctx: &mut TxContext,
 ): Coin<CoinType> {
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
-    
+
     if (bag::contains(&wrapper.deep_reserves_coverage_fees, key)) {
         coin::from_balance(
             balance::withdraw_all(
