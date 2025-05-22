@@ -13,6 +13,6 @@ public struct AdminCap has key, store {
 fun init(ctx: &mut TxContext) {
     transfer::transfer(
         AdminCap { id: object::new(ctx) },
-        tx_context::sender(ctx),
+        ctx.sender(),
     )
 }

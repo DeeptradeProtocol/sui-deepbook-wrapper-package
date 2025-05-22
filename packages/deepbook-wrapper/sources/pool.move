@@ -85,7 +85,7 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     join_protocol_fee(wrapper, protocol_fee_coin.into_balance());
 
     // Return unused DEEP coins to the caller
-    transfer_if_nonzero(creation_fee, tx_context::sender(ctx));
+    transfer_if_nonzero(creation_fee, ctx.sender());
 
     // Create the permissionless pool
     let pool_id = pool::create_permissionless_pool<BaseAsset, QuoteAsset>(

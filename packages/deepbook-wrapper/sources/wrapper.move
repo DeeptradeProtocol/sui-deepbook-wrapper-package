@@ -173,7 +173,7 @@ fun init(ctx: &mut TxContext) {
     transfer::share_object(wrapper);
 
     // Transfer the fund capability to the transaction sender
-    transfer::transfer(fund_cap, tx_context::sender(ctx));
+    transfer::transfer(fund_cap, ctx.sender());
 }
 
 /// Internal helper function to handle the common withdrawal logic

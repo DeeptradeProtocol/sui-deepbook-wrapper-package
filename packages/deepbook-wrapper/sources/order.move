@@ -1344,7 +1344,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
 
     // Get SUI per DEEP price from reference pool
     let sui_per_deep = get_sui_per_deep(reference_pool, clock);
@@ -1407,10 +1407,10 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     );
 
     // Return unused coins to the caller
-    transfer_if_nonzero(base_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(deep_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(sui_coin, tx_context::sender(ctx));
+    transfer_if_nonzero(base_coin, ctx.sender());
+    transfer_if_nonzero(quote_coin, ctx.sender());
+    transfer_if_nonzero(deep_coin, ctx.sender());
+    transfer_if_nonzero(sui_coin, ctx.sender());
 
     // Generate and return proof
     balance_manager.generate_proof_as_owner(ctx)
@@ -1441,7 +1441,7 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
 
     // Get balances from balance manager
     let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
@@ -1471,8 +1471,8 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     );
 
     // Step 3: Return unused coins to the caller
-    transfer_if_nonzero(base_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
+    transfer_if_nonzero(base_coin, ctx.sender());
+    transfer_if_nonzero(quote_coin, ctx.sender());
 
     // Step 4: Generate and return proof
     balance_manager::generate_proof_as_owner(balance_manager, ctx)
@@ -1510,7 +1510,7 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
 
     // Get pool whitelisted status
     let is_pool_whitelisted = pool::whitelisted(pool);
@@ -1556,8 +1556,8 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     );
 
     // Return unused coins to the caller
-    transfer_if_nonzero(base_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
+    transfer_if_nonzero(base_coin, ctx.sender());
+    transfer_if_nonzero(quote_coin, ctx.sender());
 
     // Generate and return proof
     balance_manager::generate_proof_as_owner(balance_manager, ctx)
