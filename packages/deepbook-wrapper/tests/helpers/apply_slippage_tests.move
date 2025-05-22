@@ -3,12 +3,13 @@ module deepbook_wrapper::apply_slippage_tests;
 
 use deepbook_wrapper::helper;
 use deepbook_wrapper::math;
+use std::unit_test::assert_eq;
 
 /// Test that applying slippage to zero value returns zero
 #[test]
 fun zero_value() {
     let result = helper::apply_slippage(0, 10_000_000); // 1% slippage
-    assert!(result == 0, 0);
+    assert_eq!(result, 0);
 }
 
 /// Test that applying zero slippage returns the original value
@@ -16,7 +17,7 @@ fun zero_value() {
 fun zero_slippage() {
     let value = 1000;
     let result = helper::apply_slippage(value, 0);
-    assert!(result == value, 0);
+    assert_eq!(result, value);
 }
 
 /// Test slippage on tiny values (1)
@@ -29,11 +30,11 @@ fun tiny_value() {
 
     // Formula: value + (value * slippage / 1_000_000_000)
     // 1 + (1 * 5_000_000 / 1_000_000_000) = 1 + 0 = 1
-    assert!(result == value, 0);
+    assert_eq!(result, value);
 
     // Confirm mathematically why it remains unchanged
     let slippage_amount = math::mul(value, slippage);
-    assert!(slippage_amount == 0, 1); // Confirm it rounds to zero
+    assert_eq!(slippage_amount, 0); // Confirm it rounds to zero
 }
 
 /// Test slippage on small values (100)
@@ -45,7 +46,7 @@ fun small_value() {
     let result = helper::apply_slippage(value, slippage);
 
     // 100 + (100 * 5_000_000 / 1_000_000_000) = 100 + 0 = 100
-    assert!(result == value, 0);
+    assert_eq!(result, value);
 }
 
 /// Test to find threshold where slippage starts having effect with 0.1% slippage
@@ -58,11 +59,11 @@ fun threshold_small_slippage() {
     let at_threshold = 1000;
 
     // Below threshold - no effect
-    assert!(helper::apply_slippage(below_threshold, slippage) == below_threshold, 0);
+    assert_eq!(helper::apply_slippage(below_threshold, slippage), below_threshold);
 
     // At threshold - should add 1
     let result = helper::apply_slippage(at_threshold, slippage);
-    assert!(result == at_threshold + 1, 1);
+    assert_eq!(result, at_threshold + 1);
 }
 
 /// Test to find threshold where 10% slippage starts having effect
@@ -78,19 +79,19 @@ fun threshold_default_slippage() {
     let mut i = 0;
     while (i < vector::length(&values_below)) {
         let value = *vector::borrow(&values_below, i);
-        assert!(helper::apply_slippage(value, slippage) == value, 0);
+        assert_eq!(helper::apply_slippage(value, slippage), value);
         i = i + 1;
     };
 
     // At threshold - should add 1
     let at_threshold = 10;
     let result = helper::apply_slippage(at_threshold, slippage);
-    assert!(result == at_threshold + 1, 1); // 10 + 1 = 11
+    assert_eq!(result, at_threshold + 1); // 10 + 1 = 11
 
     // Just above threshold
     let just_above = 20;
     let result = helper::apply_slippage(just_above, slippage);
-    assert!(result == just_above + 2, 2); // 20 + 2 = 22
+    assert_eq!(result, just_above + 2); // 20 + 2 = 22
 }
 
 /// Test with more typical values and common slippage percentages
@@ -101,23 +102,23 @@ fun normal_cases() {
 
     // 0.1% slippage
     let result = helper::apply_slippage(value, 1_000_000);
-    assert!(result == 1_001_000, 0); // 1_000_000 + 1_000
+    assert_eq!(result, 1_001_000); // 1_000_000 + 1_000
 
     // 0.5% slippage
     let result = helper::apply_slippage(value, 5_000_000);
-    assert!(result == 1_005_000, 1); // 1_000_000 + 5_000
+    assert_eq!(result, 1_005_000); // 1_000_000 + 5_000
 
     // 1% slippage
     let result = helper::apply_slippage(value, 10_000_000);
-    assert!(result == 1_010_000, 2); // 1_000_000 + 10_000
+    assert_eq!(result, 1_010_000); // 1_000_000 + 10_000
 
     // 5% slippage
     let result = helper::apply_slippage(value, 50_000_000);
-    assert!(result == 1_050_000, 3); // 1_000_000 + 50_000
+    assert_eq!(result, 1_050_000); // 1_000_000 + 50_000
 
     // 10% slippage
     let result = helper::apply_slippage(value, 100_000_000);
-    assert!(result == 1_100_000, 4); // 1_000_000 + 100_000
+    assert_eq!(result, 1_100_000); // 1_000_000 + 100_000
 }
 
 /// Test 10% slippage with various values
@@ -135,7 +136,7 @@ fun default_slippage_cases() {
         let expected_result = *vector::borrow(&expected, i);
         let result = helper::apply_slippage(value, slippage);
 
-        assert!(result == expected_result, i);
+        assert_eq!(result, expected_result);
         i = i + 1;
     };
 }
@@ -179,12 +180,12 @@ fun varied_values_with_default_slippage() {
         let result = helper::apply_slippage(value, slippage);
 
         // Check the result matches our manual calculation
-        assert!(result == expected, i);
+        assert_eq!(result, expected);
 
         // Also verify it's approximately 10% more (allowing for rounding)
         // For small values, the difference might not be exactly 10% due to integer division
         let min_expected = value + (value / 10); // At least value + 10% with integer division
-        assert!(result >= min_expected, 100 + i);
+        assert!(result >= min_expected);
 
         i = i + 1;
     };
@@ -202,7 +203,7 @@ fun large_values() {
     let expected = large_value + 18_000_000_000_000_000; // 0.1% of large_value
     let result = helper::apply_slippage(large_value, small_slippage);
 
-    assert!(result == expected, 0);
+    assert_eq!(result, expected);
 }
 
 /// Test slippage at values that could cause overflow when calculating the slippage amount
@@ -219,7 +220,7 @@ fun overflow_risk_in_calculation() {
 
     // Expected = high_value + high_value/10
     let expected = high_value + (high_value / 10);
-    assert!(result == expected, 0);
+    assert_eq!(result, expected);
 }
 
 /// Test for potential overflow in the final addition step
@@ -249,7 +250,7 @@ fun addition_overflow_protection() {
     let result = helper::apply_slippage(max_value, tiny_slippage);
 
     // We never reach this point due to the overflow error
-    assert!(result >= max_value, 0);
+    assert!(result >= max_value);
 }
 
 /// Verify invariant: result is always >= input value (since we only allow positive slippage)
@@ -269,7 +270,7 @@ fun invariant_result_not_smaller() {
             let result = helper::apply_slippage(value, slippage);
 
             // Verify invariant: result >= value
-            assert!(result >= value, 0);
+            assert!(result >= value);
 
             j = j + 1;
         };

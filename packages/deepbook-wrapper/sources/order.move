@@ -1806,10 +1806,11 @@ public fun assert_deep_plan_eq(
     expected_from_wrapper: u64,
     expected_sufficient: bool,
 ) {
-    assert!(actual.use_wrapper_deep_reserves == expected_use_wrapper, 0);
-    assert!(actual.from_user_wallet == expected_from_wallet, 0);
-    assert!(actual.from_deep_reserves == expected_from_wrapper, 0);
-    assert!(actual.deep_reserves_cover_order == expected_sufficient, 0);
+    use std::unit_test::assert_eq;
+    assert_eq!(actual.use_wrapper_deep_reserves, expected_use_wrapper);
+    assert_eq!(actual.from_user_wallet, expected_from_wallet);
+    assert_eq!(actual.from_deep_reserves, expected_from_wrapper);
+    assert_eq!(actual.deep_reserves_cover_order, expected_sufficient);
 }
 
 #[test_only]
@@ -1821,11 +1822,12 @@ public fun assert_fee_plan_eq(
     expected_protocol_from_bm: u64,
     expected_sufficient: bool,
 ) {
-    assert!(actual.coverage_fee_from_wallet == expected_coverage_from_wallet, 0);
-    assert!(actual.coverage_fee_from_balance_manager == expected_coverage_from_bm, 0);
-    assert!(actual.protocol_fee_from_wallet == expected_protocol_from_wallet, 0);
-    assert!(actual.protocol_fee_from_balance_manager == expected_protocol_from_bm, 0);
-    assert!(actual.user_covers_wrapper_fee == expected_sufficient, 0);
+    use std::unit_test::assert_eq;
+    assert_eq!(actual.coverage_fee_from_wallet, expected_coverage_from_wallet);
+    assert_eq!(actual.coverage_fee_from_balance_manager, expected_coverage_from_bm);
+    assert_eq!(actual.protocol_fee_from_wallet, expected_protocol_from_wallet);
+    assert_eq!(actual.protocol_fee_from_balance_manager, expected_protocol_from_bm);
+    assert_eq!(actual.user_covers_wrapper_fee, expected_sufficient);
 }
 
 #[test_only]
@@ -1835,9 +1837,10 @@ public fun assert_input_coin_deposit_plan_eq(
     expected_from_user_wallet: u64,
     expected_sufficient: bool,
 ) {
-    assert!(actual.order_amount == expected_order_amount, 0);
-    assert!(actual.from_user_wallet == expected_from_user_wallet, 0);
-    assert!(actual.user_has_enough_input_coin == expected_sufficient, 0);
+    use std::unit_test::assert_eq;
+    assert_eq!(actual.order_amount, expected_order_amount);
+    assert_eq!(actual.from_user_wallet, expected_from_user_wallet);
+    assert_eq!(actual.user_has_enough_input_coin, expected_sufficient);
 }
 
 #[test_only]
@@ -1847,7 +1850,8 @@ public fun assert_input_coin_fee_plan_eq(
     expected_protocol_from_bm: u64,
     expected_sufficient: bool,
 ) {
-    assert!(actual.protocol_fee_from_wallet == expected_protocol_from_wallet, 0);
-    assert!(actual.protocol_fee_from_balance_manager == expected_protocol_from_bm, 0);
-    assert!(actual.user_covers_wrapper_fee == expected_sufficient, 0);
+    use std::unit_test::assert_eq;
+    assert_eq!(actual.protocol_fee_from_wallet, expected_protocol_from_wallet);
+    assert_eq!(actual.protocol_fee_from_balance_manager, expected_protocol_from_bm);
+    assert_eq!(actual.user_covers_wrapper_fee, expected_sufficient);
 }

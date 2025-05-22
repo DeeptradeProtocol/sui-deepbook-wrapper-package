@@ -2,6 +2,7 @@
 module deepbook_wrapper::plan_fee_collection_tests;
 
 use deepbook_wrapper::order;
+use std::unit_test::assert_eq;
 
 /// Test that planning fee collection with zero fee returns zeros
 #[test]
@@ -11,8 +12,8 @@ fun plan_fee_collection_zero_fee() {
         1000, // available_in_wallet
         1000, // available_in_bm
     );
-    assert!(from_wallet == 0, 0);
-    assert!(from_bm == 0, 1);
+    assert_eq!(from_wallet, 0);
+    assert_eq!(from_bm, 0);
 }
 
 /// Test when BM has insufficient funds and wallet is empty
@@ -36,8 +37,8 @@ fun plan_fee_collection_bm_exact() {
         0, // available_in_wallet (empty)
         fee_amount, // available_in_bm (exact amount)
     );
-    assert!(from_wallet == 0, 0);
-    assert!(from_bm == fee_amount, 1);
+    assert_eq!(from_wallet, 0);
+    assert_eq!(from_bm, fee_amount);
 }
 
 /// Test when BM has excess funds and wallet is empty
@@ -49,8 +50,8 @@ fun plan_fee_collection_bm_excess() {
         0, // available_in_wallet (empty)
         fee_amount * 2, // available_in_bm (double the needed amount)
     );
-    assert!(from_wallet == 0, 0);
-    assert!(from_bm == fee_amount, 1);
+    assert_eq!(from_wallet, 0);
+    assert_eq!(from_bm, fee_amount);
 }
 
 /// Test when wallet has insufficient funds and BM is empty
@@ -74,8 +75,8 @@ fun plan_fee_collection_wallet_exact() {
         fee_amount, // available_in_wallet (exact amount)
         0, // available_in_bm (empty)
     );
-    assert!(from_wallet == fee_amount, 0);
-    assert!(from_bm == 0, 1);
+    assert_eq!(from_wallet, fee_amount);
+    assert_eq!(from_bm, 0);
 }
 
 /// Test when wallet has excess funds and BM is empty
@@ -87,8 +88,8 @@ fun plan_fee_collection_wallet_excess() {
         fee_amount * 2, // available_in_wallet (double the needed amount)
         0, // available_in_bm (empty)
     );
-    assert!(from_wallet == fee_amount, 0);
-    assert!(from_bm == 0, 1);
+    assert_eq!(from_wallet, fee_amount);
+    assert_eq!(from_bm, 0);
 }
 
 /// Test when both sources have insufficient funds
@@ -114,9 +115,9 @@ fun plan_fee_collection_split_exact_sum() {
         wallet_amount, // available_in_wallet (partial amount)
         bm_amount, // available_in_bm (partial amount)
     );
-    assert!(from_wallet == wallet_amount, 0);
-    assert!(from_bm == bm_amount, 1);
-    assert!(from_wallet + from_bm == fee_amount, 2);
+    assert_eq!(from_wallet, wallet_amount);
+    assert_eq!(from_bm, bm_amount);
+    assert_eq!(from_wallet + from_bm, fee_amount);
 }
 
 /// Test when BM has excess funds while wallet also has funds
@@ -128,8 +129,8 @@ fun plan_fee_collection_split_bm_excess() {
         500, // available_in_wallet (has funds but not needed)
         fee_amount * 2, // available_in_bm (more than needed)
     );
-    assert!(from_wallet == 0, 0);
-    assert!(from_bm == fee_amount, 1);
+    assert_eq!(from_wallet, 0);
+    assert_eq!(from_bm, fee_amount);
 }
 
 /// Test when wallet has excess funds while BM also has funds
@@ -142,6 +143,6 @@ fun plan_fee_collection_split_wallet_excess() {
         500, // available_in_bm (has funds but not needed)
     );
     // Should still take from BM first even though wallet has excess
-    assert!(from_wallet == fee_amount - 500, 0);
-    assert!(from_bm == 500, 1);
+    assert_eq!(from_wallet, fee_amount - 500);
+    assert_eq!(from_bm, 500);
 }

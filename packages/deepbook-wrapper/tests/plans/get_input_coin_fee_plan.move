@@ -3,6 +3,7 @@ module deepbook_wrapper::get_input_coin_fee_plan_tests;
 
 use deepbook_wrapper::fee::calculate_input_coin_protocol_fee;
 use deepbook_wrapper::order::{get_input_coin_fee_plan, assert_input_coin_fee_plan_eq};
+use std::unit_test::assert_eq;
 
 // ===== Constants =====
 const TAKER_FEE_RATE: u64 = 1_000_000; // 0.1% in billionths
@@ -332,7 +333,7 @@ public fun minimal_order_amount() {
     let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
 
     // With minimal amount, protocol fee should be 0
-    assert!(protocol_fee == 0, 0);
+    assert_eq!(protocol_fee, 0);
 
     // Even with zero fee, we should get a valid plan
     let plan = get_input_coin_fee_plan(
@@ -423,17 +424,17 @@ public fun fee_scaling_with_amount() {
     let fee_3m = calculate_input_coin_protocol_fee(3_000_000, taker_fee);
 
     // Verify fee scaling
-    assert!(fee_0 == 0, 0); // No fee with 0 amount
-    assert!(fee_1m > 0, 0); // Some fee with 1M amount
-    assert!(fee_2m > fee_1m, 0); // Higher fee with 2M amount
-    assert!(fee_3m > fee_2m, 0); // Higher fee with 3M amount
+    assert_eq!(fee_0, 0); // No fee with 0 amount
+    assert!(fee_1m > 0); // Some fee with 1M amount
+    assert!(fee_2m > fee_1m); // Higher fee with 2M amount
+    assert!(fee_3m > fee_2m); // Higher fee with 3M amount
 
     // Verify approximately linear scaling
     let ratio_2m_1m = (fee_2m as u128) * 100 / (fee_1m as u128);
     let ratio_3m_1m = (fee_3m as u128) * 100 / (fee_1m as u128);
 
-    assert!(ratio_2m_1m >= 195 && ratio_2m_1m <= 205, 0); // ~200%
-    assert!(ratio_3m_1m >= 295 && ratio_3m_1m <= 305, 0); // ~300%
+    assert!(ratio_2m_1m >= 195 && ratio_2m_1m <= 205); // ~200%
+    assert!(ratio_3m_1m >= 295 && ratio_3m_1m <= 305); // ~300%
 }
 
 #[test]
@@ -447,15 +448,15 @@ public fun fee_scaling_with_taker_fee_rate() {
     let fee_3m = calculate_input_coin_protocol_fee(amount, 3_000_000); // 0.3%
 
     // Verify fee scaling
-    assert!(fee_0 == 0, 0); // No fee with 0 rate
-    assert!(fee_1m > 0, 0); // Some fee with 0.1% rate
-    assert!(fee_2m > fee_1m, 0); // Higher fee with 0.2% rate
-    assert!(fee_3m > fee_2m, 0); // Higher fee with 0.3% rate
+    assert_eq!(fee_0, 0); // No fee with 0 rate
+    assert!(fee_1m > 0); // Some fee with 0.1% rate
+    assert!(fee_2m > fee_1m); // Higher fee with 0.2% rate
+    assert!(fee_3m > fee_2m); // Higher fee with 0.3% rate
 
     // Verify approximately linear scaling
     let ratio_2m_1m = (fee_2m as u128) * 100 / (fee_1m as u128);
     let ratio_3m_1m = (fee_3m as u128) * 100 / (fee_1m as u128);
 
-    assert!(ratio_2m_1m >= 195 && ratio_2m_1m <= 205, 0); // ~200%
-    assert!(ratio_3m_1m >= 295 && ratio_3m_1m <= 305, 0); // ~300%
+    assert!(ratio_2m_1m >= 195 && ratio_2m_1m <= 205); // ~200%
+    assert!(ratio_3m_1m >= 295 && ratio_3m_1m <= 305); // ~300%
 }

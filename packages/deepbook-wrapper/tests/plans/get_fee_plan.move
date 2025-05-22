@@ -3,6 +3,7 @@ module deepbook_wrapper::get_fee_plan_tests;
 
 use deepbook_wrapper::fee::{calculate_protocol_fee, calculate_deep_reserves_coverage_order_fee};
 use deepbook_wrapper::order::{get_fee_plan, assert_fee_plan_eq};
+use std::unit_test::assert_eq;
 
 // ===== Constants =====
 // SUI per DEEP
@@ -503,7 +504,7 @@ public fun minimal_deep_reserves_fee() {
     );
 
     // Even minimal DEEP amount should result in some fee
-    assert!(total_fee > 0, 0);
+    assert!(total_fee > 0);
 
     // All fees should be taken from wallet since BM is empty
     assert_fee_plan_eq(
@@ -616,15 +617,15 @@ public fun fee_scaling_with_deep_amount() {
                       calculate_protocol_fee(sui_per_deep, 75_000);
 
     // Verify fee scaling
-    assert!(fee_0 == 0, 0); // No fee with 0 DEEP
-    assert!(fee_25k > 0, 0); // Some fee with 25k DEEP
-    assert!(fee_50k > fee_25k, 0); // Higher fee with 50k DEEP
-    assert!(fee_75k > fee_50k, 0); // Higher fee with 75k DEEP
+    assert_eq!(fee_0, 0); // No fee with 0 DEEP
+    assert!(fee_25k > 0); // Some fee with 25k DEEP
+    assert!(fee_50k > fee_25k); // Higher fee with 50k DEEP
+    assert!(fee_75k > fee_50k); // Higher fee with 75k DEEP
 
     // Verify approximately linear scaling
     let ratio_50_25 = (fee_50k as u128) * 100 / (fee_25k as u128);
     let ratio_75_25 = (fee_75k as u128) * 100 / (fee_25k as u128);
 
-    assert!(ratio_50_25 >= 195 && ratio_50_25 <= 205, 0); // ~200%
-    assert!(ratio_75_25 >= 295 && ratio_75_25 <= 305, 0); // ~300%
+    assert!(ratio_50_25 >= 195 && ratio_50_25 <= 205); // ~200%
+    assert!(ratio_75_25 >= 295 && ratio_75_25 <= 305); // ~300%
 }

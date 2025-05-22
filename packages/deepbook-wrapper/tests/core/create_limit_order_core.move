@@ -12,6 +12,7 @@ use deepbook_wrapper::order::{
     FeePlan,
     InputCoinDepositPlan
 };
+use std::unit_test::assert_eq;
 
 // ===== Constants =====
 // Token amounts
@@ -1395,7 +1396,7 @@ public fun zero_price_order() {
 
     // For bid orders with zero price, order amount should be zero
     let order_amount = calculate_order_amount(quantity, price, is_bid);
-    assert!(order_amount == 0, 0);
+    assert_eq!(order_amount, 0);
 
     assert_order_plans_eq(
         deep_plan,
