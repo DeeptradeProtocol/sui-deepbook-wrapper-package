@@ -35,7 +35,7 @@ public fun test_whitelisted_pool_requires_no_fee() {
         0, // coverage_fee_from_balance_manager
         0, // protocol_fee_from_wallet
         0, // protocol_fee_from_balance_manager
-        true // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -64,7 +64,7 @@ public fun test_not_using_wrapper_deep_requires_no_fee() {
         0, // coverage_fee_from_balance_manager
         0, // protocol_fee_from_wallet
         0, // protocol_fee_from_balance_manager
-        true // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -100,11 +100,11 @@ public fun test_fee_from_wallet_only() {
     // All fees should be taken from wallet since BM is empty
     assert_fee_plan_eq(
         plan,
-        coverage_fee,  // coverage_fee_from_wallet
-        0,            // coverage_fee_from_balance_manager
+        coverage_fee, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
         protocol_fee, // protocol_fee_from_wallet
-        0,           // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        0, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -138,11 +138,11 @@ public fun test_fee_from_balance_manager_only() {
     // All fees should be taken from balance manager since wallet is empty
     assert_fee_plan_eq(
         plan,
-        0,             // coverage_fee_from_wallet
-        coverage_fee,  // coverage_fee_from_balance_manager
-        0,            // protocol_fee_from_wallet
+        0, // coverage_fee_from_wallet
+        coverage_fee, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
         protocol_fee, // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -194,11 +194,11 @@ public fun test_fee_split_between_wallet_and_balance_manager() {
     // Verify fee distribution
     assert_fee_plan_eq(
         plan,
-        coverage_from_wallet,  // coverage_fee_from_wallet
-        coverage_from_bm,     // coverage_fee_from_balance_manager
+        coverage_from_wallet, // coverage_fee_from_wallet
+        coverage_from_bm, // coverage_fee_from_balance_manager
         protocol_from_wallet, // protocol_fee_from_wallet
-        protocol_from_bm,    // protocol_fee_from_balance_manager
-        true                // user_covers_wrapper_fee
+        protocol_from_bm, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -220,7 +220,7 @@ public fun test_insufficient_fee_resources() {
     let total_fee = coverage_fee + protocol_fee;
 
     // Total available is 50% of required fee
-    let sui_in_wallet = total_fee / 4;      // 25% in wallet
+    let sui_in_wallet = total_fee / 4; // 25% in wallet
     let balance_manager_sui = total_fee / 4; // 25% in balance manager
 
     let plan = get_fee_plan(
@@ -235,11 +235,11 @@ public fun test_insufficient_fee_resources() {
     // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        0,     // coverage_fee_from_wallet
-        0,     // coverage_fee_from_balance_manager
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
@@ -259,8 +259,8 @@ public fun test_almost_sufficient_fee_resources() {
     let total_fee = coverage_fee + protocol_fee;
 
     // Total available is 1 less than required fee
-    let sui_in_wallet = total_fee / 2;                  // 50% in wallet
-    let balance_manager_sui = (total_fee / 2) - 1;      // Almost 50% in balance manager (1 short)
+    let sui_in_wallet = total_fee / 2; // 50% in wallet
+    let balance_manager_sui = (total_fee / 2) - 1; // Almost 50% in balance manager (1 short)
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -274,11 +274,11 @@ public fun test_almost_sufficient_fee_resources() {
     // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        0,     // coverage_fee_from_wallet
-        0,     // coverage_fee_from_balance_manager
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
@@ -300,7 +300,7 @@ public fun test_exact_fee_match_with_wallet() {
     let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = total_fee; // Exact match
-    let balance_manager_sui = 0;   // Nothing in balance manager
+    let balance_manager_sui = 0; // Nothing in balance manager
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -314,11 +314,11 @@ public fun test_exact_fee_match_with_wallet() {
     // All fees should be taken from wallet since BM is empty
     assert_fee_plan_eq(
         plan,
-        coverage_fee,  // coverage_fee_from_wallet
-        0,            // coverage_fee_from_balance_manager
+        coverage_fee, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
         protocol_fee, // protocol_fee_from_wallet
-        0,           // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        0, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -337,7 +337,7 @@ public fun test_exact_fee_match_with_balance_manager() {
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
     let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = 0;           // Nothing in wallet
+    let sui_in_wallet = 0; // Nothing in wallet
     let balance_manager_sui = total_fee; // Exact match
 
     let plan = get_fee_plan(
@@ -352,11 +352,11 @@ public fun test_exact_fee_match_with_balance_manager() {
     // All fees should be taken from balance manager since wallet is empty
     assert_fee_plan_eq(
         plan,
-        0,             // coverage_fee_from_wallet
-        coverage_fee,  // coverage_fee_from_balance_manager
-        0,            // protocol_fee_from_wallet
+        0, // coverage_fee_from_wallet
+        coverage_fee, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
         protocol_fee, // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -408,11 +408,11 @@ public fun test_exact_fee_match_combined() {
     // Verify fee distribution
     assert_fee_plan_eq(
         plan,
-        coverage_from_wallet,  // coverage_fee_from_wallet
-        coverage_from_bm,     // coverage_fee_from_balance_manager
+        coverage_from_wallet, // coverage_fee_from_wallet
+        coverage_from_bm, // coverage_fee_from_balance_manager
         protocol_from_wallet, // protocol_fee_from_wallet
-        protocol_from_bm,    // protocol_fee_from_balance_manager
-        true                // user_covers_wrapper_fee
+        protocol_from_bm, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -466,11 +466,11 @@ public fun test_large_deep_reserves_fee() {
     // Verify fee distribution
     assert_fee_plan_eq(
         plan,
-        coverage_from_wallet,  // coverage_fee_from_wallet
-        coverage_from_bm,     // coverage_fee_from_balance_manager
+        coverage_from_wallet, // coverage_fee_from_wallet
+        coverage_from_bm, // coverage_fee_from_balance_manager
         protocol_from_wallet, // protocol_fee_from_wallet
-        protocol_from_bm,    // protocol_fee_from_balance_manager
-        true                // user_covers_wrapper_fee
+        protocol_from_bm, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -508,11 +508,11 @@ public fun test_minimal_deep_reserves_fee() {
     // All fees should be taken from wallet since BM is empty
     assert_fee_plan_eq(
         plan,
-        coverage_fee,  // coverage_fee_from_wallet
-        0,            // coverage_fee_from_balance_manager
+        coverage_fee, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
         protocol_fee, // protocol_fee_from_wallet
-        0,           // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        0, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -532,7 +532,7 @@ public fun test_wallet_exactly_one_token_short() {
     let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = total_fee - 1; // 1 SUI short
-    let balance_manager_sui = 0;       // Nothing in balance manager
+    let balance_manager_sui = 0; // Nothing in balance manager
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -546,11 +546,11 @@ public fun test_wallet_exactly_one_token_short() {
     // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        0,     // coverage_fee_from_wallet
-        0,     // coverage_fee_from_balance_manager
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
@@ -569,7 +569,7 @@ public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
     let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = 0;              // Empty wallet
+    let sui_in_wallet = 0; // Empty wallet
     let balance_manager_sui = total_fee - 1; // 1 SUI short
 
     let plan = get_fee_plan(
@@ -584,11 +584,11 @@ public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
     // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        0,     // coverage_fee_from_wallet
-        0,     // coverage_fee_from_balance_manager
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 

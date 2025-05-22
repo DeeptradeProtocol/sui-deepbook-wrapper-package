@@ -30,7 +30,7 @@ public fun test_whitelisted_pool_requires_no_fee() {
         plan,
         0, // protocol_fee_from_wallet
         0, // protocol_fee_from_balance_manager
-        true // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -60,8 +60,8 @@ public fun test_fee_from_wallet_only() {
     assert_input_coin_fee_plan_eq(
         plan,
         protocol_fee, // protocol_fee_from_wallet
-        0,           // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        0, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -88,9 +88,9 @@ public fun test_fee_from_balance_manager_only() {
     // All fees should be taken from balance manager since wallet is empty
     assert_input_coin_fee_plan_eq(
         plan,
-        0,            // protocol_fee_from_wallet
+        0, // protocol_fee_from_wallet
         protocol_fee, // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -123,8 +123,8 @@ public fun test_fee_split_between_wallet_and_balance_manager() {
     assert_input_coin_fee_plan_eq(
         plan,
         fee_from_wallet, // protocol_fee_from_wallet
-        fee_from_bm,    // protocol_fee_from_balance_manager
-        true           // user_covers_wrapper_fee
+        fee_from_bm, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -140,7 +140,7 @@ public fun test_insufficient_fee_resources() {
     let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
 
     // Total available is 50% of required fee
-    let coin_in_wallet = protocol_fee / 4;      // 25% in wallet
+    let coin_in_wallet = protocol_fee / 4; // 25% in wallet
     let balance_manager_coin = protocol_fee / 4; // 25% in balance manager
 
     let plan = get_input_coin_fee_plan(
@@ -154,9 +154,9 @@ public fun test_insufficient_fee_resources() {
     // Should indicate insufficient resources with all fees set to 0
     assert_input_coin_fee_plan_eq(
         plan,
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
@@ -170,8 +170,8 @@ public fun test_almost_sufficient_fee_resources() {
     let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
 
     // Total available is 1 less than required fee
-    let coin_in_wallet = protocol_fee / 2;                  // 50% in wallet
-    let balance_manager_coin = (protocol_fee / 2) - 1;      // Almost 50% in balance manager (1 short)
+    let coin_in_wallet = protocol_fee / 2; // 50% in wallet
+    let balance_manager_coin = (protocol_fee / 2) - 1; // Almost 50% in balance manager (1 short)
 
     let plan = get_input_coin_fee_plan(
         is_pool_whitelisted,
@@ -184,9 +184,9 @@ public fun test_almost_sufficient_fee_resources() {
     // Should indicate insufficient resources with all fees set to 0
     assert_input_coin_fee_plan_eq(
         plan,
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
@@ -202,7 +202,7 @@ public fun test_exact_fee_match_with_wallet() {
     let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
 
     let coin_in_wallet = protocol_fee; // Exact match
-    let balance_manager_coin = 0;      // Nothing in balance manager
+    let balance_manager_coin = 0; // Nothing in balance manager
 
     let plan = get_input_coin_fee_plan(
         is_pool_whitelisted,
@@ -216,8 +216,8 @@ public fun test_exact_fee_match_with_wallet() {
     assert_input_coin_fee_plan_eq(
         plan,
         protocol_fee, // protocol_fee_from_wallet
-        0,           // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        0, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -230,7 +230,7 @@ public fun test_exact_fee_match_with_balance_manager() {
     // Calculate protocol fee
     let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
 
-    let coin_in_wallet = 0;              // Nothing in wallet
+    let coin_in_wallet = 0; // Nothing in wallet
     let balance_manager_coin = protocol_fee; // Exact match
 
     let plan = get_input_coin_fee_plan(
@@ -244,9 +244,9 @@ public fun test_exact_fee_match_with_balance_manager() {
     // All fees should be taken from balance manager since wallet is empty
     assert_input_coin_fee_plan_eq(
         plan,
-        0,            // protocol_fee_from_wallet
+        0, // protocol_fee_from_wallet
         protocol_fee, // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -279,8 +279,8 @@ public fun test_exact_fee_match_combined() {
     assert_input_coin_fee_plan_eq(
         plan,
         fee_from_wallet, // protocol_fee_from_wallet
-        fee_from_bm,    // protocol_fee_from_balance_manager
-        true           // user_covers_wrapper_fee
+        fee_from_bm, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -315,8 +315,8 @@ public fun test_large_order_amount() {
     assert_input_coin_fee_plan_eq(
         plan,
         fee_from_wallet, // protocol_fee_from_wallet
-        fee_from_bm,    // protocol_fee_from_balance_manager
-        true           // user_covers_wrapper_fee
+        fee_from_bm, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
@@ -348,7 +348,7 @@ public fun test_minimal_order_amount() {
         plan,
         0, // protocol_fee_from_wallet
         0, // protocol_fee_from_balance_manager
-        true // user_covers_wrapper_fee (true because no fee needed)
+        true, // user_covers_wrapper_fee (true because no fee needed)
     );
 }
 
@@ -362,7 +362,7 @@ public fun test_wallet_exactly_one_token_short() {
     let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
 
     let coin_in_wallet = protocol_fee - 1; // 1 token short
-    let balance_manager_coin = 0;          // Nothing in balance manager
+    let balance_manager_coin = 0; // Nothing in balance manager
 
     let plan = get_input_coin_fee_plan(
         is_pool_whitelisted,
@@ -375,9 +375,9 @@ public fun test_wallet_exactly_one_token_short() {
     // Should indicate insufficient resources with all fees set to 0
     assert_input_coin_fee_plan_eq(
         plan,
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
@@ -390,7 +390,7 @@ public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
     // Calculate protocol fee
     let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
 
-    let coin_in_wallet = 0;                 // Empty wallet
+    let coin_in_wallet = 0; // Empty wallet
     let balance_manager_coin = protocol_fee - 1; // 1 token short
 
     let plan = get_input_coin_fee_plan(
@@ -404,9 +404,9 @@ public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
     // Should indicate insufficient resources with all fees set to 0
     assert_input_coin_fee_plan_eq(
         plan,
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
@@ -442,9 +442,9 @@ public fun test_fee_scaling_with_taker_fee_rate() {
 
     // Test with increasing taker fee rates
     let fee_0 = calculate_input_coin_protocol_fee(amount, 0);
-    let fee_1m = calculate_input_coin_protocol_fee(amount, 1_000_000);   // 0.1%
-    let fee_2m = calculate_input_coin_protocol_fee(amount, 2_000_000);   // 0.2%
-    let fee_3m = calculate_input_coin_protocol_fee(amount, 3_000_000);   // 0.3%
+    let fee_1m = calculate_input_coin_protocol_fee(amount, 1_000_000); // 0.1%
+    let fee_2m = calculate_input_coin_protocol_fee(amount, 2_000_000); // 0.2%
+    let fee_3m = calculate_input_coin_protocol_fee(amount, 3_000_000); // 0.3%
 
     // Verify fee scaling
     assert!(fee_0 == 0, 0); // No fee with 0 rate
@@ -458,4 +458,4 @@ public fun test_fee_scaling_with_taker_fee_rate() {
 
     assert!(ratio_2m_1m >= 195 && ratio_2m_1m <= 205, 0); // ~200%
     assert!(ratio_3m_1m >= 295 && ratio_3m_1m <= 305, 0); // ~300%
-} 
+}

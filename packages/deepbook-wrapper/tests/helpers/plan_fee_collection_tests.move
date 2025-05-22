@@ -7,9 +7,9 @@ use deepbook_wrapper::order;
 #[test]
 fun test_plan_fee_collection_zero_fee() {
     let (from_wallet, from_bm) = order::plan_fee_collection(
-        0,      // fee_amount
-        1000,   // available_in_wallet
-        1000    // available_in_bm
+        0, // fee_amount
+        1000, // available_in_wallet
+        1000, // available_in_bm
     );
     assert!(from_wallet == 0, 0);
     assert!(from_bm == 0, 1);
@@ -21,9 +21,9 @@ fun test_plan_fee_collection_bm_insufficient() {
     let fee_amount = 1000;
     let available_in_bm = 500;
     order::plan_fee_collection(
-        fee_amount,      // fee_amount
-        0,              // available_in_wallet (empty)
-        available_in_bm  // available_in_bm (insufficient)
+        fee_amount, // fee_amount
+        0, // available_in_wallet (empty)
+        available_in_bm, // available_in_bm (insufficient)
     );
 }
 
@@ -32,9 +32,9 @@ fun test_plan_fee_collection_bm_insufficient() {
 fun test_plan_fee_collection_bm_exact() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
-        fee_amount,  // fee_amount
-        0,          // available_in_wallet (empty)
-        fee_amount  // available_in_bm (exact amount)
+        fee_amount, // fee_amount
+        0, // available_in_wallet (empty)
+        fee_amount, // available_in_bm (exact amount)
     );
     assert!(from_wallet == 0, 0);
     assert!(from_bm == fee_amount, 1);
@@ -45,9 +45,9 @@ fun test_plan_fee_collection_bm_exact() {
 fun test_plan_fee_collection_bm_excess() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
-        fee_amount,      // fee_amount
-        0,              // available_in_wallet (empty)
-        fee_amount * 2  // available_in_bm (double the needed amount)
+        fee_amount, // fee_amount
+        0, // available_in_wallet (empty)
+        fee_amount * 2, // available_in_bm (double the needed amount)
     );
     assert!(from_wallet == 0, 0);
     assert!(from_bm == fee_amount, 1);
@@ -59,9 +59,9 @@ fun test_plan_fee_collection_wallet_insufficient() {
     let fee_amount = 1000;
     let available_in_wallet = 500;
     order::plan_fee_collection(
-        fee_amount,          // fee_amount
+        fee_amount, // fee_amount
         available_in_wallet, // available_in_wallet (insufficient)
-        0                   // available_in_bm (empty)
+        0, // available_in_bm (empty)
     );
 }
 
@@ -70,9 +70,9 @@ fun test_plan_fee_collection_wallet_insufficient() {
 fun test_plan_fee_collection_wallet_exact() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
-        fee_amount,  // fee_amount
+        fee_amount, // fee_amount
         fee_amount, // available_in_wallet (exact amount)
-        0          // available_in_bm (empty)
+        0, // available_in_bm (empty)
     );
     assert!(from_wallet == fee_amount, 0);
     assert!(from_bm == 0, 1);
@@ -83,9 +83,9 @@ fun test_plan_fee_collection_wallet_exact() {
 fun test_plan_fee_collection_wallet_excess() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
-        fee_amount,      // fee_amount
+        fee_amount, // fee_amount
         fee_amount * 2, // available_in_wallet (double the needed amount)
-        0              // available_in_bm (empty)
+        0, // available_in_bm (empty)
     );
     assert!(from_wallet == fee_amount, 0);
     assert!(from_bm == 0, 1);
@@ -96,9 +96,9 @@ fun test_plan_fee_collection_wallet_excess() {
 fun test_plan_fee_collection_split_both_insufficient() {
     let fee_amount = 1000;
     order::plan_fee_collection(
-        fee_amount,  // fee_amount
-        400,        // available_in_wallet (insufficient)
-        500         // available_in_bm (insufficient)
+        fee_amount, // fee_amount
+        400, // available_in_wallet (insufficient)
+        500, // available_in_bm (insufficient)
     );
 }
 
@@ -108,11 +108,11 @@ fun test_plan_fee_collection_split_exact_sum() {
     let fee_amount = 1000;
     let bm_amount = 600;
     let wallet_amount = fee_amount - bm_amount;
-    
+
     let (from_wallet, from_bm) = order::plan_fee_collection(
-        fee_amount,    // fee_amount
+        fee_amount, // fee_amount
         wallet_amount, // available_in_wallet (partial amount)
-        bm_amount     // available_in_bm (partial amount)
+        bm_amount, // available_in_bm (partial amount)
     );
     assert!(from_wallet == wallet_amount, 0);
     assert!(from_bm == bm_amount, 1);
@@ -124,9 +124,9 @@ fun test_plan_fee_collection_split_exact_sum() {
 fun test_plan_fee_collection_split_bm_excess() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
-        fee_amount,      // fee_amount
-        500,           // available_in_wallet (has funds but not needed)
-        fee_amount * 2  // available_in_bm (more than needed)
+        fee_amount, // fee_amount
+        500, // available_in_wallet (has funds but not needed)
+        fee_amount * 2, // available_in_bm (more than needed)
     );
     assert!(from_wallet == 0, 0);
     assert!(from_bm == fee_amount, 1);
@@ -137,11 +137,11 @@ fun test_plan_fee_collection_split_bm_excess() {
 fun test_plan_fee_collection_split_wallet_excess() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
-        fee_amount,      // fee_amount
+        fee_amount, // fee_amount
         fee_amount * 2, // available_in_wallet (more than needed)
-        500            // available_in_bm (has funds but not needed)
+        500, // available_in_bm (has funds but not needed)
     );
     // Should still take from BM first even though wallet has excess
     assert!(from_wallet == fee_amount - 500, 0);
     assert!(from_bm == 500, 1);
-} 
+}

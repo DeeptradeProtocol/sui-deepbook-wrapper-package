@@ -1,10 +1,7 @@
 #[test_only]
 module deepbook_wrapper::create_input_fee_order_core_tests;
 
-use deepbook_wrapper::fee::{
-    calculate_input_coin_deepbook_fee,
-    calculate_input_coin_protocol_fee
-};
+use deepbook_wrapper::fee::{calculate_input_coin_deepbook_fee, calculate_input_coin_protocol_fee};
 use deepbook_wrapper::helper::calculate_order_amount;
 use deepbook_wrapper::order::{
     create_input_fee_order_core,
@@ -120,7 +117,7 @@ public fun test_split_between_sources() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Set up balances where both sources are needed
     let balance_manager_input_coin = protocol_fee / 2; // Half of protocol fee
     let wallet_input_coin = total_required_in_bm + (protocol_fee - balance_manager_input_coin);
@@ -168,7 +165,7 @@ public fun test_insufficient_after_protocol_fee() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Set up balances: enough for protocol fee but not for order
     let balance_manager_input_coin = protocol_fee;
     let wallet_input_coin = total_required_in_bm / 2; // Not enough for full order
@@ -255,7 +252,7 @@ public fun test_insufficient_protocol_fee() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Set up balances: not enough even for protocol fee
     let balance_manager_input_coin = protocol_fee / 4; // 25% of required protocol fee
     let wallet_input_coin = protocol_fee / 4; // Another 25% of required protocol fee
@@ -298,7 +295,7 @@ public fun test_minimum_amounts() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Set up balances with exact amounts needed
     // Balance manager has enough for protocol fee and part of the order
     let balance_manager_input_coin = protocol_fee + (total_required_in_bm / 2);
@@ -343,7 +340,7 @@ public fun test_bm_only_protocol_fee() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Set up balances:
     let bm_extra = 100;
     // BM has exactly protocol fee + tiny extra
@@ -393,7 +390,7 @@ public fun test_exact_protocol_fee_balance() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Set up balances:
     // BM has exactly protocol fee, not a coin more
     let balance_manager_input_coin = protocol_fee;
@@ -437,7 +434,7 @@ public fun test_maximum_values() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Set up balances with large amounts split between BM and wallet
     let balance_manager_input_coin = total_required_in_bm / 2;
     let wallet_input_coin = total_required_in_bm + protocol_fee;
@@ -484,7 +481,7 @@ public fun test_fee_rounding() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Split available funds to test rounding in both sources
     let balance_manager_input_coin = protocol_fee / 3; // Non-integer division
     let wallet_input_coin = total_required_in_bm + protocol_fee;
@@ -530,7 +527,7 @@ public fun test_zero_balance_manager() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Set up balances with zero in BM
     let balance_manager_input_coin = 0;
     let wallet_input_coin = total_required_in_bm + protocol_fee;
@@ -572,7 +569,7 @@ public fun test_zero_wallet() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Set up balances with zero in wallet
     let balance_manager_input_coin = total_required_in_bm + protocol_fee;
     let wallet_input_coin = 0;
@@ -614,7 +611,7 @@ public fun test_boundary_conditions() {
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
     let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
     let total_required_in_bm = order_amount + deepbook_fee;
-    
+
     // Set up balances:
     // BM has one coin less than protocol fee
     let balance_manager_input_coin = protocol_fee - 1;
@@ -656,18 +653,18 @@ public fun test_whitelisted_zero_balance() {
     // Calculate order requirements - no fees for whitelisted pool
     let order_amount = calculate_order_amount(quantity, price, true);
     let total_required_in_bm = order_amount;
-    
+
     // Test both zero BM and zero wallet scenarios
     let mut bm_balances = vector::empty();
     let mut wallet_balances = vector::empty();
     let mut expected_from_wallets = vector::empty();
-    
+
     vector::push_back(&mut bm_balances, 0);
     vector::push_back(&mut bm_balances, order_amount);
-    
+
     vector::push_back(&mut wallet_balances, order_amount);
     vector::push_back(&mut wallet_balances, 0);
-    
+
     vector::push_back(&mut expected_from_wallets, order_amount);
     vector::push_back(&mut expected_from_wallets, 0);
 
@@ -676,7 +673,7 @@ public fun test_whitelisted_zero_balance() {
         let bm_balance = *vector::borrow(&bm_balances, i);
         let wallet_balance = *vector::borrow(&wallet_balances, i);
         let expected_from_wallet = *vector::borrow(&expected_from_wallets, i);
-        
+
         let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
             is_pool_whitelisted,
             0, // whitelisted fee rate
@@ -697,7 +694,7 @@ public fun test_whitelisted_zero_balance() {
             expected_from_wallet,
             true, // sufficient funds
         );
-        
+
         i = i + 1;
     };
 }
@@ -716,17 +713,17 @@ public fun test_whitelisted_maximum_values() {
     // Calculate order requirements - no fees for whitelisted pool
     let order_amount = calculate_order_amount(quantity, price, true);
     let total_required_in_bm = order_amount;
-    
+
     // Test both BM-primary and wallet-primary scenarios
     let mut bm_balances = vector::empty();
     let mut wallet_balances = vector::empty();
     let mut expected_from_wallets = vector::empty();
-    
+
     // Scenario 1: BM has all required funds
     vector::push_back(&mut bm_balances, total_required_in_bm);
     vector::push_back(&mut wallet_balances, 0);
     vector::push_back(&mut expected_from_wallets, 0);
-    
+
     // Scenario 2: Wallet has all required funds
     vector::push_back(&mut bm_balances, 0);
     vector::push_back(&mut wallet_balances, total_required_in_bm);
@@ -737,7 +734,7 @@ public fun test_whitelisted_maximum_values() {
         let bm_balance = *vector::borrow(&bm_balances, i);
         let wallet_balance = *vector::borrow(&wallet_balances, i);
         let expected_from_wallet = *vector::borrow(&expected_from_wallets, i);
-        
+
         let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
             is_pool_whitelisted,
             0, // whitelisted fee rate
@@ -758,7 +755,7 @@ public fun test_whitelisted_maximum_values() {
             expected_from_wallet,
             true, // sufficient funds
         );
-        
+
         i = i + 1;
     };
 }

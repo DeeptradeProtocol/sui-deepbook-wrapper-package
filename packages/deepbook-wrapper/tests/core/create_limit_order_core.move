@@ -312,7 +312,10 @@ public fun test_bid_order_fee_from_both_sources() {
 
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
-    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // Set up a scenario where fees need to come from both sources
     // Distribute total fee with majority in balance manager to test prioritized usage
@@ -514,7 +517,10 @@ public fun test_bid_order_large_values() {
 
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
-    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // Set up SUI balances to cover fees
     let balance_manager_sui = 0;
@@ -1214,7 +1220,10 @@ public fun test_ask_order_fee_from_both_sources() {
     let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
 
     // Calculate fee for wrapper DEEP usage
-    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // Important: Make sure wallet doesn't have enough to cover all fees
     // We'll put 1/3 of the fee in wallet, 2/3 in balance manager
