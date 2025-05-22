@@ -10,8 +10,6 @@ use deepbook_wrapper::order::{
     InputCoinFeePlan,
     InputCoinDepositPlan
 };
-use std::debug::print;
-use std::vector;
 
 // ===== Constants =====
 // Token amounts - using more realistic values
