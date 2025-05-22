@@ -238,8 +238,7 @@ fun test_overflow_risk_in_calculation() {
 /// - Alert developers to handle extremely large token amounts appropriately
 ///
 /// In real-world use, this should not be an issue since token values approaching u64 max are extremely rare.
-#[test]
-#[expected_failure]
+#[test, expected_failure]
 fun test_addition_overflow_protection() {
     // Taking max u64 value and applying a tiny slippage
     let max_value = 18_446_744_073_709_551_615; // u64 max
