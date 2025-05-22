@@ -24,7 +24,7 @@ use deepbook_wrapper::wrapper::{
     split_deep_reserves
 };
 use sui::clock::Clock;
-use sui::coin::{Self, Coin};
+use sui::coin::Coin;
 use sui::sui::SUI;
 use token::deep::DEEP;
 
@@ -1449,8 +1449,8 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
 
     // Get balances from wallet coins
-    let base_in_wallet = coin::value(&base_coin);
-    let quote_in_wallet = coin::value(&quote_coin);
+    let base_in_wallet = base_coin.value();
+    let quote_in_wallet = quote_coin.value();
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
     // Step 1: Determine input coin deposit plan
@@ -1521,8 +1521,8 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
 
     // Get balances from wallet coins
-    let base_in_wallet = coin::value(&base_coin);
-    let quote_in_wallet = coin::value(&quote_coin);
+    let base_in_wallet = base_coin.value();
+    let quote_in_wallet = quote_coin.value();
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
     // Get the order plans from the core logic
@@ -1586,7 +1586,7 @@ fun execute_deep_plan(
 
     // Take DEEP from wallet if needed
     if (deep_plan.from_user_wallet > 0) {
-        let payment = coin::split(deep_coin, deep_plan.from_user_wallet, ctx);
+        let payment = deep_coin.split(deep_plan.from_user_wallet, ctx);
         balance_manager::deposit(balance_manager, payment, ctx);
     };
 
@@ -1631,8 +1631,8 @@ fun execute_fee_plan(
 
     // Collect coverage fee
     if (fee_plan.coverage_fee_from_wallet > 0) {
-        let fee = coin::split(sui_coin, fee_plan.coverage_fee_from_wallet, ctx);
-        join_deep_reserves_coverage_fee(wrapper, coin::into_balance(fee));
+        let fee = sui_coin.balance_mut().split(fee_plan.coverage_fee_from_wallet);
+        join_deep_reserves_coverage_fee(wrapper, fee);
     };
     if (fee_plan.coverage_fee_from_balance_manager > 0) {
         let fee = balance_manager::withdraw<SUI>(
@@ -1640,13 +1640,13 @@ fun execute_fee_plan(
             fee_plan.coverage_fee_from_balance_manager,
             ctx,
         );
-        join_deep_reserves_coverage_fee(wrapper, coin::into_balance(fee));
+        join_deep_reserves_coverage_fee(wrapper, fee.into_balance());
     };
 
     // Collect protocol fee
     if (fee_plan.protocol_fee_from_wallet > 0) {
-        let fee = coin::split(sui_coin, fee_plan.protocol_fee_from_wallet, ctx);
-        join_protocol_fee(wrapper, coin::into_balance(fee));
+        let fee = sui_coin.balance_mut().split(fee_plan.protocol_fee_from_wallet);
+        join_protocol_fee(wrapper, fee);
     };
     if (fee_plan.protocol_fee_from_balance_manager > 0) {
         let fee = balance_manager::withdraw<SUI>(
@@ -1654,7 +1654,7 @@ fun execute_fee_plan(
             fee_plan.protocol_fee_from_balance_manager,
             ctx,
         );
-        join_protocol_fee(wrapper, coin::into_balance(fee));
+        join_protocol_fee(wrapper, fee.into_balance());
     };
 }
 
@@ -1692,11 +1692,11 @@ fun execute_input_coin_fee_plan<BaseToken, QuoteToken>(
     // Collect protocol fee from wallet if needed
     if (fee_plan.protocol_fee_from_wallet > 0) {
         if (is_bid) {
-            let fee = coin::split(quote_coin, fee_plan.protocol_fee_from_wallet, ctx);
-            join_protocol_fee(wrapper, coin::into_balance(fee));
+            let fee = quote_coin.balance_mut().split(fee_plan.protocol_fee_from_wallet);
+            join_protocol_fee(wrapper, fee);
         } else {
-            let fee = coin::split(base_coin, fee_plan.protocol_fee_from_wallet, ctx);
-            join_protocol_fee(wrapper, coin::into_balance(fee));
+            let fee = base_coin.balance_mut().split(fee_plan.protocol_fee_from_wallet);
+            join_protocol_fee(wrapper, fee);
         };
     };
 
@@ -1708,14 +1708,14 @@ fun execute_input_coin_fee_plan<BaseToken, QuoteToken>(
                 fee_plan.protocol_fee_from_balance_manager,
                 ctx,
             );
-            join_protocol_fee(wrapper, coin::into_balance(fee));
+            join_protocol_fee(wrapper, fee.into_balance());
         } else {
             let fee = balance_manager::withdraw<BaseToken>(
                 balance_manager,
                 fee_plan.protocol_fee_from_balance_manager,
                 ctx,
             );
-            join_protocol_fee(wrapper, coin::into_balance(fee));
+            join_protocol_fee(wrapper, fee.into_balance());
         };
     };
 }
@@ -1745,11 +1745,11 @@ fun execute_input_coin_deposit_plan<BaseToken, QuoteToken>(
     if (deposit_plan.from_user_wallet > 0) {
         if (is_bid) {
             // Quote coins for bid
-            let payment = coin::split(quote_coin, deposit_plan.from_user_wallet, ctx);
+            let payment = quote_coin.split(deposit_plan.from_user_wallet, ctx);
             balance_manager::deposit(balance_manager, payment, ctx);
         } else {
             // Base coins for ask
-            let payment = coin::split(base_coin, deposit_plan.from_user_wallet, ctx);
+            let payment = base_coin.split(deposit_plan.from_user_wallet, ctx);
             balance_manager::deposit(balance_manager, payment, ctx);
         };
     };

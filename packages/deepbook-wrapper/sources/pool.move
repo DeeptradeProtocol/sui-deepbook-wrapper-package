@@ -6,7 +6,7 @@ use deepbook::registry::Registry;
 use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::transfer_if_nonzero;
 use deepbook_wrapper::wrapper::{Wrapper, join_protocol_fee};
-use sui::coin::{Self, Coin};
+use sui::coin::Coin;
 use sui::event;
 use token::deep::DEEP;
 
@@ -82,7 +82,7 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     let protocol_fee_coin = creation_fee.split(protocol_fee, ctx);
 
     // Move protocol fee to the wrapper
-    join_protocol_fee(wrapper, coin::into_balance(protocol_fee_coin));
+    join_protocol_fee(wrapper, protocol_fee_coin.into_balance());
 
     // Return unused DEEP coins to the caller
     transfer_if_nonzero(creation_fee, tx_context::sender(ctx));

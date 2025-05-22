@@ -42,7 +42,7 @@ public fun create_fund_cap(wrapper: &Wrapper, _admin: &AdminCap, ctx: &mut TxCon
 
 /// Join DEEP coins into the wrapper's reserves
 public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
-    balance::join(&mut wrapper.deep_reserves, coin::into_balance(deep_coin));
+    balance::join(&mut wrapper.deep_reserves, deep_coin.into_balance());
 }
 
 /// Withdraw collected deep reserves coverage fees for a specific coin type using fund capability
@@ -74,9 +74,7 @@ public fun admin_withdraw_protocol_fee<CoinType>(
 
     if (bag::contains(&wrapper.protocol_fees, key)) {
         coin::from_balance(
-            balance::withdraw_all(
-                bag::borrow_mut(&mut wrapper.protocol_fees, key),
-            ),
+            balance::withdraw_all(wrapper.protocol_fees.borrow_mut(key)),
             ctx,
         )
     } else {
@@ -187,9 +185,7 @@ fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
 
     if (bag::contains(&wrapper.deep_reserves_coverage_fees, key)) {
         coin::from_balance(
-            balance::withdraw_all(
-                bag::borrow_mut(&mut wrapper.deep_reserves_coverage_fees, key),
-            ),
+            balance::withdraw_all(wrapper.deep_reserves_coverage_fees.borrow_mut(key)),
             ctx,
         )
     } else {
