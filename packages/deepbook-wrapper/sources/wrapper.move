@@ -33,7 +33,7 @@ const EInvalidFundCap: u64 = 1;
 
 // === Public-Mutative Functions ===
 /// Create a new fund capability for the wrapper
-public fun create_fund_cap(_admin: &AdminCap, wrapper: &Wrapper, ctx: &mut TxContext): FundCap {
+public fun create_fund_cap(wrapper: &Wrapper, _admin: &AdminCap, ctx: &mut TxContext): FundCap {
     FundCap {
         id: object::new(ctx),
         wrapper_id: object::uid_to_inner(&wrapper.id),
@@ -47,8 +47,8 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
 
 /// Withdraw collected deep reserves coverage fees for a specific coin type using fund capability
 public fun withdraw_deep_reserves_coverage_fee<CoinType>(
-    fund_cap: &FundCap,
     wrapper: &mut Wrapper,
+    fund_cap: &FundCap,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
     assert!(fund_cap.wrapper_id == object::uid_to_inner(&wrapper.id), EInvalidFundCap);
@@ -57,8 +57,8 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
 
 /// Withdraw collected deep reserves coverage fees for a specific coin type using admin capability
 public fun admin_withdraw_deep_reserves_coverage_fee<CoinType>(
-    _admin: &AdminCap,
     wrapper: &mut Wrapper,
+    _admin: &AdminCap,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
     withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
@@ -66,8 +66,8 @@ public fun admin_withdraw_deep_reserves_coverage_fee<CoinType>(
 
 /// Withdraw collected protocol fees for a specific coin type using admin capability
 public fun admin_withdraw_protocol_fee<CoinType>(
-    _admin: &AdminCap,
     wrapper: &mut Wrapper,
+    _admin: &AdminCap,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
@@ -86,8 +86,8 @@ public fun admin_withdraw_protocol_fee<CoinType>(
 
 /// Withdraw DEEP coins from the wrapper's reserves
 public fun withdraw_deep_reserves(
-    _admin: &AdminCap,
     wrapper: &mut Wrapper,
+    _admin: &AdminCap,
     amount: u64,
     ctx: &mut TxContext,
 ): Coin<DEEP> {

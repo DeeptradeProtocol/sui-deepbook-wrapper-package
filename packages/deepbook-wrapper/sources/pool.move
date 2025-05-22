@@ -110,8 +110,8 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
 
 /// Update the protocol fee for creating a pool
 public fun update_create_pool_protocol_fee(
-    _admin: &AdminCap,
     config: &mut CreatePoolConfig,
+    _admin: &AdminCap,
     new_fee: u64,
 ) {
     config.protocol_fee = new_fee;
