@@ -4,15 +4,11 @@ module deepbook_wrapper::has_enough_input_coin_core_tests;
 use deepbook_wrapper::order::has_enough_input_coin_core;
 use sui::test_utils::assert_eq;
 
-// Test has_enough_input_coin_core
+// Bid order tests - checking quote coins
+
 #[test]
-fun test_has_enough_input_coin_core() {
-    // Matrix-based testing approach for complete coverage
-
-    // 1. Bid order cases (checking quote coins)
-    // ----------------------------------------
-
-    // 1.1 Exactly enough quote coins in wallet, no fees
+fun bid_with_exact_amount_succeeds() {
+    // Exactly enough quote coins in wallet, no fees
     // price = 100_000_000_000 (100 * 10^9)
     // quantity = 10
     // required = (10 * 100_000_000_000) / 10^9 = 1000
@@ -28,8 +24,11 @@ fun test_has_enough_input_coin_core() {
         true, // is_bid
     );
     assert_eq(has_sufficient, true);
+}
 
-    // 1.2 More than enough quote coins in wallet, no fees
+#[test]
+fun bid_with_excess_amount_succeeds() {
+    // More than enough quote coins in wallet, no fees
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -42,8 +41,11 @@ fun test_has_enough_input_coin_core() {
         true, // is_bid
     );
     assert_eq(has_sufficient, true);
+}
 
-    // 1.3 Not enough quote coins in wallet, no fees
+#[test]
+fun bid_with_insufficient_amount_fails() {
+    // Not enough quote coins in wallet, no fees
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -56,8 +58,11 @@ fun test_has_enough_input_coin_core() {
         true, // is_bid
     );
     assert_eq(has_sufficient, false);
+}
 
-    // 1.4 Exactly enough quote coins split between wallet and balance manager
+#[test]
+fun bid_with_split_balance_succeeds() {
+    // Exactly enough quote coins split between wallet and balance manager
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         500, // balance_manager_quote
@@ -70,8 +75,11 @@ fun test_has_enough_input_coin_core() {
         true, // is_bid
     );
     assert_eq(has_sufficient, true);
+}
 
-    // 1.5 Exactly enough including fees
+#[test]
+fun bid_with_exact_amount_and_fees_succeeds() {
+    // Exactly enough including fees
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -84,8 +92,11 @@ fun test_has_enough_input_coin_core() {
         true, // is_bid
     );
     assert_eq(has_sufficient, true);
+}
 
-    // 1.6 Not enough when including fees
+#[test]
+fun bid_with_insufficient_amount_and_fees_fails() {
+    // Not enough when including fees
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -98,11 +109,13 @@ fun test_has_enough_input_coin_core() {
         true, // is_bid
     );
     assert_eq(has_sufficient, false);
+}
 
-    // 2. Ask order cases (checking base coins)
-    // ----------------------------------------
+// Ask order tests - checking base coins
 
-    // 2.1 Exactly enough base coins in wallet, no fees
+#[test]
+fun ask_with_exact_amount_succeeds() {
+    // Exactly enough base coins in wallet, no fees
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -115,8 +128,11 @@ fun test_has_enough_input_coin_core() {
         false, // is_bid
     );
     assert_eq(has_sufficient, true);
+}
 
-    // 2.2 More than enough base coins in wallet, no fees
+#[test]
+fun ask_with_excess_amount_succeeds() {
+    // More than enough base coins in wallet, no fees
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -129,8 +145,11 @@ fun test_has_enough_input_coin_core() {
         false, // is_bid
     );
     assert_eq(has_sufficient, true);
+}
 
-    // 2.3 Not enough base coins in wallet, no fees
+#[test]
+fun ask_with_insufficient_amount_fails() {
+    // Not enough base coins in wallet, no fees
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -143,8 +162,11 @@ fun test_has_enough_input_coin_core() {
         false, // is_bid
     );
     assert_eq(has_sufficient, false);
+}
 
-    // 2.4 Exactly enough base coins split between wallet and balance manager
+#[test]
+fun ask_with_split_balance_succeeds() {
+    // Exactly enough base coins split between wallet and balance manager
     let has_sufficient = has_enough_input_coin_core(
         50, // balance_manager_base
         0, // balance_manager_quote
@@ -157,8 +179,11 @@ fun test_has_enough_input_coin_core() {
         false, // is_bid
     );
     assert_eq(has_sufficient, true);
+}
 
-    // 2.5 Exactly enough including fees
+#[test]
+fun ask_with_exact_amount_and_fees_succeeds() {
+    // Exactly enough including fees
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -171,8 +196,11 @@ fun test_has_enough_input_coin_core() {
         false, // is_bid
     );
     assert_eq(has_sufficient, true);
+}
 
-    // 2.6 Not enough when including fees
+#[test]
+fun ask_with_insufficient_amount_and_fees_fails() {
+    // Not enough when including fees
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -185,11 +213,13 @@ fun test_has_enough_input_coin_core() {
         false, // is_bid
     );
     assert_eq(has_sufficient, false);
+}
 
-    // 3. Special cases
-    // ---------------
+// Special cases
 
-    // 3.1 Zero quantity bid
+#[test]
+fun zero_quantity_bid_succeeds() {
+    // Zero quantity bid
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -202,8 +232,11 @@ fun test_has_enough_input_coin_core() {
         true, // is_bid
     );
     assert_eq(has_sufficient, true);
+}
 
-    // 3.2 Zero quantity ask
+#[test]
+fun zero_quantity_ask_succeeds() {
+    // Zero quantity ask
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base
         0, // balance_manager_quote
@@ -216,8 +249,11 @@ fun test_has_enough_input_coin_core() {
         false, // is_bid
     );
     assert_eq(has_sufficient, true);
+}
 
-    // 3.3 Very large values within u64 range (check for overflow safety)
+#[test]
+fun large_values_do_not_overflow() {
+    // Very large values within u64 range (check for overflow safety)
     let large_value = 10_000_000_000; // 10^10, below max u64 when multiplied by price scaling
     let has_sufficient = has_enough_input_coin_core(
         0, // balance_manager_base

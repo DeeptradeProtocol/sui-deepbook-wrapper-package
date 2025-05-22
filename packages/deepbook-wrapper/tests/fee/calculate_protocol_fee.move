@@ -2,37 +2,38 @@
 module deepbook_wrapper::calculate_protocol_fee_tests;
 
 use deepbook_wrapper::fee::calculate_protocol_fee;
+use std::unit_test::assert_eq;
 
 const SUI_PER_DEEP: u64 = 37_815_000_000;
 
 #[test]
 /// Test when deep_from_reserves is zero, result should be zero
-fun test_zero_values() {
+fun zero_values() {
     let fee = calculate_protocol_fee(SUI_PER_DEEP, 0);
-    assert!(fee == 0, 0);
+    assert_eq!(fee, 0);
 }
 
 #[test]
 /// Test with minimum non-zero DEEP amount
-fun test_minimum_deep() {
+fun minimum_deep() {
     let fee = calculate_protocol_fee(SUI_PER_DEEP, 1);
     // Step 1: 1 * 10_000_000 = 10_000_000
     // After first scaling: 10_000_000 / 1_000_000_000 = 0 DEEP (rounds down!)
     // Step 2: 0 * 37_815_000_000 = 0
     // After second scaling: 0 / 1_000_000_000 = 0 SUI
-    assert!(fee == 0, 0); // Will be 0 due to integer division in first scaling
+    assert_eq!(fee, 0); // Will be 0 due to integer division in first scaling
 }
 
 #[test]
 /// Test with standard DEEP amounts
-fun test_standard_amounts() {
+fun standard_amounts() {
     // Test with 1000 DEEP
     let fee_1k = calculate_protocol_fee(SUI_PER_DEEP, 1_000);
     // Step 1: 1_000 * 10_000_000 = 10_000_000_000
     // After first scaling: 10_000_000_000 / 1_000_000_000 = 10 DEEP
     // Step 2: 10 * 37_815_000_000 = 378_150_000_000
     // After second scaling: 378_150_000_000 / 1_000_000_000 = 378 SUI
-    assert!(fee_1k == 378, 0);
+    assert_eq!(fee_1k, 378);
 
     // Test with 10000 DEEP
     let fee_10k = calculate_protocol_fee(SUI_PER_DEEP, 10_000);
@@ -40,7 +41,7 @@ fun test_standard_amounts() {
     // After first scaling: 100_000_000_000 / 1_000_000_000 = 100 DEEP
     // Step 2: 100 * 37_815_000_000 = 3_781_500_000_000
     // After second scaling: 3_781_500_000_000 / 1_000_000_000 = 3_781 SUI
-    assert!(fee_10k == 3_781, 1);
+    assert_eq!(fee_10k, 3_781);
 
     // Note: Not exactly linear due to rounding at each scaling step
     // fee_10k (3_781) ≠ fee_1k * 10 (3_780)
@@ -48,14 +49,14 @@ fun test_standard_amounts() {
 
 #[test]
 /// Test with large DEEP amounts to verify no overflow
-fun test_large_values() {
+fun large_values() {
     // Test with 1 million DEEP
     let fee = calculate_protocol_fee(SUI_PER_DEEP, 1_000_000);
     // Step 1: 1_000_000 * 10_000_000 = 10_000_000_000_000
     // After first scaling: 10_000_000_000_000 / 1_000_000_000 = 10_000 DEEP
     // Step 2: 10_000 * 37_815_000_000 = 378_150_000_000_000
     // After second scaling: 378_150_000_000_000 / 1_000_000_000 = 378_150 SUI
-    assert!(fee == 378_150, 0);
+    assert_eq!(fee, 378_150);
 
     // Test with maximum safe DEEP amount
     let max_safe_deep = 1_000_000_000; // 1 billion DEEP
@@ -64,13 +65,13 @@ fun test_large_values() {
     // After first scaling: 10_000_000_000_000_000 / 1_000_000_000 = 10_000_000 DEEP
     // Step 2: 10_000_000 * 37_815_000_000 = 378_150_000_000_000_000
     // After second scaling: 378_150_000_000_000_000 / 1_000_000_000 = 378_150_000 SUI
-    assert!(fee_max > 0, 1); // Should not overflow
-    assert!(fee_max == 378_150_000, 2);
+    assert!(fee_max > 0); // Should not overflow
+    assert_eq!(fee_max, 378_150_000);
 }
 
 #[test]
 /// Test fee calculation precision and rounding
-fun test_fee_precision() {
+fun fee_precision() {
     // Test with amounts that could cause rounding issues
     let deep_amount = 333;
     let fee = calculate_protocol_fee(SUI_PER_DEEP, deep_amount);
@@ -80,12 +81,12 @@ fun test_fee_precision() {
     // After first scaling: 3_330_000_000 / 1_000_000_000 = 3 DEEP
     // Step 2: 3 * 37_815_000_000 = 113_445_000_000
     // After second scaling: 113_445_000_000 / 1_000_000_000 = 113 SUI
-    assert!(fee == 113, 0);
+    assert_eq!(fee, 113);
 }
 
 #[test]
 /// Test fee scaling is linear with DEEP amount
-fun test_fee_scaling() {
+fun fee_scaling() {
     let base_deep = 1_000;
     let base_fee = calculate_protocol_fee(SUI_PER_DEEP, base_deep);
 
@@ -95,14 +96,14 @@ fun test_fee_scaling() {
     let fee_4x = calculate_protocol_fee(SUI_PER_DEEP, base_deep * 4);
 
     // Verify linear scaling
-    assert!(fee_2x == base_fee * 2, 0);
-    assert!(fee_3x == base_fee * 3, 1);
-    assert!(fee_4x == base_fee * 4, 2);
+    assert_eq!(fee_2x, base_fee * 2);
+    assert_eq!(fee_3x, base_fee * 3);
+    assert_eq!(fee_4x, base_fee * 4);
 }
 
 #[test]
 /// Test with different SUI/DEEP prices
-fun test_different_sui_deep_prices() {
+fun different_sui_deep_prices() {
     let deep_amount = 1_000;
 
     // Test with half the standard price
@@ -113,6 +114,6 @@ fun test_different_sui_deep_prices() {
 
     // Verify fee scales with price
     let standard_fee = calculate_protocol_fee(SUI_PER_DEEP, deep_amount);
-    assert!(fee_half_price == standard_fee / 2, 0);
-    assert!(fee_double_price == standard_fee * 2, 1);
+    assert_eq!(fee_half_price, standard_fee / 2);
+    assert_eq!(fee_double_price, standard_fee * 2);
 }

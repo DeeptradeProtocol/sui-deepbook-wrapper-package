@@ -24,7 +24,7 @@ use deepbook_wrapper::wrapper::{
     split_deep_reserves
 };
 use sui::clock::Clock;
-use sui::coin::{Self, Coin};
+use sui::coin::Coin;
 use sui::sui::SUI;
 use token::deep::DEEP;
 
@@ -1344,7 +1344,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
 
     // Get SUI per DEEP price from reference pool
     let sui_per_deep = get_sui_per_deep(reference_pool, clock);
@@ -1407,10 +1407,10 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     );
 
     // Return unused coins to the caller
-    transfer_if_nonzero(base_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(deep_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(sui_coin, tx_context::sender(ctx));
+    transfer_if_nonzero(base_coin, ctx.sender());
+    transfer_if_nonzero(quote_coin, ctx.sender());
+    transfer_if_nonzero(deep_coin, ctx.sender());
+    transfer_if_nonzero(sui_coin, ctx.sender());
 
     // Generate and return proof
     balance_manager.generate_proof_as_owner(ctx)
@@ -1441,7 +1441,7 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
 
     // Get balances from balance manager
     let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
@@ -1449,8 +1449,8 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
 
     // Get balances from wallet coins
-    let base_in_wallet = coin::value(&base_coin);
-    let quote_in_wallet = coin::value(&quote_coin);
+    let base_in_wallet = base_coin.value();
+    let quote_in_wallet = quote_coin.value();
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
     // Step 1: Determine input coin deposit plan
@@ -1471,8 +1471,8 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     );
 
     // Step 3: Return unused coins to the caller
-    transfer_if_nonzero(base_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
+    transfer_if_nonzero(base_coin, ctx.sender());
+    transfer_if_nonzero(quote_coin, ctx.sender());
 
     // Step 4: Generate and return proof
     balance_manager::generate_proof_as_owner(balance_manager, ctx)
@@ -1510,7 +1510,7 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == tx_context::sender(ctx), EInvalidOwner);
+    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
 
     // Get pool whitelisted status
     let is_pool_whitelisted = pool::whitelisted(pool);
@@ -1521,8 +1521,8 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
 
     // Get balances from wallet coins
-    let base_in_wallet = coin::value(&base_coin);
-    let quote_in_wallet = coin::value(&quote_coin);
+    let base_in_wallet = base_coin.value();
+    let quote_in_wallet = quote_coin.value();
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
     // Get the order plans from the core logic
@@ -1556,8 +1556,8 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     );
 
     // Return unused coins to the caller
-    transfer_if_nonzero(base_coin, tx_context::sender(ctx));
-    transfer_if_nonzero(quote_coin, tx_context::sender(ctx));
+    transfer_if_nonzero(base_coin, ctx.sender());
+    transfer_if_nonzero(quote_coin, ctx.sender());
 
     // Generate and return proof
     balance_manager::generate_proof_as_owner(balance_manager, ctx)
@@ -1586,7 +1586,7 @@ fun execute_deep_plan(
 
     // Take DEEP from wallet if needed
     if (deep_plan.from_user_wallet > 0) {
-        let payment = coin::split(deep_coin, deep_plan.from_user_wallet, ctx);
+        let payment = deep_coin.split(deep_plan.from_user_wallet, ctx);
         balance_manager::deposit(balance_manager, payment, ctx);
     };
 
@@ -1631,8 +1631,8 @@ fun execute_fee_plan(
 
     // Collect coverage fee
     if (fee_plan.coverage_fee_from_wallet > 0) {
-        let fee = coin::split(sui_coin, fee_plan.coverage_fee_from_wallet, ctx);
-        join_deep_reserves_coverage_fee(wrapper, coin::into_balance(fee));
+        let fee = sui_coin.balance_mut().split(fee_plan.coverage_fee_from_wallet);
+        join_deep_reserves_coverage_fee(wrapper, fee);
     };
     if (fee_plan.coverage_fee_from_balance_manager > 0) {
         let fee = balance_manager::withdraw<SUI>(
@@ -1640,13 +1640,13 @@ fun execute_fee_plan(
             fee_plan.coverage_fee_from_balance_manager,
             ctx,
         );
-        join_deep_reserves_coverage_fee(wrapper, coin::into_balance(fee));
+        join_deep_reserves_coverage_fee(wrapper, fee.into_balance());
     };
 
     // Collect protocol fee
     if (fee_plan.protocol_fee_from_wallet > 0) {
-        let fee = coin::split(sui_coin, fee_plan.protocol_fee_from_wallet, ctx);
-        join_protocol_fee(wrapper, coin::into_balance(fee));
+        let fee = sui_coin.balance_mut().split(fee_plan.protocol_fee_from_wallet);
+        join_protocol_fee(wrapper, fee);
     };
     if (fee_plan.protocol_fee_from_balance_manager > 0) {
         let fee = balance_manager::withdraw<SUI>(
@@ -1654,7 +1654,7 @@ fun execute_fee_plan(
             fee_plan.protocol_fee_from_balance_manager,
             ctx,
         );
-        join_protocol_fee(wrapper, coin::into_balance(fee));
+        join_protocol_fee(wrapper, fee.into_balance());
     };
 }
 
@@ -1692,11 +1692,11 @@ fun execute_input_coin_fee_plan<BaseToken, QuoteToken>(
     // Collect protocol fee from wallet if needed
     if (fee_plan.protocol_fee_from_wallet > 0) {
         if (is_bid) {
-            let fee = coin::split(quote_coin, fee_plan.protocol_fee_from_wallet, ctx);
-            join_protocol_fee(wrapper, coin::into_balance(fee));
+            let fee = quote_coin.balance_mut().split(fee_plan.protocol_fee_from_wallet);
+            join_protocol_fee(wrapper, fee);
         } else {
-            let fee = coin::split(base_coin, fee_plan.protocol_fee_from_wallet, ctx);
-            join_protocol_fee(wrapper, coin::into_balance(fee));
+            let fee = base_coin.balance_mut().split(fee_plan.protocol_fee_from_wallet);
+            join_protocol_fee(wrapper, fee);
         };
     };
 
@@ -1708,14 +1708,14 @@ fun execute_input_coin_fee_plan<BaseToken, QuoteToken>(
                 fee_plan.protocol_fee_from_balance_manager,
                 ctx,
             );
-            join_protocol_fee(wrapper, coin::into_balance(fee));
+            join_protocol_fee(wrapper, fee.into_balance());
         } else {
             let fee = balance_manager::withdraw<BaseToken>(
                 balance_manager,
                 fee_plan.protocol_fee_from_balance_manager,
                 ctx,
             );
-            join_protocol_fee(wrapper, coin::into_balance(fee));
+            join_protocol_fee(wrapper, fee.into_balance());
         };
     };
 }
@@ -1745,11 +1745,11 @@ fun execute_input_coin_deposit_plan<BaseToken, QuoteToken>(
     if (deposit_plan.from_user_wallet > 0) {
         if (is_bid) {
             // Quote coins for bid
-            let payment = coin::split(quote_coin, deposit_plan.from_user_wallet, ctx);
+            let payment = quote_coin.split(deposit_plan.from_user_wallet, ctx);
             balance_manager::deposit(balance_manager, payment, ctx);
         } else {
             // Base coins for ask
-            let payment = coin::split(base_coin, deposit_plan.from_user_wallet, ctx);
+            let payment = base_coin.split(deposit_plan.from_user_wallet, ctx);
             balance_manager::deposit(balance_manager, payment, ctx);
         };
     };
@@ -1806,10 +1806,11 @@ public fun assert_deep_plan_eq(
     expected_from_wrapper: u64,
     expected_sufficient: bool,
 ) {
-    assert!(actual.use_wrapper_deep_reserves == expected_use_wrapper, 0);
-    assert!(actual.from_user_wallet == expected_from_wallet, 0);
-    assert!(actual.from_deep_reserves == expected_from_wrapper, 0);
-    assert!(actual.deep_reserves_cover_order == expected_sufficient, 0);
+    use std::unit_test::assert_eq;
+    assert_eq!(actual.use_wrapper_deep_reserves, expected_use_wrapper);
+    assert_eq!(actual.from_user_wallet, expected_from_wallet);
+    assert_eq!(actual.from_deep_reserves, expected_from_wrapper);
+    assert_eq!(actual.deep_reserves_cover_order, expected_sufficient);
 }
 
 #[test_only]
@@ -1821,11 +1822,12 @@ public fun assert_fee_plan_eq(
     expected_protocol_from_bm: u64,
     expected_sufficient: bool,
 ) {
-    assert!(actual.coverage_fee_from_wallet == expected_coverage_from_wallet, 0);
-    assert!(actual.coverage_fee_from_balance_manager == expected_coverage_from_bm, 0);
-    assert!(actual.protocol_fee_from_wallet == expected_protocol_from_wallet, 0);
-    assert!(actual.protocol_fee_from_balance_manager == expected_protocol_from_bm, 0);
-    assert!(actual.user_covers_wrapper_fee == expected_sufficient, 0);
+    use std::unit_test::assert_eq;
+    assert_eq!(actual.coverage_fee_from_wallet, expected_coverage_from_wallet);
+    assert_eq!(actual.coverage_fee_from_balance_manager, expected_coverage_from_bm);
+    assert_eq!(actual.protocol_fee_from_wallet, expected_protocol_from_wallet);
+    assert_eq!(actual.protocol_fee_from_balance_manager, expected_protocol_from_bm);
+    assert_eq!(actual.user_covers_wrapper_fee, expected_sufficient);
 }
 
 #[test_only]
@@ -1835,9 +1837,10 @@ public fun assert_input_coin_deposit_plan_eq(
     expected_from_user_wallet: u64,
     expected_sufficient: bool,
 ) {
-    assert!(actual.order_amount == expected_order_amount, 0);
-    assert!(actual.from_user_wallet == expected_from_user_wallet, 0);
-    assert!(actual.user_has_enough_input_coin == expected_sufficient, 0);
+    use std::unit_test::assert_eq;
+    assert_eq!(actual.order_amount, expected_order_amount);
+    assert_eq!(actual.from_user_wallet, expected_from_user_wallet);
+    assert_eq!(actual.user_has_enough_input_coin, expected_sufficient);
 }
 
 #[test_only]
@@ -1847,7 +1850,8 @@ public fun assert_input_coin_fee_plan_eq(
     expected_protocol_from_bm: u64,
     expected_sufficient: bool,
 ) {
-    assert!(actual.protocol_fee_from_wallet == expected_protocol_from_wallet, 0);
-    assert!(actual.protocol_fee_from_balance_manager == expected_protocol_from_bm, 0);
-    assert!(actual.user_covers_wrapper_fee == expected_sufficient, 0);
+    use std::unit_test::assert_eq;
+    assert_eq!(actual.protocol_fee_from_wallet, expected_protocol_from_wallet);
+    assert_eq!(actual.protocol_fee_from_balance_manager, expected_protocol_from_bm);
+    assert_eq!(actual.user_covers_wrapper_fee, expected_sufficient);
 }

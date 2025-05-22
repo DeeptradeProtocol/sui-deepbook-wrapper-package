@@ -1,13 +1,13 @@
 module deepbook_wrapper::pool;
 
-use sui::event;
-use sui::coin::{Self, Coin};
-use deepbook::pool::{Self};
-use deepbook::constants::{Self};
-use deepbook::registry::{Registry};
-use deepbook_wrapper::admin::{AdminCap};
+use deepbook::constants;
+use deepbook::pool;
+use deepbook::registry::Registry;
+use deepbook_wrapper::admin::AdminCap;
+use deepbook_wrapper::helper::transfer_if_nonzero;
 use deepbook_wrapper::wrapper::{Wrapper, join_protocol_fee};
-use deepbook_wrapper::helper::{transfer_if_nonzero};
+use sui::coin::Coin;
+use sui::event;
 use token::deep::DEEP;
 
 // === Constants ===
@@ -38,7 +38,7 @@ const ENotEnoughFee: u64 = 1;
 // === Public-Mutative Functions ===
 /// Creates a new permissionless pool for trading between BaseAsset and QuoteAsset
 /// Collects both DeepBook creation fee and protocol fee in DEEP coins
-/// 
+///
 /// # Arguments
 /// * `wrapper` - Main wrapper object that will receive the protocol fee
 /// * `config` - Configuration object containing protocol fee information
@@ -48,7 +48,7 @@ const ENotEnoughFee: u64 = 1;
 /// * `min_size` - Minimum quantity of base asset required to create an order
 /// * `creation_fee` - DEEP coins to pay for pool creation (both DeepBook and protocol fees)
 /// * `ctx` - Transaction context
-/// 
+///
 /// # Flow
 /// 1. Calculates required fees (DeepBook fee + protocol fee)
 /// 2. Verifies user has enough DEEP to cover all fees
@@ -56,20 +56,20 @@ const ENotEnoughFee: u64 = 1;
 /// 4. Adds protocol fee to the wrapper
 /// 5. Returns any unused DEEP coins to caller
 /// 6. Creates the permissionless pool in DeepBook
-/// 
+///
 /// # Returns
 /// * ID of the newly created pool
-/// 
+///
 /// # Aborts
 /// * `ENotEnoughFee` - If user doesn't provide enough DEEP to cover all fees
 public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     wrapper: &mut Wrapper,
     config: &CreatePoolConfig,
     registry: &mut Registry,
+    mut creation_fee: Coin<DEEP>,
     tick_size: u64,
     lot_size: u64,
     min_size: u64,
-    mut creation_fee: Coin<DEEP>,
     ctx: &mut TxContext,
 ): ID {
     let deepbook_fee = constants::pool_creation_fee();
@@ -82,18 +82,18 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     let protocol_fee_coin = creation_fee.split(protocol_fee, ctx);
 
     // Move protocol fee to the wrapper
-    join_protocol_fee(wrapper, coin::into_balance(protocol_fee_coin));
+    join_protocol_fee(wrapper, protocol_fee_coin.into_balance());
 
     // Return unused DEEP coins to the caller
-    transfer_if_nonzero(creation_fee, tx_context::sender(ctx));
+    transfer_if_nonzero(creation_fee, ctx.sender());
 
     // Create the permissionless pool
     let pool_id = pool::create_permissionless_pool<BaseAsset, QuoteAsset>(
-        registry, 
-        tick_size, 
-        lot_size, 
-        min_size, 
-        deepbook_fee_coin, 
+        registry,
+        tick_size,
+        lot_size,
+        min_size,
+        deepbook_fee_coin,
         ctx,
     );
 
@@ -110,8 +110,8 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
 
 /// Update the protocol fee for creating a pool
 public fun update_create_pool_protocol_fee(
-    _admin: &AdminCap,
     config: &mut CreatePoolConfig,
+    _admin: &AdminCap,
     new_fee: u64,
 ) {
     config.protocol_fee = new_fee;

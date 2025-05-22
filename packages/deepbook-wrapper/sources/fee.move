@@ -10,7 +10,7 @@ use deepbook_wrapper::helper::{
 use deepbook_wrapper::math;
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
-use sui::coin::{Self, Coin};
+use sui::coin::Coin;
 
 // === Constants ===
 /// Fee rate for protocol fee in billionths (1%)
@@ -395,7 +395,7 @@ public(package) fun charge_swap_fee<CoinType>(
     coin: &mut Coin<CoinType>,
     fee_bps: u64,
 ): Balance<CoinType> {
-    let coin_balance = coin::balance_mut(coin);
+    let coin_balance = coin.balance_mut();
     let value = balance::value(coin_balance);
     balance::split(coin_balance, calculate_fee_by_rate(value, fee_bps))
 }

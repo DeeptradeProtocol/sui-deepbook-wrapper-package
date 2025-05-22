@@ -4,7 +4,7 @@ use deepbook::pool::{Self, Pool};
 use deepbook_wrapper::math;
 use std::type_name;
 use sui::clock::Clock;
-use sui::coin::{Self, Coin};
+use sui::coin::Coin;
 use sui::sui::SUI;
 use token::deep::DEEP;
 
@@ -25,10 +25,10 @@ public(package) fun get_fee_bps<BaseToken, QuoteToken>(pool: &Pool<BaseToken, Qu
 
 /// Helper function to transfer non-zero coins or destroy zero coins
 public(package) fun transfer_if_nonzero<CoinType>(coins: Coin<CoinType>, recipient: address) {
-    if (coin::value(&coins) > 0) {
+    if (coins.value() > 0) {
         transfer::public_transfer(coins, recipient);
     } else {
-        coin::destroy_zero(coins);
+        coins.destroy_zero();
     };
 }
 
