@@ -7,14 +7,14 @@ const SUI_PER_DEEP: u64 = 37_815_000_000;
 
 #[test]
 /// Test when deep_from_reserves is zero, result should be zero
-fun test_zero_values() {
+fun zero_values() {
     let fee = calculate_protocol_fee(SUI_PER_DEEP, 0);
     assert!(fee == 0, 0);
 }
 
 #[test]
 /// Test with minimum non-zero DEEP amount
-fun test_minimum_deep() {
+fun minimum_deep() {
     let fee = calculate_protocol_fee(SUI_PER_DEEP, 1);
     // Step 1: 1 * 10_000_000 = 10_000_000
     // After first scaling: 10_000_000 / 1_000_000_000 = 0 DEEP (rounds down!)
@@ -25,7 +25,7 @@ fun test_minimum_deep() {
 
 #[test]
 /// Test with standard DEEP amounts
-fun test_standard_amounts() {
+fun standard_amounts() {
     // Test with 1000 DEEP
     let fee_1k = calculate_protocol_fee(SUI_PER_DEEP, 1_000);
     // Step 1: 1_000 * 10_000_000 = 10_000_000_000
@@ -48,7 +48,7 @@ fun test_standard_amounts() {
 
 #[test]
 /// Test with large DEEP amounts to verify no overflow
-fun test_large_values() {
+fun large_values() {
     // Test with 1 million DEEP
     let fee = calculate_protocol_fee(SUI_PER_DEEP, 1_000_000);
     // Step 1: 1_000_000 * 10_000_000 = 10_000_000_000_000
@@ -70,7 +70,7 @@ fun test_large_values() {
 
 #[test]
 /// Test fee calculation precision and rounding
-fun test_fee_precision() {
+fun fee_precision() {
     // Test with amounts that could cause rounding issues
     let deep_amount = 333;
     let fee = calculate_protocol_fee(SUI_PER_DEEP, deep_amount);
@@ -85,7 +85,7 @@ fun test_fee_precision() {
 
 #[test]
 /// Test fee scaling is linear with DEEP amount
-fun test_fee_scaling() {
+fun fee_scaling() {
     let base_deep = 1_000;
     let base_fee = calculate_protocol_fee(SUI_PER_DEEP, base_deep);
 
@@ -102,7 +102,7 @@ fun test_fee_scaling() {
 
 #[test]
 /// Test with different SUI/DEEP prices
-fun test_different_sui_deep_prices() {
+fun different_sui_deep_prices() {
     let deep_amount = 1_000;
 
     // Test with half the standard price

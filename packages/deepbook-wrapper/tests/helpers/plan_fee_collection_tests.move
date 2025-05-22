@@ -5,7 +5,7 @@ use deepbook_wrapper::order;
 
 /// Test that planning fee collection with zero fee returns zeros
 #[test]
-fun test_plan_fee_collection_zero_fee() {
+fun plan_fee_collection_zero_fee() {
     let (from_wallet, from_bm) = order::plan_fee_collection(
         0, // fee_amount
         1000, // available_in_wallet
@@ -17,7 +17,7 @@ fun test_plan_fee_collection_zero_fee() {
 
 /// Test when BM has insufficient funds and wallet is empty
 #[test, expected_failure]
-fun test_plan_fee_collection_bm_insufficient() {
+fun plan_fee_collection_bm_insufficient() {
     let fee_amount = 1000;
     let available_in_bm = 500;
     order::plan_fee_collection(
@@ -29,7 +29,7 @@ fun test_plan_fee_collection_bm_insufficient() {
 
 /// Test when BM has exact amount needed and wallet is empty
 #[test]
-fun test_plan_fee_collection_bm_exact() {
+fun plan_fee_collection_bm_exact() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
         fee_amount, // fee_amount
@@ -42,7 +42,7 @@ fun test_plan_fee_collection_bm_exact() {
 
 /// Test when BM has excess funds and wallet is empty
 #[test]
-fun test_plan_fee_collection_bm_excess() {
+fun plan_fee_collection_bm_excess() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
         fee_amount, // fee_amount
@@ -55,7 +55,7 @@ fun test_plan_fee_collection_bm_excess() {
 
 /// Test when wallet has insufficient funds and BM is empty
 #[test, expected_failure]
-fun test_plan_fee_collection_wallet_insufficient() {
+fun plan_fee_collection_wallet_insufficient() {
     let fee_amount = 1000;
     let available_in_wallet = 500;
     order::plan_fee_collection(
@@ -67,7 +67,7 @@ fun test_plan_fee_collection_wallet_insufficient() {
 
 /// Test when wallet has exact amount needed and BM is empty
 #[test]
-fun test_plan_fee_collection_wallet_exact() {
+fun plan_fee_collection_wallet_exact() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
         fee_amount, // fee_amount
@@ -80,7 +80,7 @@ fun test_plan_fee_collection_wallet_exact() {
 
 /// Test when wallet has excess funds and BM is empty
 #[test]
-fun test_plan_fee_collection_wallet_excess() {
+fun plan_fee_collection_wallet_excess() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
         fee_amount, // fee_amount
@@ -93,7 +93,7 @@ fun test_plan_fee_collection_wallet_excess() {
 
 /// Test when both sources have insufficient funds
 #[test, expected_failure]
-fun test_plan_fee_collection_split_both_insufficient() {
+fun plan_fee_collection_split_both_insufficient() {
     let fee_amount = 1000;
     order::plan_fee_collection(
         fee_amount, // fee_amount
@@ -104,7 +104,7 @@ fun test_plan_fee_collection_split_both_insufficient() {
 
 /// Test when sum of both sources exactly equals needed amount
 #[test]
-fun test_plan_fee_collection_split_exact_sum() {
+fun plan_fee_collection_split_exact_sum() {
     let fee_amount = 1000;
     let bm_amount = 600;
     let wallet_amount = fee_amount - bm_amount;
@@ -121,7 +121,7 @@ fun test_plan_fee_collection_split_exact_sum() {
 
 /// Test when BM has excess funds while wallet also has funds
 #[test]
-fun test_plan_fee_collection_split_bm_excess() {
+fun plan_fee_collection_split_bm_excess() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
         fee_amount, // fee_amount
@@ -134,7 +134,7 @@ fun test_plan_fee_collection_split_bm_excess() {
 
 /// Test when wallet has excess funds while BM also has funds
 #[test]
-fun test_plan_fee_collection_split_wallet_excess() {
+fun plan_fee_collection_split_wallet_excess() {
     let fee_amount = 1000;
     let (from_wallet, from_bm) = order::plan_fee_collection(
         fee_amount, // fee_amount

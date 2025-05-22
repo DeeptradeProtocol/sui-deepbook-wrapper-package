@@ -8,7 +8,7 @@ const FEE_SCALING: u64 = 1_000_000_000; // 10^9
 
 #[test]
 /// Test when amount or fee_bps is zero, result should be zero
-fun test_zero_values() {
+fun zero_values() {
     // When amount is zero, result should be zero regardless of fee_bps
     let fee = calculate_fee_by_rate(0, 1000000);
     assert!(fee == 0, 0);
@@ -24,7 +24,7 @@ fun test_zero_values() {
 
 #[test]
 /// Test with standard fee rates (0.1%, 0.3%, 0.5%, 1%)
-fun test_standard_fee_rates() {
+fun standard_fee_rates() {
     let amount = 1000000; // 1 million tokens
 
     // 0.1% fee (1,000,000 bps)
@@ -50,7 +50,7 @@ fun test_standard_fee_rates() {
 
 #[test]
 /// Test with various token amounts
-fun test_various_amounts() {
+fun various_amounts() {
     let fee_bps = 2000000; // 0.2%
 
     // Small amount
@@ -76,7 +76,7 @@ fun test_various_amounts() {
 
 #[test]
 /// Test with extremely small fee rates
-fun test_small_fee_rates() {
+fun small_fee_rates() {
     let amount = 1000000000; // 1 billion tokens
 
     // 0.0001% fee (1,000 bps)
@@ -102,7 +102,7 @@ fun test_small_fee_rates() {
 
 #[test]
 /// Test rounding behavior with integer division
-fun test_rounding() {
+fun rounding() {
     // Tests where the division should round to zero
     let fee_bps = 1000000; // 0.1%
 
@@ -129,7 +129,7 @@ fun test_rounding() {
 
 #[test]
 /// Test with large values close to u64 max
-fun test_large_values() {
+fun large_values() {
     // Using large values to test for overflow handling
     let large_amount = 18446744073709551000; // close to max u64
     let fee_bps = 1000000; // 0.1%
@@ -150,7 +150,7 @@ fun test_large_values() {
 
 #[test]
 /// Test with maximum possible fee rate (100%)
-fun test_max_fee_rate() {
+fun max_fee_rate() {
     let amount = 1000000;
     let max_fee_bps = FEE_SCALING; // 100%
 
@@ -161,7 +161,7 @@ fun test_max_fee_rate() {
 
 #[test]
 /// Test when amount is equal to fee_bps
-fun test_equal_values() {
+fun equal_values() {
     let value = 5000000;
 
     let fee = calculate_fee_by_rate(value, value);
@@ -171,7 +171,7 @@ fun test_equal_values() {
 
 #[test]
 /// Test with different combinations of amounts and fee rates
-fun test_combinations() {
+fun combinations() {
     // Test various combinations to ensure formula works correctly
 
     // Small amount, large fee

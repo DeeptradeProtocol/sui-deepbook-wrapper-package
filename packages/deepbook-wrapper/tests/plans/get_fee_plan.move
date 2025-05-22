@@ -11,7 +11,7 @@ const SUI_PER_DEEP: u64 = 37_815_000_000;
 // ===== No Fee Required Tests =====
 
 #[test]
-public fun test_whitelisted_pool_requires_no_fee() {
+public fun whitelisted_pool_requires_no_fee() {
     let is_pool_whitelisted = true;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 100;
@@ -40,7 +40,7 @@ public fun test_whitelisted_pool_requires_no_fee() {
 }
 
 #[test]
-public fun test_not_using_wrapper_deep_requires_no_fee() {
+public fun not_using_wrapper_deep_requires_no_fee() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = false; // Not using wrapper DEEP
     let deep_from_reserves = 0;
@@ -71,7 +71,7 @@ public fun test_not_using_wrapper_deep_requires_no_fee() {
 // ===== Fee Distribution Tests =====
 
 #[test]
-public fun test_fee_from_wallet_only() {
+public fun fee_from_wallet_only() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 25_000;
@@ -109,7 +109,7 @@ public fun test_fee_from_wallet_only() {
 }
 
 #[test]
-public fun test_fee_from_balance_manager_only() {
+public fun fee_from_balance_manager_only() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 75_000;
@@ -147,7 +147,7 @@ public fun test_fee_from_balance_manager_only() {
 }
 
 #[test]
-public fun test_fee_split_between_wallet_and_balance_manager() {
+public fun fee_split_between_wallet_and_balance_manager() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 40_000;
@@ -205,7 +205,7 @@ public fun test_fee_split_between_wallet_and_balance_manager() {
 // ===== Insufficient Resources Tests =====
 
 #[test]
-public fun test_insufficient_fee_resources() {
+public fun insufficient_fee_resources() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 60_000;
@@ -244,7 +244,7 @@ public fun test_insufficient_fee_resources() {
 }
 
 #[test]
-public fun test_almost_sufficient_fee_resources() {
+public fun almost_sufficient_fee_resources() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 35_000;
@@ -285,7 +285,7 @@ public fun test_almost_sufficient_fee_resources() {
 // ===== Boundary Tests =====
 
 #[test]
-public fun test_exact_fee_match_with_wallet() {
+public fun exact_fee_match_with_wallet() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 50_000;
@@ -323,7 +323,7 @@ public fun test_exact_fee_match_with_wallet() {
 }
 
 #[test]
-public fun test_exact_fee_match_with_balance_manager() {
+public fun exact_fee_match_with_balance_manager() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 20_000;
@@ -361,7 +361,7 @@ public fun test_exact_fee_match_with_balance_manager() {
 }
 
 #[test]
-public fun test_exact_fee_match_combined() {
+public fun exact_fee_match_combined() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 80_000;
@@ -419,7 +419,7 @@ public fun test_exact_fee_match_combined() {
 // ===== Edge Cases =====
 
 #[test]
-public fun test_large_deep_reserves_fee() {
+public fun large_deep_reserves_fee() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 1_000_000_000; // Large amount of DEEP
@@ -475,7 +475,7 @@ public fun test_large_deep_reserves_fee() {
 }
 
 #[test]
-public fun test_minimal_deep_reserves_fee() {
+public fun minimal_deep_reserves_fee() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 1; // Minimal amount of DEEP
@@ -517,7 +517,7 @@ public fun test_minimal_deep_reserves_fee() {
 }
 
 #[test]
-public fun test_wallet_exactly_one_token_short() {
+public fun wallet_exactly_one_token_short() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 15_000;
@@ -555,7 +555,7 @@ public fun test_wallet_exactly_one_token_short() {
 }
 
 #[test]
-public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
+public fun balance_manager_exactly_one_token_short_with_empty_wallet() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 45_000;
@@ -595,7 +595,7 @@ public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
 // ===== Protocol Fee Specific Tests =====
 
 #[test]
-public fun test_fee_scaling_with_deep_amount() {
+public fun fee_scaling_with_deep_amount() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Test with increasing amounts of DEEP from reserves

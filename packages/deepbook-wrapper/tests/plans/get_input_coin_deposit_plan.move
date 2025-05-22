@@ -14,7 +14,7 @@ const AMOUNT_HUGE: u64 = 1_000_000_000_000; // 1 trillion
 // ===== Sufficient Balance Manager Tests =====
 
 #[test]
-public fun test_balance_manager_has_exact_required_amount() {
+public fun balance_manager_has_exact_required_amount() {
     let required_amount = AMOUNT_MEDIUM;
     let wallet_balance = AMOUNT_SMALL;
     let balance_manager_balance = required_amount; // Exact required amount
@@ -35,7 +35,7 @@ public fun test_balance_manager_has_exact_required_amount() {
 }
 
 #[test]
-public fun test_balance_manager_has_more_than_required() {
+public fun balance_manager_has_more_than_required() {
     let required_amount = AMOUNT_MEDIUM;
     let wallet_balance = AMOUNT_SMALL;
     let balance_manager_balance = required_amount * 2; // Double the required amount
@@ -56,7 +56,7 @@ public fun test_balance_manager_has_more_than_required() {
 }
 
 #[test]
-public fun test_balance_manager_has_enough_empty_wallet() {
+public fun balance_manager_has_enough_empty_wallet() {
     let required_amount = AMOUNT_MEDIUM;
     let wallet_balance = 0; // Empty wallet
     let balance_manager_balance = required_amount + 100; // More than required
@@ -79,7 +79,7 @@ public fun test_balance_manager_has_enough_empty_wallet() {
 // ===== Partial Balance Manager Tests =====
 
 #[test]
-public fun test_balance_manager_partial_wallet_sufficient() {
+public fun balance_manager_partial_wallet_sufficient() {
     let required_amount = AMOUNT_MEDIUM;
     let balance_manager_balance = required_amount / 2; // Half of required
     let additional_needed = required_amount - balance_manager_balance;
@@ -101,7 +101,7 @@ public fun test_balance_manager_partial_wallet_sufficient() {
 }
 
 #[test]
-public fun test_balance_manager_partial_wallet_exact_match() {
+public fun balance_manager_partial_wallet_exact_match() {
     let required_amount = AMOUNT_MEDIUM;
     let balance_manager_balance = required_amount / 4; // 25% of required
     let additional_needed = required_amount - balance_manager_balance;
@@ -123,7 +123,7 @@ public fun test_balance_manager_partial_wallet_exact_match() {
 }
 
 #[test]
-public fun test_balance_manager_almost_sufficient() {
+public fun balance_manager_almost_sufficient() {
     let required_amount = AMOUNT_MEDIUM;
     let balance_manager_balance = required_amount - 1; // Just 1 token short
     let additional_needed = 1; // Need just 1 more token
@@ -147,7 +147,7 @@ public fun test_balance_manager_almost_sufficient() {
 // ===== Insufficient Resources Tests =====
 
 #[test]
-public fun test_balance_manager_partial_wallet_insufficient() {
+public fun balance_manager_partial_wallet_insufficient() {
     let required_amount = AMOUNT_MEDIUM;
     let balance_manager_balance = required_amount / 2; // Half of required
     let additional_needed = required_amount - balance_manager_balance;
@@ -169,7 +169,7 @@ public fun test_balance_manager_partial_wallet_insufficient() {
 }
 
 #[test]
-public fun test_balance_manager_empty_wallet_insufficient() {
+public fun balance_manager_empty_wallet_insufficient() {
     let required_amount = AMOUNT_MEDIUM;
     let balance_manager_balance = required_amount / 2; // Half of required
     let wallet_balance = 0; // Empty wallet
@@ -190,7 +190,7 @@ public fun test_balance_manager_empty_wallet_insufficient() {
 }
 
 #[test]
-public fun test_wallet_one_token_short() {
+public fun wallet_one_token_short() {
     let required_amount = AMOUNT_MEDIUM;
     let balance_manager_balance = required_amount / 2; // Half of required
     let additional_needed = required_amount - balance_manager_balance;
@@ -212,7 +212,7 @@ public fun test_wallet_one_token_short() {
 }
 
 #[test]
-public fun test_both_sources_empty() {
+public fun both_sources_empty() {
     let required_amount = AMOUNT_MEDIUM;
     let balance_manager_balance = 0; // Empty balance manager
     let wallet_balance = 0; // Empty wallet
@@ -235,7 +235,7 @@ public fun test_both_sources_empty() {
 // ===== Edge Cases =====
 
 #[test]
-public fun test_zero_required_amount() {
+public fun zero_required_amount() {
     let required_amount = 0; // Zero required
     let balance_manager_balance = 0; // Empty balance manager
     let wallet_balance = 0; // Empty wallet
@@ -256,7 +256,7 @@ public fun test_zero_required_amount() {
 }
 
 #[test]
-public fun test_huge_required_amount() {
+public fun huge_required_amount() {
     let required_amount = AMOUNT_HUGE; // Very large amount
     let balance_manager_balance = AMOUNT_HUGE / 2; // Half of huge amount
     let wallet_balance = AMOUNT_HUGE - balance_manager_balance; // Exactly what's needed
@@ -277,7 +277,7 @@ public fun test_huge_required_amount() {
 }
 
 #[test]
-public fun test_huge_required_amount_insufficient() {
+public fun huge_required_amount_insufficient() {
     let required_amount = AMOUNT_HUGE; // Very large amount
     let balance_manager_balance = AMOUNT_HUGE / 2; // Half of huge amount
     let wallet_balance = (AMOUNT_HUGE / 2) - 1; // Just 1 token short
@@ -298,7 +298,7 @@ public fun test_huge_required_amount_insufficient() {
 }
 
 #[test]
-public fun test_balance_manager_empty_wallet_just_enough() {
+public fun balance_manager_empty_wallet_just_enough() {
     let required_amount = AMOUNT_MEDIUM;
     let balance_manager_balance = 0; // Empty balance manager
     let wallet_balance = required_amount; // Exact amount in wallet
@@ -319,7 +319,7 @@ public fun test_balance_manager_empty_wallet_just_enough() {
 }
 
 #[test]
-public fun test_small_values() {
+public fun small_values() {
     let required_amount = AMOUNT_TINY; // Small amount
     let balance_manager_balance = AMOUNT_TINY / 2; // Half of tiny amount
     let wallet_balance = AMOUNT_TINY / 2; // Other half in wallet

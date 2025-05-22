@@ -63,7 +63,7 @@ public fun assert_order_plans_eq(
 /// 1. Protocol fee is taken from balance manager
 /// 2. After protocol fee deduction, balance manager still has enough for order + DeepBook fee
 /// 3. No wallet funds needed
-public fun test_all_from_balance_manager() {
+public fun all_from_balance_manager() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
@@ -105,7 +105,7 @@ public fun test_all_from_balance_manager() {
 /// 1. Protocol fee is split between wallet and balance manager
 /// 2. Remaining balance manager funds aren't enough for order + DeepBook fee
 /// 3. Additional funds from wallet are needed to complete the order
-public fun test_split_between_sources() {
+public fun split_between_sources() {
     let quantity = QUANTITY_LARGE;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = false;
@@ -153,7 +153,7 @@ public fun test_split_between_sources() {
 /// Tests case when:
 /// 1. Protocol fee can be paid (from either source)
 /// 2. But remaining funds are insufficient for order + DeepBook fee
-public fun test_insufficient_after_protocol_fee() {
+public fun insufficient_after_protocol_fee() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = false;
@@ -196,7 +196,7 @@ public fun test_insufficient_after_protocol_fee() {
 /// 2. No DeepBook fees are required
 /// 3. No protocol fees are required (since they're based on DeepBook fees)
 /// 4. Only pure order amount needs to be covered
-public fun test_whitelisted_pool_no_fees() {
+public fun whitelisted_pool_no_fees() {
     let quantity = QUANTITY_SMALL;
     let price = PRICE_SMALL;
     let is_pool_whitelisted = true;
@@ -240,7 +240,7 @@ public fun test_whitelisted_pool_no_fees() {
 /// 2. Order creation should be rejected at protocol fee stage
 /// 3. No funds should be requested from wallet for deposit
 /// 4. Both fee amounts should be set to 0 in the insufficient fee plan
-public fun test_insufficient_protocol_fee() {
+public fun insufficient_protocol_fee() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = false;
@@ -283,7 +283,7 @@ public fun test_insufficient_protocol_fee() {
 /// 2. Resulting fees are minimal but non-zero
 /// 3. Verifies no rounding issues occur with small amounts
 /// 4. Verifies balance manager is prioritized for protocol fees
-public fun test_minimum_amounts() {
+public fun minimum_amounts() {
     let quantity = 10_000;
     let price = 345_000_000;
     let is_pool_whitelisted = false;
@@ -328,7 +328,7 @@ public fun test_minimum_amounts() {
 /// 2. Tiny extra from BM will be used for order amount
 /// 3. Wallet must cover the remaining order amount and DeepBook fee
 /// 4. Verifies correct fee source prioritization
-public fun test_bm_only_protocol_fee() {
+public fun bm_only_protocol_fee() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
@@ -378,7 +378,7 @@ public fun test_bm_only_protocol_fee() {
 /// 1. Balance manager has exactly enough for protocol fee (no extra)
 /// 2. Entire order amount must come from wallet
 /// 3. Verifies behavior with exact amounts
-public fun test_exact_protocol_fee_balance() {
+public fun exact_protocol_fee_balance() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
@@ -422,7 +422,7 @@ public fun test_exact_protocol_fee_balance() {
 /// 1. Uses very large quantity and price values
 /// 2. Verifies no overflow in fee calculations
 /// 3. Checks handling of large amounts in both BM and wallet
-public fun test_maximum_values() {
+public fun maximum_values() {
     let quantity = QUANTITY_LARGE * 1000;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = false;
@@ -468,7 +468,7 @@ public fun test_maximum_values() {
 /// 1. Order amount leads to non-integer fee calculations
 /// 2. Verifies consistent rounding behavior
 /// 3. Checks that rounding doesn't affect plan correctness
-public fun test_fee_rounding() {
+public fun fee_rounding() {
     // Using prime numbers to force non-integer divisions
     let quantity = 17_777;
     let price = 13_131_000_000;
@@ -515,7 +515,7 @@ public fun test_fee_rounding() {
 /// 1. Balance manager has zero balance
 /// 2. Wallet has enough for everything
 /// 3. Verifies correct handling of zero amounts
-public fun test_zero_balance_manager() {
+public fun zero_balance_manager() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
@@ -557,7 +557,7 @@ public fun test_zero_balance_manager() {
 /// 1. Wallet has zero balance
 /// 2. Balance manager has enough for everything
 /// 3. Verifies correct handling of zero amounts
-public fun test_zero_wallet() {
+public fun zero_wallet() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
@@ -599,7 +599,7 @@ public fun test_zero_wallet() {
 /// 1. Balance manager has exactly one coin less than needed for protocol fee
 /// 2. Wallet has exactly required amount
 /// 3. Verifies behavior with off-by-one scenarios
-public fun test_boundary_conditions() {
+public fun boundary_conditions() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
@@ -643,7 +643,7 @@ public fun test_boundary_conditions() {
 /// 1. Pool is whitelisted (no fees)
 /// 2. One source has zero balance
 /// 3. Other source has exact amount needed
-public fun test_whitelisted_zero_balance() {
+public fun whitelisted_zero_balance() {
     let quantity = QUANTITY_LARGE;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = true;
@@ -703,7 +703,7 @@ public fun test_whitelisted_zero_balance() {
 /// 2. Uses maximum possible quantity and price
 /// 3. Verifies no overflow in calculations
 /// 4. Tests both BM and wallet as primary source
-public fun test_whitelisted_maximum_values() {
+public fun whitelisted_maximum_values() {
     let quantity = QUANTITY_LARGE * 1000;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = true;

@@ -10,7 +10,7 @@ const TAKER_FEE_RATE: u64 = 1_000_000; // 0.1% in billionths
 // ===== No Fee Required Tests =====
 
 #[test]
-public fun test_whitelisted_pool_requires_no_fee() {
+public fun whitelisted_pool_requires_no_fee() {
     let is_pool_whitelisted = true;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 1_000_000;
@@ -37,7 +37,7 @@ public fun test_whitelisted_pool_requires_no_fee() {
 // ===== Fee Distribution Tests =====
 
 #[test]
-public fun test_fee_from_wallet_only() {
+public fun fee_from_wallet_only() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 1_000_000;
@@ -66,7 +66,7 @@ public fun test_fee_from_wallet_only() {
 }
 
 #[test]
-public fun test_fee_from_balance_manager_only() {
+public fun fee_from_balance_manager_only() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 2_000_000;
@@ -95,7 +95,7 @@ public fun test_fee_from_balance_manager_only() {
 }
 
 #[test]
-public fun test_fee_split_between_wallet_and_balance_manager() {
+public fun fee_split_between_wallet_and_balance_manager() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 3_000_000;
@@ -131,7 +131,7 @@ public fun test_fee_split_between_wallet_and_balance_manager() {
 // ===== Insufficient Resources Tests =====
 
 #[test]
-public fun test_insufficient_fee_resources() {
+public fun insufficient_fee_resources() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 1_000_000;
@@ -161,7 +161,7 @@ public fun test_insufficient_fee_resources() {
 }
 
 #[test]
-public fun test_almost_sufficient_fee_resources() {
+public fun almost_sufficient_fee_resources() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 2_000_000;
@@ -193,7 +193,7 @@ public fun test_almost_sufficient_fee_resources() {
 // ===== Boundary Tests =====
 
 #[test]
-public fun test_exact_fee_match_with_wallet() {
+public fun exact_fee_match_with_wallet() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 1_000_000;
@@ -222,7 +222,7 @@ public fun test_exact_fee_match_with_wallet() {
 }
 
 #[test]
-public fun test_exact_fee_match_with_balance_manager() {
+public fun exact_fee_match_with_balance_manager() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 2_000_000;
@@ -251,7 +251,7 @@ public fun test_exact_fee_match_with_balance_manager() {
 }
 
 #[test]
-public fun test_exact_fee_match_combined() {
+public fun exact_fee_match_combined() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 3_000_000;
@@ -287,7 +287,7 @@ public fun test_exact_fee_match_combined() {
 // ===== Edge Cases =====
 
 #[test]
-public fun test_large_order_amount() {
+public fun large_order_amount() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 1_000_000_000_000_000; // Very large order amount
@@ -321,7 +321,7 @@ public fun test_large_order_amount() {
 }
 
 #[test]
-public fun test_minimal_order_amount() {
+public fun minimal_order_amount() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 1; // Minimal order amount
@@ -353,7 +353,7 @@ public fun test_minimal_order_amount() {
 }
 
 #[test]
-public fun test_wallet_exactly_one_token_short() {
+public fun wallet_exactly_one_token_short() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 1_000_000;
@@ -382,7 +382,7 @@ public fun test_wallet_exactly_one_token_short() {
 }
 
 #[test]
-public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
+public fun balance_manager_exactly_one_token_short_with_empty_wallet() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
     let amount = 2_000_000;
@@ -413,7 +413,7 @@ public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
 // ===== Fee Scaling Tests =====
 
 #[test]
-public fun test_fee_scaling_with_amount() {
+public fun fee_scaling_with_amount() {
     let taker_fee = TAKER_FEE_RATE;
 
     // Test with increasing amounts
@@ -437,7 +437,7 @@ public fun test_fee_scaling_with_amount() {
 }
 
 #[test]
-public fun test_fee_scaling_with_taker_fee_rate() {
+public fun fee_scaling_with_taker_fee_rate() {
     let amount = 1_000_000;
 
     // Test with increasing taker fee rates
