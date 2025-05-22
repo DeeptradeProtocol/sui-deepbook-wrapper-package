@@ -66,10 +66,10 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     wrapper: &mut Wrapper,
     config: &CreatePoolConfig,
     registry: &mut Registry,
+    mut creation_fee: Coin<DEEP>,
     tick_size: u64,
     lot_size: u64,
     min_size: u64,
-    mut creation_fee: Coin<DEEP>,
     ctx: &mut TxContext,
 ): ID {
     let deepbook_fee = constants::pool_creation_fee();
