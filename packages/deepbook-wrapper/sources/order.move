@@ -13,7 +13,9 @@ use deepbook_wrapper::helper::{
     transfer_if_nonzero,
     calculate_order_amount,
     get_sui_per_deep,
-    calculate_market_order_params
+    calculate_market_order_params,
+    validate_slippage,
+    apply_slippage
 };
 use deepbook_wrapper::math;
 use deepbook_wrapper::wrapper::{
@@ -97,6 +99,14 @@ const EInsufficientInput: u64 = 3;
 #[error]
 const EInvalidOwner: u64 = 4;
 
+/// Error when actual deep required exceeds the max deep required
+#[error]
+const EDeepRequiredExceedsMax: u64 = 5;
+
+/// Error when actual sui fee exceeds the max sui fee
+#[error]
+const ESuiFeeExceedsMax: u64 = 6;
+
 // === Public-Mutative Functions ===
 /// Creates a limit order on DeepBook using coins from various sources
 /// This function orchestrates the entire limit order creation process through the following steps:
@@ -126,6 +136,10 @@ const EInvalidOwner: u64 = 4;
 /// - order_type: Type of order (e.g., GTC, IOC, FOK)
 /// - self_matching_option: Self-matching behavior configuration
 /// - client_order_id: Client-provided order identifier
+/// - estimated_deep_required: Amount of DEEP tokens required for the order creation
+/// - estimated_deep_required_slippage: Maximum acceptable slippage for estimated DEEP requirement in billionths (e.g., 10_000_000 = 1%)
+/// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
+/// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
 public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
@@ -143,6 +157,10 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
     order_type: u8,
     self_matching_option: u8,
     client_order_id: u64,
+    estimated_deep_required: u64,
+    estimated_deep_required_slippage: u64,
+    estimated_sui_fee: u64,
+    estimated_sui_fee_slippage: u64,
     clock: &Clock,
     ctx: &mut TxContext,
 ): (deepbook::order_info::OrderInfo) {
@@ -165,6 +183,10 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
         deep_required,
         order_amount,
         is_bid,
+        estimated_deep_required,
+        estimated_deep_required_slippage,
+        estimated_sui_fee,
+        estimated_sui_fee_slippage,
         clock,
         ctx,
     );
@@ -212,6 +234,10 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
 /// - is_bid: True for buy orders, false for sell orders
 /// - self_matching_option: Self-matching behavior configuration
 /// - client_order_id: Client-provided order identifier
+/// - estimated_deep_required: Amount of DEEP tokens required for the order creation
+/// - estimated_deep_required_slippage: Maximum acceptable slippage for estimated DEEP requirement in billionths (e.g., 10_000_000 = 1%)
+/// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
+/// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
 public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
@@ -226,6 +252,10 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
     is_bid: bool,
     self_matching_option: u8,
     client_order_id: u64,
+    estimated_deep_required: u64,
+    estimated_deep_required_slippage: u64,
+    estimated_sui_fee: u64,
+    estimated_sui_fee_slippage: u64,
     clock: &Clock,
     ctx: &mut TxContext,
 ): (deepbook::order_info::OrderInfo) {
@@ -250,6 +280,10 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
         deep_required,
         order_amount,
         is_bid,
+        estimated_deep_required,
+        estimated_deep_required_slippage,
+        estimated_sui_fee,
+        estimated_sui_fee_slippage,
         clock,
         ctx,
     );
@@ -1304,13 +1338,15 @@ public(package) fun plan_fee_collection(
 // === Private Functions ===
 /// Prepares order execution by handling all common order creation logic:
 /// 1. Verifies the caller owns the balance manager
-/// 2. Creates plans for DEEP sourcing, fee collection, and input coin deposit
-/// 3. Executes the plans in sequence:
+/// 2. Validates estimated fee slippage parameters and calculates maximum allowed values
+/// 3. Verifies that actual DEEP required and SUI fee don't exceed maximums with slippage
+/// 4. Creates plans for DEEP sourcing, fee collection, and input coin deposit
+/// 5. Executes the plans in sequence:
 ///    - Sources DEEP coins from user wallet and wrapper reserves according to DeepPlan
 ///    - Collects fees in SUI coins according to FeePlan
 ///    - Deposits required input coins according to InputCoinDepositPlan
-/// 4. Returns unused coins to the caller
-/// 5. Returns the balance manager proof needed for order placement
+/// 6. Returns unused coins to the caller
+/// 7. Returns the balance manager proof needed for order placement
 ///
 /// This function contains the shared execution logic between limit and market orders,
 /// processing the plans created by create_limit_order_core.
@@ -1327,6 +1363,10 @@ public(package) fun plan_fee_collection(
 /// - deep_required: Amount of DEEP required for the order
 /// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
 /// - is_bid: True for buy orders, false for sell orders
+/// - estimated_deep_required: Amount of DEEP tokens required for the order creation
+/// - estimated_deep_required_slippage: Maximum acceptable slippage for estimated DEEP requirement in billionths (e.g., 10_000_000 = 1%)
+/// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
+/// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
 fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
@@ -1340,11 +1380,29 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     deep_required: u64,
     order_amount: u64,
     is_bid: bool,
+    estimated_deep_required: u64,
+    estimated_deep_required_slippage: u64,
+    estimated_sui_fee: u64,
+    estimated_sui_fee_slippage: u64,
     clock: &Clock,
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
     assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
+
+    // Validate slippage parameters
+    validate_slippage(estimated_deep_required_slippage);
+    validate_slippage(estimated_sui_fee_slippage);
+
+    // Calculate max deep required and sui fee
+    let max_deep_required = apply_slippage(
+        estimated_deep_required,
+        estimated_deep_required_slippage,
+    );
+    let max_sui_fee = apply_slippage(estimated_sui_fee, estimated_sui_fee_slippage);
+
+    // Verify actual deep required doesn't exceed max deep required
+    assert!(deep_required <= max_deep_required, EDeepRequiredExceedsMax);
 
     // Get SUI per DEEP price from reference pool
     let sui_per_deep = get_sui_per_deep(reference_pool, clock);
@@ -1393,6 +1451,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         balance_manager,
         &mut sui_coin,
         &fee_plan,
+        max_sui_fee,
         ctx,
     );
 
@@ -1607,27 +1666,40 @@ fun execute_deep_plan(
 /// * `balance_manager` - User's balance manager to withdraw fees from
 /// * `sui_coin` - User's SUI coins to take fees from
 /// * `fee_plan` - Plan that specifies how much to take from each source
+/// * `max_fee` - Maximum acceptable fee amount calculated with slippage
 /// * `ctx` - Transaction context
 ///
 /// # Flow
 /// 1. Checks if user can pay fees
-/// 2. Collects coverage fees:
+/// 2. Validates that actual fee doesn't exceed max fee with slippage
+/// 3. Collects coverage fees:
 ///    - Takes from wallet if needed
 ///    - Takes from balance manager if needed
-/// 3. Collects protocol fees:
+/// 4. Collects protocol fees:
 ///    - Takes from wallet if needed
 ///    - Takes from balance manager if needed
 ///
 /// # Aborts
 /// * `EInsufficientFee` - If user cannot cover the fees
+/// * `ESuiFeeExceedsMax` - If actual fee exceeds the maximum fee with slippage
 fun execute_fee_plan(
     wrapper: &mut Wrapper,
     balance_manager: &mut BalanceManager,
     sui_coin: &mut Coin<SUI>,
     fee_plan: &FeePlan,
+    max_fee: u64,
     ctx: &mut TxContext,
 ) {
     assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFee);
+
+    let actual_fee =
+        fee_plan.coverage_fee_from_wallet
+        + fee_plan.coverage_fee_from_balance_manager
+        + fee_plan.protocol_fee_from_wallet
+        + fee_plan.protocol_fee_from_balance_manager;
+
+    // Verify actual fee doesn't exceed max fee
+    assert!(actual_fee <= max_fee, ESuiFeeExceedsMax);
 
     // Collect coverage fee
     if (fee_plan.coverage_fee_from_wallet > 0) {
