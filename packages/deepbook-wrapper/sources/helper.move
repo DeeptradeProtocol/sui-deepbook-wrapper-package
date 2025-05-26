@@ -1,5 +1,6 @@
 module deepbook_wrapper::helper;
 
+use deepbook::constants;
 use deepbook::pool::{Self, Pool};
 use deepbook_wrapper::math;
 use std::type_name;
@@ -15,6 +16,10 @@ const DEEP_REQUIRED_SLIPPAGE: u64 = 100_000_000; // 10% in billionths
 /// Error when the reference pool is not eligible for the order
 #[error]
 const EIneligibleReferencePool: u64 = 1;
+
+/// Error when the slippage is invalid (greater than 100% in billionths)
+#[error]
+const EInvalidSlippage: u64 = 2;
 
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
@@ -187,4 +192,24 @@ public(package) fun calculate_market_order_params<BaseToken, QuoteToken>(
         let (_, _, deep_req) = pool.get_quantity_out(order_amount, 0, clock);
         (order_amount, deep_req)
     }
+}
+
+/// Validates that the provided slippage value is within acceptable bounds
+///
+/// Parameters:
+/// - slippage: The slippage value in billionths format (e.g., 10_000_000 = 1%)
+///
+/// Format explanation:
+/// - Slippage is expressed in billionths (10^9)
+/// - 1% = 1/100 * 10^9 = 10_000_000
+/// - 100% = 1_000_000_000 (float_scaling)
+///
+/// Requirements:
+/// - Slippage must not exceed float_scaling (1_000_000_000), which represents 100%
+///
+/// Aborts with EInvalidSlippage if:
+/// - Slippage value is greater than float_scaling (100%)
+public(package) fun validate_slippage(slippage: u64) {
+    let float_scaling = constants::float_scaling();
+    assert!(slippage <= float_scaling, EInvalidSlippage);
 }
