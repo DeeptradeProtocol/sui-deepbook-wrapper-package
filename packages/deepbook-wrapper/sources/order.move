@@ -861,7 +861,7 @@ public(package) fun estimate_order_requirements_core(
     )
 }
 
-/// Core logic function that orchestrates the creation of a limit order using coins from various sources
+/// Core logic function that orchestrates the creation of both limit and market orders using coins from various sources
 /// Coordinates all requirements by analyzing available resources and calculating necessary allocations
 /// Creates comprehensive plans for DEEP coins sourcing, fee charging, and input coin deposits
 ///
@@ -882,7 +882,7 @@ public(package) fun estimate_order_requirements_core(
 /// - DeepPlan: Coordinates DEEP coin sourcing from user wallet and wrapper reserves
 /// - FeePlan: Specifies fee amount and sources for SUI fee payment
 /// - InputCoinDepositPlan: Determines how input coins will be sourced for the order
-public(package) fun create_limit_order_core(
+public(package) fun create_order_core(
     is_pool_whitelisted: bool,
     deep_required: u64,
     balance_manager_deep: u64,
@@ -1349,7 +1349,7 @@ public(package) fun plan_fee_collection(
 /// 7. Returns the balance manager proof needed for order placement
 ///
 /// This function contains the shared execution logic between limit and market orders,
-/// processing the plans created by create_limit_order_core.
+/// processing the plans created by create_order_core.
 ///
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
@@ -1428,7 +1428,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
 
     // Get the order plans from the core logic
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
