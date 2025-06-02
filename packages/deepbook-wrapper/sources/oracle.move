@@ -1,0 +1,61 @@
+module deepbook_wrapper::oracle;
+
+use pyth::price::Price;
+use pyth::price_identifier::PriceIdentifier;
+use pyth::price_info::PriceInfoObject;
+use sui::clock::Clock;
+
+// === Constants ===
+/// Min confidence ratio of X means that the confidence interval must be less than (100/X)% of the price
+const MIN_CONFIDENCE_RATIO: u64 = 10;
+
+/// Maximum allowed price staleness in seconds
+const MAX_STALENESS_SECONDS: u64 = 60;
+
+/// Retrieves and validates the EMA (Exponential Moving Average) price from Pyth oracle
+/// This function performs the following validation steps:
+/// 1. Extracts the EMA price and confidence interval from the Pyth price feed
+/// 2. Validates the price reliability through:
+///    - Confidence interval check: ensures price uncertainty is within acceptable bounds (≤10%)
+///    - Staleness check: ensures price is not older than the maximum allowed age
+/// 3. Returns the validated price or none if validation fails
+///
+/// Parameters:
+/// - price_info_object: The Pyth price info object containing the latest price data
+/// - clock: System clock for timestamp verification
+///
+/// Returns:
+/// - Option<Price>: The validated EMA price if all checks pass, none otherwise
+/// - PriceIdentifier: The identifier of the price feed, returned regardless of validation result
+///
+/// Price Validation Details:
+/// - Confidence Check: Rejects prices where uncertainty exceeds (100/MIN_CONFIDENCE_RATIO)% = 10% of the price
+/// - Staleness Check: Rejects prices older than MAX_STALENESS_SECONDS (60 seconds)
+public fun get_pyth_ema_price(
+    price_info_object: &PriceInfoObject,
+    clock: &Clock,
+): (Option<Price>, PriceIdentifier) {
+    let price_info = price_info_object.get_price_info_from_price_info_object();
+    let price_feed = price_info.get_price_feed();
+    let price_identifier = price_feed.get_price_identifier();
+    let ema_price = price_feed.get_ema_price();
+    let price_mag = ema_price.get_price().get_magnitude_if_positive();
+    let conf = ema_price.get_conf();
+
+    // Check price confidence interval. We want to make sure that:
+    // (conf / price) * 100 <= (100 / MIN_CONFIDENCE_RATIO)% -> conf * MIN_CONFIDENCE_RATIO <= price.
+    // That means the maximum price uncertainty is (100 / MIN_CONFIDENCE_RATIO)% = 10% of the price.
+    // If it's higher, the price will be rejected.
+    if (conf * MIN_CONFIDENCE_RATIO > price_mag) {
+        return (option::none(), price_identifier)
+    };
+
+    // Check price staleness. If the price is stale, it will be rejected.
+    let cur_time_s = clock.timestamp_ms() / 1000;
+    let price_timestamp = ema_price.get_timestamp();
+    if (cur_time_s > price_timestamp && cur_time_s - price_timestamp > MAX_STALENESS_SECONDS) {
+        return (option::none(), price_identifier)
+    };
+
+    (option::some(ema_price), price_identifier)
+}
