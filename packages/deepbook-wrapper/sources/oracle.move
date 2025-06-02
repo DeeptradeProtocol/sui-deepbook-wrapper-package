@@ -12,6 +12,14 @@ const MIN_CONFIDENCE_RATIO: u64 = 10;
 /// Maximum allowed price staleness in seconds
 const MAX_STALENESS_SECONDS: u64 = 60;
 
+/// DEEP price feed id
+const DEEP_PRICE_FEED_ID: vector<u8> =
+    x"29bdd5248234e33bd93d3b81100b5fa32eaa5997843847e2c2cb16d7c6d9f7ff";
+
+/// SUI price feed id
+const SUI_PRICE_FEED_ID: vector<u8> =
+    x"23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744";
+
 /// Retrieves and validates the EMA (Exponential Moving Average) price from Pyth oracle
 /// This function performs the following validation steps:
 /// 1. Extracts the EMA price and confidence interval from the Pyth price feed
@@ -58,4 +66,12 @@ public fun get_pyth_ema_price(
     };
 
     (option::some(ema_price), price_identifier)
+}
+
+public fun get_deep_price_fee_id(): vector<u8> {
+    DEEP_PRICE_FEED_ID
+}
+
+public fun get_sui_price_fee_id(): vector<u8> {
+    SUI_PRICE_FEED_ID
 }
