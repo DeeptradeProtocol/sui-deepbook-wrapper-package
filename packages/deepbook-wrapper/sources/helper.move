@@ -265,6 +265,11 @@ public(package) fun get_sui_per_deep_from_oracle(
     let deep_price_mag = deep_usd_price.get_price().get_magnitude_if_positive();
     let sui_price_mag = sui_usd_price.get_price().get_magnitude_if_positive();
 
+    // Return none if either price is zero
+    if (deep_price_mag == 0 || sui_price_mag == 0) {
+        return option::none()
+    };
+
     // Since Move doesn't support negative numbers, we calculate a positive adjustment
     // that can be applied either to numerator or denominator to achieve the same result
     let should_multiply_numerator = sui_expo + 3 >= deep_expo;
