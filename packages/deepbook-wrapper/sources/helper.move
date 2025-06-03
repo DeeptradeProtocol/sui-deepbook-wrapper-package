@@ -273,7 +273,7 @@ public(package) fun get_sui_per_deep_from_oracle(
     } else {
         deep_expo - 3 - sui_expo
     };
-    let multiplier = 10 ^ decimal_adjustment;
+    let multiplier = math::pow(10, decimal_adjustment);
 
     // Calculate SUI per DEEP price
     // The multiplier position (numerator vs denominator) depends on the exponent delta
