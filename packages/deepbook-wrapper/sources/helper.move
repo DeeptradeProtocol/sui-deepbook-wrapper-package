@@ -133,7 +133,7 @@ public(package) fun get_sui_per_deep<ReferenceBaseAsset, ReferenceQuoteAsset>(
     clock: &Clock,
 ): u64 {
     // Try to get price from oracle feeds first
-    let oracle_sui_per_deep_opt = get_sui_per_deep_from_oracle(
+    let mut oracle_sui_per_deep_opt = get_sui_per_deep_from_oracle(
         deep_usd_price_info,
         sui_usd_price_info,
         clock,
@@ -231,11 +231,11 @@ public(package) fun get_sui_per_deep_from_oracle(
     clock: &Clock,
 ): Option<u64> {
     // Get DEEP/USD and SUI/USD prices
-    let (deep_usd_price_opt, deep_usd_price_identifier) = oracle::get_pyth_ema_price(
+    let (mut deep_usd_price_opt, deep_usd_price_identifier) = oracle::get_pyth_ema_price(
         deep_usd_price_info,
         clock,
     );
-    let (sui_usd_price_opt, sui_usd_price_identifier) = oracle::get_pyth_ema_price(
+    let (mut sui_usd_price_opt, sui_usd_price_identifier) = oracle::get_pyth_ema_price(
         sui_usd_price_info,
         clock,
     );
