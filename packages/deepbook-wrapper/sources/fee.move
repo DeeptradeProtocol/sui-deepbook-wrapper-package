@@ -8,6 +8,7 @@ use deepbook_wrapper::helper::{
     calculate_market_order_params
 };
 use deepbook_wrapper::math;
+use pyth::price_info::PriceInfoObject;
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
 use sui::coin::Coin;
@@ -21,12 +22,15 @@ const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
 
 // === Public-View Functions ===
 /// Calculates the total fee estimate for a limit order in SUI coins
-/// Uses a reference pool to get SUI/DEEP price for fee calculation
+/// Uses oracle price feeds (DEEP/USD and SUI/USD) to calculate DEEP/SUI price,
+/// falling back to reference pool's price if oracle prices are unavailable or invalid.
 /// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
 ///
 /// Parameters:
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - reference_pool: Reference pool for fallback price calculation
+/// - deep_usd_price_info: Pyth price info object for DEEP/USD price
+/// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - deep_in_balance_manager: Amount of DEEP available in user's balance manager
 /// - deep_in_wallet: Amount of DEEP in user's wallet
 /// - quantity: Order quantity in base tokens
@@ -42,6 +46,8 @@ const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
 public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    deep_usd_price_info: &PriceInfoObject,
+    sui_usd_price_info: &PriceInfoObject,
     deep_in_balance_manager: u64,
     deep_in_wallet: u64,
     quantity: u64,
@@ -51,8 +57,13 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
     // Check if pool is whitelisted
     let is_pool_whitelisted = pool::whitelisted(pool);
 
-    // Get SUI per DEEP price from reference pool
-    let sui_per_deep = get_sui_per_deep(reference_pool, clock);
+    // Get DEEP/SUI price from oracle price feeds with fallback to reference pool
+    let sui_per_deep = get_sui_per_deep(
+        deep_usd_price_info,
+        sui_usd_price_info,
+        reference_pool,
+        clock,
+    );
 
     // Get DEEP required for the order
     let deep_required = calculate_deep_required(pool, quantity, price);
@@ -70,17 +81,20 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
 }
 
 /// Calculates the total fee estimate for a market order in SUI coins
-/// Uses a reference pool to get SUI/DEEP price for fee calculation
+/// Uses oracle price feeds (DEEP/USD and SUI/USD) to calculate DEEP/SUI price,
+/// falling back to reference pool's price if oracle prices are unavailable or invalid.
 /// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
 ///
 /// Parameters:
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - reference_pool: Reference pool for fallback price calculation
+/// - deep_usd_price_info: Pyth price info object for DEEP/USD price
+/// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - deep_in_balance_manager: Amount of DEEP available in user's balance manager
 /// - deep_in_wallet: Amount of DEEP in user's wallet
 /// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
 /// - is_bid: True for buy orders, false for sell orders
-/// - clock: System clock for order book state
+/// - clock: System clock for timestamp verification
 ///
 /// Returns:
 /// - u64: The estimated total fee in SUI coins
@@ -91,6 +105,8 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
 public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    deep_usd_price_info: &PriceInfoObject,
+    sui_usd_price_info: &PriceInfoObject,
     deep_in_balance_manager: u64,
     deep_in_wallet: u64,
     order_amount: u64,
@@ -100,8 +116,13 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     // Check if pool is whitelisted
     let is_pool_whitelisted = pool::whitelisted(pool);
 
-    // Get SUI per DEEP price from reference pool
-    let sui_per_deep = get_sui_per_deep(reference_pool, clock);
+    // Get DEEP/SUI price from oracle price feeds with fallback to reference pool
+    let sui_per_deep = get_sui_per_deep(
+        deep_usd_price_info,
+        sui_usd_price_info,
+        reference_pool,
+        clock,
+    );
 
     // Get DEEP required for the order
     let (_, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
@@ -126,14 +147,14 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
 // === Public-Package Functions ===
 /// Core logic for calculating the total fee for an order in SUI coins
 /// Determines if user needs to use wrapper DEEP reserves and calculates
-/// the appropriate fee based on the SUI/DEEP price
+/// the appropriate fee based on the DEEP/SUI price
 ///
 /// Parameters:
 /// - is_pool_whitelisted: Whether the pool is whitelisted by DeepBook
 /// - balance_manager_deep: Amount of DEEP in user's balance manager
 /// - deep_in_wallet: Amount of DEEP in user's wallet
 /// - deep_required: Total amount of DEEP required for the order
-/// - sui_per_deep: Current SUI/DEEP price from reference pool
+/// - sui_per_deep: Current DEEP/SUI price from reference pool
 ///
 /// Returns:
 /// - u64: The total fee in SUI coins
@@ -169,7 +190,7 @@ public(package) fun estimate_full_order_fee_core(
 /// Combines both the deep reserves coverage fee and protocol fee
 ///
 /// Parameters:
-/// - sui_per_deep: Current SUI/DEEP price from reference pool
+/// - sui_per_deep: Current DEEP/SUI price from reference pool
 /// - deep_from_reserves: Amount of DEEP taken from wrapper reserves
 ///
 /// Returns:
@@ -205,7 +226,7 @@ public(package) fun calculate_full_order_fee(
 /// This fee represents the SUI equivalent value of the borrowed DEEP
 ///
 /// Parameters:
-/// - sui_per_deep: Current SUI/DEEP price from reference pool
+/// - sui_per_deep: Current DEEP/SUI price from reference pool
 /// - deep_from_reserves: Amount of DEEP taken from wrapper reserves
 ///
 /// Returns:
@@ -221,7 +242,7 @@ public(package) fun calculate_deep_reserves_coverage_order_fee(
 /// Fee is calculated as a percentage (PROTOCOL_FEE_BPS) of the borrowed DEEP value in SUI
 ///
 /// Parameters:
-/// - sui_per_deep: Current SUI/DEEP price from reference pool
+/// - sui_per_deep: Current DEEP/SUI price from reference pool
 /// - deep_from_reserves: Amount of DEEP taken from wrapper reserves
 ///
 /// Returns:
