@@ -20,6 +20,19 @@ public(package) fun div(x: u64, y: u64): u64 {
     result
 }
 
+public(package) fun pow(a: u64, b: u64): u64 {
+    let mut result = 1u64;
+    let mut i = 0u64;
+
+    while (i < b) {
+        // This will abort if overflow occurs
+        result = result * a;
+        i = i + 1;
+    };
+
+    result
+}
+
 fun mul_internal(x: u64, y: u64): (u64, u64) {
     let x = (x as u128);
     let y = (y as u128);
