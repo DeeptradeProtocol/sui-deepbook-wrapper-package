@@ -23,6 +23,7 @@ use deepbook_wrapper::wrapper::{
     get_deep_reserves_value,
     split_deep_reserves
 };
+use pyth::price_info::PriceInfoObject;
 use sui::clock::Clock;
 use sui::coin::Coin;
 use sui::sui::SUI;
@@ -121,7 +122,9 @@ const ESuiFeeExceedsMax: u64 = 6;
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - reference_pool: Reference pool used for fallback DEEP/SUI price calculation
+/// - deep_usd_price_info: Pyth price info object for DEEP/USD price
+/// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
 /// - base_coin: Base token coins from user's wallet
 /// - quote_coin: Quote token coins from user's wallet
@@ -143,6 +146,8 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    deep_usd_price_info: &PriceInfoObject,
+    sui_usd_price_info: &PriceInfoObject,
     balance_manager: &mut BalanceManager,
     base_coin: Coin<BaseToken>,
     quote_coin: Coin<QuoteToken>,
@@ -173,6 +178,8 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
         wrapper,
         pool,
         reference_pool,
+        deep_usd_price_info,
+        sui_usd_price_info,
         balance_manager,
         base_coin,
         quote_coin,
@@ -221,7 +228,9 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - reference_pool: Reference pool used for fallback DEEP/SUI price calculation
+/// - deep_usd_price_info: Pyth price info object for DEEP/USD price
+/// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
 /// - base_coin: Base token coins from user's wallet
 /// - quote_coin: Quote token coins from user's wallet
@@ -241,6 +250,8 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    deep_usd_price_info: &PriceInfoObject,
+    sui_usd_price_info: &PriceInfoObject,
     balance_manager: &mut BalanceManager,
     base_coin: Coin<BaseToken>,
     quote_coin: Coin<QuoteToken>,
@@ -270,6 +281,8 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
         wrapper,
         pool,
         reference_pool,
+        deep_usd_price_info,
+        sui_usd_price_info,
         balance_manager,
         base_coin,
         quote_coin,
@@ -601,7 +614,7 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
 /// - wallet_input_coin: Amount of input coins (base/quote) in user's wallet
 /// - wrapper_deep_reserves: Amount of DEEP available in wrapper reserves
 /// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
-/// - sui_per_deep: Current SUI/DEEP price from reference pool
+/// - sui_per_deep: Current DEEP/SUI price from reference pool
 ///
 /// Returns a tuple with three structured plans:
 /// - DeepPlan: Coordinates DEEP coin sourcing from user wallet and wrapper reserves
@@ -774,7 +787,7 @@ public(package) fun get_deep_plan(
 /// * `use_wrapper_deep_reserves` - Whether the order requires DEEP from wrapper reserves
 /// * `deep_from_reserves` - Amount of DEEP to be taken from wrapper reserves
 /// * `is_pool_whitelisted` - Whether the pool is whitelisted by DeepBook
-/// * `sui_per_deep` - Current SUI/DEEP price from reference pool
+/// * `sui_per_deep` - Current DEEP/SUI price from reference pool
 /// * `sui_in_wallet` - Amount of SUI available in user's wallet
 /// * `balance_manager_sui` - Amount of SUI available in user's balance manager
 ///
@@ -1015,7 +1028,9 @@ public(package) fun plan_fee_collection(
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - reference_pool: Reference pool used for fallback DEEP/SUI price calculation
+/// - deep_usd_price_info: Pyth price info object for DEEP/USD price
+/// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
 /// - base_coin: Base token coins from user's wallet
 /// - quote_coin: Quote token coins from user's wallet
@@ -1033,6 +1048,8 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     wrapper: &mut Wrapper,
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    deep_usd_price_info: &PriceInfoObject,
+    sui_usd_price_info: &PriceInfoObject,
     balance_manager: &mut BalanceManager,
     mut base_coin: Coin<BaseToken>,
     mut quote_coin: Coin<QuoteToken>,
@@ -1065,8 +1082,13 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     // Verify actual deep required doesn't exceed max deep required
     assert!(deep_required <= max_deep_required, EDeepRequiredExceedsMax);
 
-    // Get SUI per DEEP price from reference pool
-    let sui_per_deep = get_sui_per_deep(reference_pool, clock);
+    // Get DEEP/SUI price from oracle price feeds with fallback to reference pool
+    let sui_per_deep = get_sui_per_deep(
+        deep_usd_price_info,
+        sui_usd_price_info,
+        reference_pool,
+        clock,
+    );
 
     // Extract all the data we need from DeepBook objects
     let is_pool_whitelisted = pool.whitelisted();
