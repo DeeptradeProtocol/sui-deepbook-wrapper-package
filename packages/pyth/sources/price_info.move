@@ -125,6 +125,17 @@ module pyth::price_info {
         }
     }
 
+    #[test_only]
+    public fun new_price_info_object_for_testing(
+        price_info: PriceInfo,
+        ctx: &mut TxContext
+    ): PriceInfoObject {
+        PriceInfoObject {
+            id: object::new(ctx),
+            price_info
+        }
+    }
+
     public fun new_price_info(
         attestation_time: u64,
         arrival_time: u64,
