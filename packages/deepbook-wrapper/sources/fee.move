@@ -39,55 +39,6 @@ const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
 /// - u64: Protocol fee
 /// - u64: DEEP required for the order
 ///   Returns (0, 0, 0, deep_required) for whitelisted pools or when user provides all required DEEP
-public fun estimate_full_fee_limit_v2<
-    BaseToken,
-    QuoteToken,
-    ReferenceBaseAsset,
-    ReferenceQuoteAsset,
->(
-    pool: &Pool<BaseToken, QuoteToken>,
-    reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    deep_in_balance_manager: u64,
-    deep_in_wallet: u64,
-    quantity: u64,
-    price: u64,
-    clock: &Clock,
-): (u64, u64, u64, u64) {
-    // Get DEEP required for the order
-    let deep_required = calculate_deep_required(pool, quantity, price);
-
-    // Estimate full fee for limit order using original method
-    let (total_fee, deep_reserves_coverage_fee, protocol_fee) = estimate_full_fee_limit(
-        pool,
-        reference_pool,
-        deep_in_balance_manager,
-        deep_in_wallet,
-        quantity,
-        price,
-        clock,
-    );
-
-    (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
-}
-
-/// Calculates the total fee estimate for a limit order in SUI coins
-/// Uses a reference pool to get SUI/DEEP price for fee calculation
-/// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
-///
-/// Parameters:
-/// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
-/// - deep_in_balance_manager: Amount of DEEP available in user's balance manager
-/// - deep_in_wallet: Amount of DEEP in user's wallet
-/// - quantity: Order quantity in base tokens
-/// - price: Order price in quote tokens per base token
-/// - clock: System clock for timestamp verification
-///
-/// Returns:
-/// - u64: The estimated total fee in SUI coins
-/// - u64: Deep reserves coverage fee
-/// - u64: Protocol fee
-///   Returns (0, 0, 0) for whitelisted pools or when user provides all required DEEP
 public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -96,7 +47,7 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
     quantity: u64,
     price: u64,
     clock: &Clock,
-): (u64, u64, u64) {
+): (u64, u64, u64, u64) {
     // Check if pool is whitelisted
     let is_pool_whitelisted = pool::whitelisted(pool);
 
@@ -107,13 +58,15 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
     let deep_required = calculate_deep_required(pool, quantity, price);
 
     // Call the core logic function
-    estimate_full_order_fee_core(
+    let (total_fee, deep_reserves_coverage_fee, protocol_fee) = estimate_full_order_fee_core(
         is_pool_whitelisted,
         deep_in_balance_manager,
         deep_in_wallet,
         deep_required,
         sui_per_deep,
-    )
+    );
+
+    (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
 }
 
 /// Calculates the total fee estimate for a market order in SUI coins
@@ -135,60 +88,6 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
 /// - u64: Protocol fee
 /// - u64: DEEP required for the order
 ///   Returns (0, 0, 0, deep_required) for whitelisted pools or when user provides all required DEEP
-public fun estimate_full_fee_market_v2<
-    BaseToken,
-    QuoteToken,
-    ReferenceBaseAsset,
-    ReferenceQuoteAsset,
->(
-    pool: &Pool<BaseToken, QuoteToken>,
-    reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    deep_in_balance_manager: u64,
-    deep_in_wallet: u64,
-    order_amount: u64,
-    is_bid: bool,
-    clock: &Clock,
-): (u64, u64, u64, u64) {
-    // Get DEEP required for the order
-    let (_, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
-        pool,
-        order_amount,
-        is_bid,
-        clock,
-    );
-
-    // Estimate full fee for market order using original method
-    let (total_fee, deep_reserves_coverage_fee, protocol_fee) = estimate_full_fee_market(
-        pool,
-        reference_pool,
-        deep_in_balance_manager,
-        deep_in_wallet,
-        order_amount,
-        is_bid,
-        clock,
-    );
-
-    (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
-}
-
-/// Calculates the total fee estimate for a market order in SUI coins
-/// Uses a reference pool to get SUI/DEEP price for fee calculation
-/// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
-///
-/// Parameters:
-/// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
-/// - deep_in_balance_manager: Amount of DEEP available in user's balance manager
-/// - deep_in_wallet: Amount of DEEP in user's wallet
-/// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
-/// - is_bid: True for buy orders, false for sell orders
-/// - clock: System clock for order book state
-///
-/// Returns:
-/// - u64: The estimated total fee in SUI coins
-/// - u64: Deep reserves coverage fee
-/// - u64: Protocol fee
-///   Returns (0, 0, 0) for whitelisted pools or when user provides all required DEEP
 public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -197,7 +96,7 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     order_amount: u64,
     is_bid: bool,
     clock: &Clock,
-): (u64, u64, u64) {
+): (u64, u64, u64, u64) {
     // Check if pool is whitelisted
     let is_pool_whitelisted = pool::whitelisted(pool);
 
@@ -213,13 +112,15 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     );
 
     // Call the core logic function
-    estimate_full_order_fee_core(
+    let (total_fee, deep_reserves_coverage_fee, protocol_fee) = estimate_full_order_fee_core(
         is_pool_whitelisted,
         deep_in_balance_manager,
         deep_in_wallet,
         deep_required,
         sui_per_deep,
-    )
+    );
+
+    (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
 }
 
 // === Public-Package Functions ===
