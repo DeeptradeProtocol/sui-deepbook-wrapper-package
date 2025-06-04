@@ -1,10 +1,10 @@
 #[test_only]
-module deepbook_wrapper::create_limit_order_core_tests;
+module deepbook_wrapper::create_order_core_tests;
 
 use deepbook_wrapper::fee::calculate_full_order_fee;
 use deepbook_wrapper::helper::calculate_order_amount;
 use deepbook_wrapper::order::{
-    create_limit_order_core,
+    create_order_core,
     assert_deep_plan_eq,
     assert_fee_plan_eq,
     assert_input_coin_deposit_plan_eq,
@@ -106,7 +106,7 @@ public fun bid_order_sufficient_resources() {
     // 2. Fees: None because no wrapper DEEP used (both coverage and protocol fees are 0)
     // 3. Token deposit: Remaining from wallet
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -193,7 +193,7 @@ public fun bid_order_with_wrapper_deep() {
     };
     let protocol_from_wallet = protocol_fee - protocol_from_bm;
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -258,7 +258,7 @@ public fun bid_order_whitelisted_pool() {
     // 2. Fees: None (whitelisted pool)
     // 3. Token deposit: All from balance manager
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -343,7 +343,7 @@ public fun bid_order_fee_from_both_sources() {
     };
     let protocol_from_wallet = protocol_fee - protocol_from_bm;
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -403,7 +403,7 @@ public fun bid_order_insufficient_deep_no_wrapper() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -463,7 +463,7 @@ public fun bid_order_quote_only_in_balance_manager() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -531,7 +531,7 @@ public fun bid_order_large_values() {
     let balance_manager_input_coin = 0;
     let wallet_input_coin = order_amount;
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -591,7 +591,7 @@ public fun bid_order_exact_resources() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -660,7 +660,7 @@ public fun ask_order_sufficient_resources() {
     // 2. No fees since user doesn't use wrapper DEEP
     // 3. Token deposit: Full amount from wallet
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -725,7 +725,7 @@ public fun ask_order_whitelisted_pool() {
     // 2. Fees: None (whitelisted pool)
     // 3. Token deposit: All from balance manager
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -785,7 +785,7 @@ public fun ask_order_insufficient_deep_and_base() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -850,7 +850,7 @@ public fun ask_order_base_only_in_balance_manager() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -916,7 +916,7 @@ public fun ask_order_large_values() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -976,7 +976,7 @@ public fun ask_order_exact_resources() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -1036,7 +1036,7 @@ public fun ask_order_complex_distribution() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -1101,7 +1101,7 @@ public fun ask_order_insufficient_base() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -1166,7 +1166,7 @@ public fun ask_order_with_wrapper_deep() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -1257,7 +1257,7 @@ public fun ask_order_fee_from_both_sources() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -1319,7 +1319,7 @@ public fun zero_quantity_order() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
@@ -1380,7 +1380,7 @@ public fun zero_price_order() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_limit_order_core(
+    let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
         balance_manager_deep,
