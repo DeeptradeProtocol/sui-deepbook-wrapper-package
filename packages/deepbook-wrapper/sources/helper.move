@@ -9,9 +9,6 @@ use sui::coin::Coin;
 use sui::sui::SUI;
 use token::deep::DEEP;
 
-// === Constants ===
-const DEEP_REQUIRED_SLIPPAGE: u64 = 100_000_000; // 10% in billionths
-
 // === Errors ===
 /// Error when the reference pool is not eligible for the order
 #[error]
@@ -45,7 +42,7 @@ public(package) fun is_pool_whitelisted<BaseToken, QuoteToken>(
     pool::whitelisted(pool)
 }
 
-/// Calculates the total amount of DEEP required for an order
+/// Calculates the total amount of DEEP required for an order using the taker fee rate
 /// Returns 0 for whitelisted pools
 public(package) fun calculate_deep_required<BaseToken, QuoteToken>(
     pool: &Pool<BaseToken, QuoteToken>,
@@ -57,15 +54,7 @@ public(package) fun calculate_deep_required<BaseToken, QuoteToken>(
     } else {
         let (deep_req, _) = pool::get_order_deep_required(pool, quantity, price);
 
-        // We need to apply slippage to the deep required because the VIEW deep required from
-        // `pool::get_order_deep_required` can be different from the ACTUAL deep required`
-        // when placing an order.
-        //
-        // For example, this can be potentially observed when setting a SELL order with a price
-        // lower than the current market price.
-        let deep_req_with_slippage = apply_slippage(deep_req, DEEP_REQUIRED_SLIPPAGE);
-
-        deep_req_with_slippage
+        deep_req
     }
 }
 
