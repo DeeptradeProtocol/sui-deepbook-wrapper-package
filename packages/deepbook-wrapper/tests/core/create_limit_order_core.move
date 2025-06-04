@@ -12,6 +12,7 @@ use deepbook_wrapper::order::{
     FeePlan,
     InputCoinDepositPlan
 };
+use std::unit_test::assert_eq;
 
 // ===== Constants =====
 // Token amounts
@@ -77,7 +78,7 @@ public fun assert_order_plans_eq(
 // ===== Bid Order Tests =====
 
 #[test]
-public fun test_bid_order_sufficient_resources() {
+public fun bid_order_sufficient_resources() {
     // Order parameters
     let quantity = 1_000_000_000_000;
     let price = 2_000_000;
@@ -142,7 +143,7 @@ public fun test_bid_order_sufficient_resources() {
 }
 
 #[test]
-public fun test_bid_order_with_wrapper_deep() {
+public fun bid_order_with_wrapper_deep() {
     // Order parameters
     let quantity = 100_000_000_000;
     let price = 1_500_000;
@@ -229,7 +230,7 @@ public fun test_bid_order_with_wrapper_deep() {
 }
 
 #[test]
-public fun test_bid_order_whitelisted_pool() {
+public fun bid_order_whitelisted_pool() {
     // Order parameters
     let quantity = 100_000;
     let price = 1_000_000;
@@ -294,7 +295,7 @@ public fun test_bid_order_whitelisted_pool() {
 }
 
 #[test]
-public fun test_bid_order_fee_from_both_sources() {
+public fun bid_order_fee_from_both_sources() {
     // Order parameters
     let quantity = 1_000_000_000_000;
     let price = 2_000_000;
@@ -312,7 +313,10 @@ public fun test_bid_order_fee_from_both_sources() {
 
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
-    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // Set up a scenario where fees need to come from both sources
     // Distribute total fee with majority in balance manager to test prioritized usage
@@ -376,7 +380,7 @@ public fun test_bid_order_fee_from_both_sources() {
 }
 
 #[test]
-public fun test_bid_order_insufficient_deep_no_wrapper() {
+public fun bid_order_insufficient_deep_no_wrapper() {
     // Order parameters
     let quantity = 100_000_000_000;
     let price = 1_500_000;
@@ -436,7 +440,7 @@ public fun test_bid_order_insufficient_deep_no_wrapper() {
 }
 
 #[test]
-public fun test_bid_order_quote_only_in_balance_manager() {
+public fun bid_order_quote_only_in_balance_manager() {
     // Order parameters
     let quantity = 1_000_000_000_000;
     let price = 2_000_000;
@@ -496,7 +500,7 @@ public fun test_bid_order_quote_only_in_balance_manager() {
 }
 
 #[test]
-public fun test_bid_order_large_values() {
+public fun bid_order_large_values() {
     // Order parameters with very large values
     let quantity = 1_000_000_000_000_000;
     let price = 1_000_000_000_000;
@@ -514,7 +518,10 @@ public fun test_bid_order_large_values() {
 
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
-    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // Set up SUI balances to cover fees
     let balance_manager_sui = 0;
@@ -561,7 +568,7 @@ public fun test_bid_order_large_values() {
 }
 
 #[test]
-public fun test_bid_order_exact_resources() {
+public fun bid_order_exact_resources() {
     // Order parameters
     let quantity = 10_000_000_000;
     let price = 1_000_000;
@@ -623,7 +630,7 @@ public fun test_bid_order_exact_resources() {
 // ===== Ask Order Tests =====
 
 #[test]
-public fun test_ask_order_sufficient_resources() {
+public fun ask_order_sufficient_resources() {
     // Order parameters
     let quantity = 10_000_000_000;
     let price = 10_000_000_000;
@@ -690,7 +697,7 @@ public fun test_ask_order_sufficient_resources() {
 }
 
 #[test]
-public fun test_ask_order_whitelisted_pool() {
+public fun ask_order_whitelisted_pool() {
     // Order parameters
     let quantity = 10_000;
     let price = 1_000;
@@ -755,7 +762,7 @@ public fun test_ask_order_whitelisted_pool() {
 }
 
 #[test]
-public fun test_ask_order_insufficient_deep_and_base() {
+public fun ask_order_insufficient_deep_and_base() {
     // Order parameters
     let quantity = 20_564_999_999;
     let price = 40_000_000_000;
@@ -815,7 +822,7 @@ public fun test_ask_order_insufficient_deep_and_base() {
 }
 
 #[test]
-public fun test_ask_order_base_only_in_balance_manager() {
+public fun ask_order_base_only_in_balance_manager() {
     // Order parameters
     let quantity = 10_000_000_000;
     let price = 1_000_000;
@@ -880,7 +887,7 @@ public fun test_ask_order_base_only_in_balance_manager() {
 }
 
 #[test]
-public fun test_ask_order_large_values() {
+public fun ask_order_large_values() {
     // Order parameters with very large values
     let quantity = 1_000_000_000_000_000;
     let price = 1_000_000_000_000_000;
@@ -946,7 +953,7 @@ public fun test_ask_order_large_values() {
 }
 
 #[test]
-public fun test_ask_order_exact_resources() {
+public fun ask_order_exact_resources() {
     // Order parameters
     let quantity = 2_000_000;
     let price = 40_000_000;
@@ -1006,7 +1013,7 @@ public fun test_ask_order_exact_resources() {
 }
 
 #[test]
-public fun test_ask_order_complex_distribution() {
+public fun ask_order_complex_distribution() {
     // Order parameters
     let quantity = 2_000_000;
     let price = 40_000_000;
@@ -1066,7 +1073,7 @@ public fun test_ask_order_complex_distribution() {
 }
 
 #[test]
-public fun test_ask_order_insufficient_base() {
+public fun ask_order_insufficient_base() {
     // Order parameters
     let quantity = 70_000_000;
     let price = 1_000_000_000;
@@ -1131,7 +1138,7 @@ public fun test_ask_order_insufficient_base() {
 }
 
 #[test]
-public fun test_ask_order_with_wrapper_deep() {
+public fun ask_order_with_wrapper_deep() {
     // Order parameters
     let quantity = 70_000;
     let price = 54_000_000;
@@ -1196,7 +1203,7 @@ public fun test_ask_order_with_wrapper_deep() {
 }
 
 #[test]
-public fun test_ask_order_fee_from_both_sources() {
+public fun ask_order_fee_from_both_sources() {
     // Order parameters
     let quantity = 35_123_821;
     let price = 474_576_743;
@@ -1214,7 +1221,10 @@ public fun test_ask_order_fee_from_both_sources() {
     let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
 
     // Calculate fee for wrapper DEEP usage
-    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // Important: Make sure wallet doesn't have enough to cover all fees
     // We'll put 1/3 of the fee in wallet, 2/3 in balance manager
@@ -1286,7 +1296,7 @@ public fun test_ask_order_fee_from_both_sources() {
 // ===== Edge Cases =====
 
 #[test]
-public fun test_zero_quantity_order() {
+public fun zero_quantity_order() {
     // Order parameters
     let quantity = 0; // Zero quantity
     let price = 1_000;
@@ -1347,7 +1357,7 @@ public fun test_zero_quantity_order() {
 }
 
 #[test]
-public fun test_zero_price_order() {
+public fun zero_price_order() {
     // Order parameters
     let quantity = 10_000;
     let price = 0; // Zero price
@@ -1386,7 +1396,7 @@ public fun test_zero_price_order() {
 
     // For bid orders with zero price, order amount should be zero
     let order_amount = calculate_order_amount(quantity, price, is_bid);
-    assert!(order_amount == 0, 0);
+    assert_eq!(order_amount, 0);
 
     assert_order_plans_eq(
         deep_plan,

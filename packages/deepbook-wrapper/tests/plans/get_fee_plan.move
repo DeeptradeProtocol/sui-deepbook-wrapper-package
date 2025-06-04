@@ -3,6 +3,7 @@ module deepbook_wrapper::get_fee_plan_tests;
 
 use deepbook_wrapper::fee::{calculate_protocol_fee, calculate_deep_reserves_coverage_order_fee};
 use deepbook_wrapper::order::{get_fee_plan, assert_fee_plan_eq};
+use std::unit_test::assert_eq;
 
 // ===== Constants =====
 // SUI per DEEP
@@ -11,7 +12,7 @@ const SUI_PER_DEEP: u64 = 37_815_000_000;
 // ===== No Fee Required Tests =====
 
 #[test]
-public fun test_whitelisted_pool_requires_no_fee() {
+public fun whitelisted_pool_requires_no_fee() {
     let is_pool_whitelisted = true;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 100;
@@ -35,12 +36,12 @@ public fun test_whitelisted_pool_requires_no_fee() {
         0, // coverage_fee_from_balance_manager
         0, // protocol_fee_from_wallet
         0, // protocol_fee_from_balance_manager
-        true // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
 #[test]
-public fun test_not_using_wrapper_deep_requires_no_fee() {
+public fun not_using_wrapper_deep_requires_no_fee() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = false; // Not using wrapper DEEP
     let deep_from_reserves = 0;
@@ -64,14 +65,14 @@ public fun test_not_using_wrapper_deep_requires_no_fee() {
         0, // coverage_fee_from_balance_manager
         0, // protocol_fee_from_wallet
         0, // protocol_fee_from_balance_manager
-        true // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
 // ===== Fee Distribution Tests =====
 
 #[test]
-public fun test_fee_from_wallet_only() {
+public fun fee_from_wallet_only() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 25_000;
@@ -100,16 +101,16 @@ public fun test_fee_from_wallet_only() {
     // All fees should be taken from wallet since BM is empty
     assert_fee_plan_eq(
         plan,
-        coverage_fee,  // coverage_fee_from_wallet
-        0,            // coverage_fee_from_balance_manager
+        coverage_fee, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
         protocol_fee, // protocol_fee_from_wallet
-        0,           // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        0, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
 #[test]
-public fun test_fee_from_balance_manager_only() {
+public fun fee_from_balance_manager_only() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 75_000;
@@ -138,16 +139,16 @@ public fun test_fee_from_balance_manager_only() {
     // All fees should be taken from balance manager since wallet is empty
     assert_fee_plan_eq(
         plan,
-        0,             // coverage_fee_from_wallet
-        coverage_fee,  // coverage_fee_from_balance_manager
-        0,            // protocol_fee_from_wallet
+        0, // coverage_fee_from_wallet
+        coverage_fee, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
         protocol_fee, // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
 #[test]
-public fun test_fee_split_between_wallet_and_balance_manager() {
+public fun fee_split_between_wallet_and_balance_manager() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 40_000;
@@ -194,18 +195,18 @@ public fun test_fee_split_between_wallet_and_balance_manager() {
     // Verify fee distribution
     assert_fee_plan_eq(
         plan,
-        coverage_from_wallet,  // coverage_fee_from_wallet
-        coverage_from_bm,     // coverage_fee_from_balance_manager
+        coverage_from_wallet, // coverage_fee_from_wallet
+        coverage_from_bm, // coverage_fee_from_balance_manager
         protocol_from_wallet, // protocol_fee_from_wallet
-        protocol_from_bm,    // protocol_fee_from_balance_manager
-        true                // user_covers_wrapper_fee
+        protocol_from_bm, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
 // ===== Insufficient Resources Tests =====
 
 #[test]
-public fun test_insufficient_fee_resources() {
+public fun insufficient_fee_resources() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 60_000;
@@ -220,7 +221,7 @@ public fun test_insufficient_fee_resources() {
     let total_fee = coverage_fee + protocol_fee;
 
     // Total available is 50% of required fee
-    let sui_in_wallet = total_fee / 4;      // 25% in wallet
+    let sui_in_wallet = total_fee / 4; // 25% in wallet
     let balance_manager_sui = total_fee / 4; // 25% in balance manager
 
     let plan = get_fee_plan(
@@ -235,16 +236,16 @@ public fun test_insufficient_fee_resources() {
     // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        0,     // coverage_fee_from_wallet
-        0,     // coverage_fee_from_balance_manager
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
 #[test]
-public fun test_almost_sufficient_fee_resources() {
+public fun almost_sufficient_fee_resources() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 35_000;
@@ -259,8 +260,8 @@ public fun test_almost_sufficient_fee_resources() {
     let total_fee = coverage_fee + protocol_fee;
 
     // Total available is 1 less than required fee
-    let sui_in_wallet = total_fee / 2;                  // 50% in wallet
-    let balance_manager_sui = (total_fee / 2) - 1;      // Almost 50% in balance manager (1 short)
+    let sui_in_wallet = total_fee / 2; // 50% in wallet
+    let balance_manager_sui = (total_fee / 2) - 1; // Almost 50% in balance manager (1 short)
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -274,18 +275,18 @@ public fun test_almost_sufficient_fee_resources() {
     // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        0,     // coverage_fee_from_wallet
-        0,     // coverage_fee_from_balance_manager
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
 // ===== Boundary Tests =====
 
 #[test]
-public fun test_exact_fee_match_with_wallet() {
+public fun exact_fee_match_with_wallet() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 50_000;
@@ -300,7 +301,7 @@ public fun test_exact_fee_match_with_wallet() {
     let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = total_fee; // Exact match
-    let balance_manager_sui = 0;   // Nothing in balance manager
+    let balance_manager_sui = 0; // Nothing in balance manager
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -314,16 +315,16 @@ public fun test_exact_fee_match_with_wallet() {
     // All fees should be taken from wallet since BM is empty
     assert_fee_plan_eq(
         plan,
-        coverage_fee,  // coverage_fee_from_wallet
-        0,            // coverage_fee_from_balance_manager
+        coverage_fee, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
         protocol_fee, // protocol_fee_from_wallet
-        0,           // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        0, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
 #[test]
-public fun test_exact_fee_match_with_balance_manager() {
+public fun exact_fee_match_with_balance_manager() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 20_000;
@@ -337,7 +338,7 @@ public fun test_exact_fee_match_with_balance_manager() {
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
     let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = 0;           // Nothing in wallet
+    let sui_in_wallet = 0; // Nothing in wallet
     let balance_manager_sui = total_fee; // Exact match
 
     let plan = get_fee_plan(
@@ -352,16 +353,16 @@ public fun test_exact_fee_match_with_balance_manager() {
     // All fees should be taken from balance manager since wallet is empty
     assert_fee_plan_eq(
         plan,
-        0,             // coverage_fee_from_wallet
-        coverage_fee,  // coverage_fee_from_balance_manager
-        0,            // protocol_fee_from_wallet
+        0, // coverage_fee_from_wallet
+        coverage_fee, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
         protocol_fee, // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        true, // user_covers_wrapper_fee
     );
 }
 
 #[test]
-public fun test_exact_fee_match_combined() {
+public fun exact_fee_match_combined() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 80_000;
@@ -408,18 +409,18 @@ public fun test_exact_fee_match_combined() {
     // Verify fee distribution
     assert_fee_plan_eq(
         plan,
-        coverage_from_wallet,  // coverage_fee_from_wallet
-        coverage_from_bm,     // coverage_fee_from_balance_manager
+        coverage_from_wallet, // coverage_fee_from_wallet
+        coverage_from_bm, // coverage_fee_from_balance_manager
         protocol_from_wallet, // protocol_fee_from_wallet
-        protocol_from_bm,    // protocol_fee_from_balance_manager
-        true                // user_covers_wrapper_fee
+        protocol_from_bm, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
 // ===== Edge Cases =====
 
 #[test]
-public fun test_large_deep_reserves_fee() {
+public fun large_deep_reserves_fee() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 1_000_000_000; // Large amount of DEEP
@@ -466,16 +467,16 @@ public fun test_large_deep_reserves_fee() {
     // Verify fee distribution
     assert_fee_plan_eq(
         plan,
-        coverage_from_wallet,  // coverage_fee_from_wallet
-        coverage_from_bm,     // coverage_fee_from_balance_manager
+        coverage_from_wallet, // coverage_fee_from_wallet
+        coverage_from_bm, // coverage_fee_from_balance_manager
         protocol_from_wallet, // protocol_fee_from_wallet
-        protocol_from_bm,    // protocol_fee_from_balance_manager
-        true                // user_covers_wrapper_fee
+        protocol_from_bm, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
 #[test]
-public fun test_minimal_deep_reserves_fee() {
+public fun minimal_deep_reserves_fee() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 1; // Minimal amount of DEEP
@@ -503,21 +504,21 @@ public fun test_minimal_deep_reserves_fee() {
     );
 
     // Even minimal DEEP amount should result in some fee
-    assert!(total_fee > 0, 0);
+    assert!(total_fee > 0);
 
     // All fees should be taken from wallet since BM is empty
     assert_fee_plan_eq(
         plan,
-        coverage_fee,  // coverage_fee_from_wallet
-        0,            // coverage_fee_from_balance_manager
+        coverage_fee, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
         protocol_fee, // protocol_fee_from_wallet
-        0,           // protocol_fee_from_balance_manager
-        true         // user_covers_wrapper_fee
+        0, // protocol_fee_from_balance_manager
+        true, // user_covers_wrapper_fee
     );
 }
 
 #[test]
-public fun test_wallet_exactly_one_token_short() {
+public fun wallet_exactly_one_token_short() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 15_000;
@@ -532,7 +533,7 @@ public fun test_wallet_exactly_one_token_short() {
     let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = total_fee - 1; // 1 SUI short
-    let balance_manager_sui = 0;       // Nothing in balance manager
+    let balance_manager_sui = 0; // Nothing in balance manager
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
@@ -546,16 +547,16 @@ public fun test_wallet_exactly_one_token_short() {
     // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        0,     // coverage_fee_from_wallet
-        0,     // coverage_fee_from_balance_manager
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
 #[test]
-public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
+public fun balance_manager_exactly_one_token_short_with_empty_wallet() {
     let is_pool_whitelisted = false;
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 45_000;
@@ -569,7 +570,7 @@ public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
     let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
     let total_fee = coverage_fee + protocol_fee;
 
-    let sui_in_wallet = 0;              // Empty wallet
+    let sui_in_wallet = 0; // Empty wallet
     let balance_manager_sui = total_fee - 1; // 1 SUI short
 
     let plan = get_fee_plan(
@@ -584,18 +585,18 @@ public fun test_balance_manager_exactly_one_token_short_with_empty_wallet() {
     // Should indicate insufficient resources with all fees set to 0
     assert_fee_plan_eq(
         plan,
-        0,     // coverage_fee_from_wallet
-        0,     // coverage_fee_from_balance_manager
-        0,     // protocol_fee_from_wallet
-        0,     // protocol_fee_from_balance_manager
-        false  // user_covers_wrapper_fee
+        0, // coverage_fee_from_wallet
+        0, // coverage_fee_from_balance_manager
+        0, // protocol_fee_from_wallet
+        0, // protocol_fee_from_balance_manager
+        false, // user_covers_wrapper_fee
     );
 }
 
 // ===== Protocol Fee Specific Tests =====
 
 #[test]
-public fun test_fee_scaling_with_deep_amount() {
+public fun fee_scaling_with_deep_amount() {
     let sui_per_deep = SUI_PER_DEEP;
 
     // Test with increasing amounts of DEEP from reserves
@@ -616,15 +617,15 @@ public fun test_fee_scaling_with_deep_amount() {
                       calculate_protocol_fee(sui_per_deep, 75_000);
 
     // Verify fee scaling
-    assert!(fee_0 == 0, 0); // No fee with 0 DEEP
-    assert!(fee_25k > 0, 0); // Some fee with 25k DEEP
-    assert!(fee_50k > fee_25k, 0); // Higher fee with 50k DEEP
-    assert!(fee_75k > fee_50k, 0); // Higher fee with 75k DEEP
+    assert_eq!(fee_0, 0); // No fee with 0 DEEP
+    assert!(fee_25k > 0); // Some fee with 25k DEEP
+    assert!(fee_50k > fee_25k); // Higher fee with 50k DEEP
+    assert!(fee_75k > fee_50k); // Higher fee with 75k DEEP
 
     // Verify approximately linear scaling
     let ratio_50_25 = (fee_50k as u128) * 100 / (fee_25k as u128);
     let ratio_75_25 = (fee_75k as u128) * 100 / (fee_25k as u128);
 
-    assert!(ratio_50_25 >= 195 && ratio_50_25 <= 205, 0); // ~200%
-    assert!(ratio_75_25 >= 295 && ratio_75_25 <= 305, 0); // ~300%
+    assert!(ratio_50_25 >= 195 && ratio_50_25 <= 205); // ~200%
+    assert!(ratio_75_25 >= 295 && ratio_75_25 <= 305); // ~300%
 }

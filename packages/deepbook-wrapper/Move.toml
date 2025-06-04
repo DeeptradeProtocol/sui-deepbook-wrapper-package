@@ -6,7 +6,6 @@ published-at="0x55febc53366b6ced945b1adf5ebd3f8628d940664782e51937cc93513ad83339
 
 [dependencies]
 # Mainnet version
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
 deepbook = { local = "../deepbook", address = "0xcaf6ba059d539a97646d47f0b9ddf843e138d215e2a12ca1f4585d386f7aec3a" }
 token = { local = "../token", address = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270" }
 

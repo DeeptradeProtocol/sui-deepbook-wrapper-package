@@ -8,7 +8,7 @@ import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../c
 
   const fundCap = tx.moveCall({
     target: `${WRAPPER_PACKAGE_ID}::wrapper::create_fund_cap`,
-    arguments: [tx.object(ADMIN_CAP_OBJECT_ID), tx.object(WRAPPER_OBJECT_ID)],
+    arguments: [tx.object(WRAPPER_OBJECT_ID), tx.object(ADMIN_CAP_OBJECT_ID)],
   });
 
   tx.transferObjects([fundCap], tx.pure.address(user));

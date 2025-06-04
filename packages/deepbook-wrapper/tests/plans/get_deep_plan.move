@@ -16,7 +16,7 @@ const DEEP_HUGE: u64 = 1_000_000_000_000; // 1,000,000 DEEP
 // -------------------------------------
 
 #[test]
-fun test_whitelisted_pools() {
+fun whitelisted_pools() {
     // Test 1: Whitelisted pool with zero requirements
     let plan = get_deep_plan(
         true, // is whitelisted
@@ -53,7 +53,7 @@ fun test_whitelisted_pools() {
 // -------------------------------------
 
 #[test]
-fun test_user_has_sufficient_deep_all_in_manager() {
+fun user_has_sufficient_deep_all_in_manager() {
     // All DEEP in manager, nothing in wallet
     let required = DEEP_MEDIUM;
     let plan = get_deep_plan(
@@ -77,7 +77,7 @@ fun test_user_has_sufficient_deep_all_in_manager() {
 }
 
 #[test]
-fun test_user_has_sufficient_deep_all_in_wallet() {
+fun user_has_sufficient_deep_all_in_wallet() {
     // All DEEP in wallet, nothing in manager
     let required = DEEP_MEDIUM;
     let plan = get_deep_plan(
@@ -101,7 +101,7 @@ fun test_user_has_sufficient_deep_all_in_wallet() {
 }
 
 #[test]
-fun test_user_has_sufficient_deep_split() {
+fun user_has_sufficient_deep_split() {
     // DEEP split between manager and wallet
     let required = DEEP_MEDIUM;
     let manager_amount = required / 3;
@@ -129,7 +129,7 @@ fun test_user_has_sufficient_deep_split() {
 }
 
 #[test]
-fun test_user_has_more_deep_in_manager_than_required() {
+fun user_has_more_deep_in_manager_than_required() {
     // Manager has more DEEP than required
     let required = DEEP_MEDIUM;
     let plan = get_deep_plan(
@@ -147,7 +147,7 @@ fun test_user_has_more_deep_in_manager_than_required() {
 // -------------------------------------
 
 #[test]
-fun test_user_needs_partial_wrapper_deep() {
+fun user_needs_partial_wrapper_deep() {
     // User has some DEEP, needs wrapper for the rest
     let required = DEEP_MEDIUM;
     let user_deep = required / 2;
@@ -177,7 +177,7 @@ fun test_user_needs_partial_wrapper_deep() {
 }
 
 #[test]
-fun test_user_needs_all_wrapper_deep() {
+fun user_needs_all_wrapper_deep() {
     // No user DEEP, all from wrapper
     let required = DEEP_MEDIUM;
 
@@ -202,7 +202,7 @@ fun test_user_needs_all_wrapper_deep() {
 }
 
 #[test]
-fun test_wrapper_exact_remainder() {
+fun wrapper_exact_remainder() {
     // Wrapper has exact amount needed for remainder
     let required = DEEP_MEDIUM;
     let user_deep = required / 3;
@@ -223,7 +223,7 @@ fun test_wrapper_exact_remainder() {
 // -------------------------------------
 
 #[test]
-fun test_insufficient_wrapper_reserves() {
+fun insufficient_wrapper_reserves() {
     // Wrapper doesn't have enough to fulfill
     let required = DEEP_MEDIUM;
     let user_deep = required / 2;
@@ -251,7 +251,7 @@ fun test_insufficient_wrapper_reserves() {
 }
 
 #[test]
-fun test_no_deep_anywhere() {
+fun no_deep_anywhere() {
     // No DEEP anywhere, but some required
     let required = DEEP_MEDIUM;
 
@@ -281,7 +281,7 @@ fun test_no_deep_anywhere() {
 // -------------------------------------
 
 #[test]
-fun test_zero_deep_required() {
+fun zero_deep_required() {
     // Zero DEEP required (non-whitelisted)
     let plan = get_deep_plan(
         false, // not whitelisted
@@ -304,7 +304,7 @@ fun test_zero_deep_required() {
 }
 
 #[test]
-fun test_large_values() {
+fun large_values() {
     // Large values (near u64 limits)
     let large_value = 9_223_372_036_854_775_000; // Just under u64::MAX
 
@@ -344,7 +344,7 @@ fun test_large_values() {
 // -------------------------------------
 
 #[test]
-fun test_exact_balance_boundaries() {
+fun exact_balance_boundaries() {
     // Test all combinations of exact required amounts
     let required = DEEP_MEDIUM;
 
@@ -394,7 +394,7 @@ fun test_exact_balance_boundaries() {
 }
 
 #[test]
-fun test_one_token_boundaries() {
+fun one_token_boundaries() {
     // Tests with just one token difference
     let required = DEEP_MEDIUM;
 
