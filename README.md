@@ -108,6 +108,16 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 6. Build contract with new address: `sui move build`
 
 
+## Wrapper Package Ids:
+```
+0x1271ca74fee31ee2ffb4d6373eafb9ada44cdef0700ca34ec650b21de60cc80b
+0xd7ca30ad715278a28f01c572ac7be3168e9800321f1b3f96eb9d13dfc856419c
+0xc6fa96e203d7858e1925563bdc2c75d1c2ff57af90cad46a7ad3364573e20fb0
+0x90cffe4f0670e0c4d3413c124c364301fc0e73c709ada13ba86f2398c44a135a
+0x55febc53366b6ced945b1adf5ebd3f8628d940664782e51937cc93513ad83339
+```
+
+
 
 ## Fee & Reserves Withdrawal (Admin Only)
 
