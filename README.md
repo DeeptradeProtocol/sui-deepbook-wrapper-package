@@ -115,6 +115,7 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 0xc6fa96e203d7858e1925563bdc2c75d1c2ff57af90cad46a7ad3364573e20fb0
 0x90cffe4f0670e0c4d3413c124c364301fc0e73c709ada13ba86f2398c44a135a
 0x55febc53366b6ced945b1adf5ebd3f8628d940664782e51937cc93513ad83339
+0x4af08dd22015fdabeae5f2b883dca9fca4f7de88434dae7cea712d247658b68d
 ```
 
 
