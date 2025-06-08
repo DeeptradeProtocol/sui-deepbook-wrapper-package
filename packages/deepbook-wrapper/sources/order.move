@@ -107,6 +107,11 @@ const EDeepRequiredExceedsMax: u64 = 5;
 #[error]
 const ESuiFeeExceedsMax: u64 = 6;
 
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+#[error]
+const EFunctionDeprecated: u64 = 1000;
+
 // === Public-Mutative Functions ===
 /// Creates a limit order on DeepBook using coins from various sources
 /// This function orchestrates the entire limit order creation process through the following steps:
@@ -141,7 +146,7 @@ const ESuiFeeExceedsMax: u64 = 6;
 /// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
 /// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
-public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -239,7 +244,7 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
 /// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
 /// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
-public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+public fun create_market_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -1926,4 +1931,79 @@ public fun assert_input_coin_fee_plan_eq(
     assert_eq!(actual.protocol_fee_from_wallet, expected_protocol_from_wallet);
     assert_eq!(actual.protocol_fee_from_balance_manager, expected_protocol_from_bm);
     assert_eq!(actual.user_covers_wrapper_fee, expected_sufficient);
+}
+
+// === Deprecated Functions ===
+#[
+    deprecated(
+        note = b"This function is deprecated. Please use `create_limit_order_v2` instead.",
+    ),
+    allow(
+        unused_type_parameter,
+    ),
+]
+public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+    _wrapper: &mut Wrapper,
+    _pool: &mut Pool<BaseToken, QuoteToken>,
+    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    _balance_manager: &mut BalanceManager,
+    _base_coin: Coin<BaseToken>,
+    _quote_coin: Coin<QuoteToken>,
+    _deep_coin: Coin<DEEP>,
+    _sui_coin: Coin<SUI>,
+    _price: u64,
+    _quantity: u64,
+    _is_bid: bool,
+    _expire_timestamp: u64,
+    _order_type: u8,
+    _self_matching_option: u8,
+    _client_order_id: u64,
+    _clock: &Clock,
+    _ctx: &mut TxContext,
+): (deepbook::order_info::OrderInfo) {
+    abort EFunctionDeprecated
+}
+
+#[
+    deprecated(
+        note = b"This function is deprecated. Please use `create_market_order_v2` instead.",
+    ),
+    allow(
+        unused_type_parameter,
+    ),
+]
+public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+    _wrapper: &mut Wrapper,
+    _pool: &mut Pool<BaseToken, QuoteToken>,
+    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    _balance_manager: &mut BalanceManager,
+    _base_coin: Coin<BaseToken>,
+    _quote_coin: Coin<QuoteToken>,
+    _deep_coin: Coin<DEEP>,
+    _sui_coin: Coin<SUI>,
+    _order_amount: u64,
+    _is_bid: bool,
+    _self_matching_option: u8,
+    _client_order_id: u64,
+    _clock: &Clock,
+    _ctx: &mut TxContext,
+): (deepbook::order_info::OrderInfo) {
+    abort EFunctionDeprecated
+}
+
+#[deprecated(note = b"This function is deprecated. Please use `create_order_core` instead.")]
+public(package) fun create_limit_order_core(
+    _is_pool_whitelisted: bool,
+    _deep_required: u64,
+    _balance_manager_deep: u64,
+    _balance_manager_sui: u64,
+    _balance_manager_input_coin: u64,
+    _deep_in_wallet: u64,
+    _sui_in_wallet: u64,
+    _wallet_input_coin: u64,
+    _wrapper_deep_reserves: u64,
+    _order_amount: u64,
+    _sui_per_deep: u64,
+): (DeepPlan, FeePlan, InputCoinDepositPlan) {
+    abort EFunctionDeprecated
 }

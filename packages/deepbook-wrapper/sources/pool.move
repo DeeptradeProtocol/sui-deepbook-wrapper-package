@@ -35,6 +35,11 @@ public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop,
 #[error]
 const ENotEnoughFee: u64 = 1;
 
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+#[error]
+const EFunctionDeprecated: u64 = 1000;
+
 // === Public-Mutative Functions ===
 /// Creates a new permissionless pool for trading between BaseAsset and QuoteAsset
 /// Collects both DeepBook creation fee and protocol fee in DEEP coins
@@ -62,7 +67,7 @@ const ENotEnoughFee: u64 = 1;
 ///
 /// # Aborts
 /// * `ENotEnoughFee` - If user doesn't provide enough DEEP to cover all fees
-public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
+public fun create_permissionless_pool_v2<BaseAsset, QuoteAsset>(
     wrapper: &mut Wrapper,
     config: &CreatePoolConfig,
     registry: &mut Registry,
@@ -109,7 +114,7 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
 }
 
 /// Update the protocol fee for creating a pool
-public fun update_create_pool_protocol_fee(
+public fun update_create_pool_protocol_fee_v2(
     config: &mut CreatePoolConfig,
     _admin: &AdminCap,
     new_fee: u64,
@@ -142,4 +147,37 @@ fun init(ctx: &mut TxContext) {
     };
 
     transfer::share_object(config);
+}
+
+// === Deprecated Functions ===
+#[
+    deprecated(
+        note = b"This function is deprecated. Please use `create_permissionless_pool_v2` instead.",
+    ),
+]
+#[allow(unused_type_parameter)]
+public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
+    _wrapper: &mut Wrapper,
+    _config: &CreatePoolConfig,
+    _registry: &mut Registry,
+    _tick_size: u64,
+    _lot_size: u64,
+    _min_size: u64,
+    _creation_fee: Coin<DEEP>,
+    _ctx: &mut TxContext,
+): ID {
+    abort EFunctionDeprecated
+}
+
+#[
+    deprecated(
+        note = b"This function is deprecated. Please use `update_create_pool_protocol_fee_v2` instead.",
+    ),
+]
+public fun update_create_pool_protocol_fee(
+    _admin: &AdminCap,
+    _config: &mut CreatePoolConfig,
+    _new_fee: u64,
+) {
+    abort EFunctionDeprecated
 }

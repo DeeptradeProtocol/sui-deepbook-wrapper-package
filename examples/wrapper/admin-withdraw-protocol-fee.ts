@@ -7,7 +7,7 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
   // Withdraw SUI protocol fee
   const tx = getWithdrawFeeTx({
     coinType: SUI_COIN_TYPE,
-    target: `${WRAPPER_PACKAGE_ID}::wrapper::admin_withdraw_protocol_fee`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::admin_withdraw_protocol_fee_v2`,
     user,
     adminCapId: ADMIN_CAP_OBJECT_ID,
   });
@@ -15,7 +15,7 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
   // Withdraw DEEP protocol fee (pool creation fee)
   getWithdrawFeeTx({
     coinType: DEEP_COIN_TYPE,
-    target: `${WRAPPER_PACKAGE_ID}::wrapper::admin_withdraw_protocol_fee`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::admin_withdraw_protocol_fee_v2`,
     user,
     adminCapId: ADMIN_CAP_OBJECT_ID,
     transaction: tx,
