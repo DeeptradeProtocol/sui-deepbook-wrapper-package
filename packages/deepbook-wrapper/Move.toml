@@ -13,5 +13,5 @@ token = { local = "../token", address = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa
 # token = { git = "https://github.com/MystenLabs/deepbookv3.git", subdir = "packages/token", rev = "197b5339e69fb95ffce64994869b1b61dcb56c8d" }
 
 [addresses]
-deepbook_wrapper = "0x4af08dd22015fdabeae5f2b883dca9fca4f7de88434dae7cea712d247658b68d"
+deepbook_wrapper = "0x208d664e59ad391212a11ad8658d0e9d7510c6cd1785bd0d477d73505d5c89b1"
 # deepbook_wrapper = "0x0"

@@ -1,5 +1,5 @@
 // Wrapper package data
-export const WRAPPER_PACKAGE_ID = "0x4af08dd22015fdabeae5f2b883dca9fca4f7de88434dae7cea712d247658b68d";
+export const WRAPPER_PACKAGE_ID = "0x208d664e59ad391212a11ad8658d0e9d7510c6cd1785bd0d477d73505d5c89b1";
 export const ADMIN_CAP_OBJECT_ID = "0xf8bba85b752e91112596e66ea72a9ea67feece403ca982d8629308804af731dc";
 export const WRAPPER_OBJECT_ID = "0x33744a4ca9a1f0b96f20be165c3c4844aa1ceced81adcfca3d8c57a29f99735d";
 export const FUND_CAP_OBJECT_ID = "0xa973748ab53f547c9a8163717c028a8bdd67254af777f6b18dccecf1e9d7be31";
