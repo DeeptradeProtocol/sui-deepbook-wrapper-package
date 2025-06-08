@@ -84,32 +84,25 @@ public struct InputCoinFeePlan has copy, drop {
 
 // === Errors ===
 /// Error when trying to use deep from reserves but there is not enough available
-#[error]
 const EInsufficientDeepReserves: u64 = 1;
 
 /// Error when user doesn't have enough coins to cover the required fee
-#[error]
 const EInsufficientFee: u64 = 2;
 
 /// Error when user doesn't have enough input coins to create the order
-#[error]
 const EInsufficientInput: u64 = 3;
 
 /// Error when the caller is not the owner of the balance manager
-#[error]
 const EInvalidOwner: u64 = 4;
 
 /// Error when actual deep required exceeds the max deep required
-#[error]
 const EDeepRequiredExceedsMax: u64 = 5;
 
 /// Error when actual sui fee exceeds the max sui fee
-#[error]
 const ESuiFeeExceedsMax: u64 = 6;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
-#[error]
 const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===
