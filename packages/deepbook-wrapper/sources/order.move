@@ -1668,8 +1668,8 @@ fun execute_deep_plan(
 /// * `ctx` - Transaction context
 ///
 /// # Flow
-/// 1. Checks if user can pay fees
-/// 2. Validates that actual fee doesn't exceed max fee with slippage
+/// 1. Validates that actual fee doesn't exceed max fee with slippage
+/// 2. Checks if user can pay fees
 /// 3. Collects coverage fees:
 ///    - Takes from wallet if needed
 ///    - Takes from balance manager if needed
@@ -1678,8 +1678,8 @@ fun execute_deep_plan(
 ///    - Takes from balance manager if needed
 ///
 /// # Aborts
-/// * `EInsufficientFee` - If user cannot cover the fees
 /// * `ESuiFeeExceedsMax` - If actual fee exceeds the maximum fee with slippage
+/// * `EInsufficientFee` - If user cannot cover the fees
 fun execute_fee_plan(
     wrapper: &mut Wrapper,
     balance_manager: &mut BalanceManager,
@@ -1688,8 +1688,6 @@ fun execute_fee_plan(
     max_fee: u64,
     ctx: &mut TxContext,
 ) {
-    assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFee);
-
     let actual_fee =
         fee_plan.coverage_fee_from_wallet
         + fee_plan.coverage_fee_from_balance_manager
@@ -1698,6 +1696,9 @@ fun execute_fee_plan(
 
     // Verify actual fee doesn't exceed max fee
     assert!(actual_fee <= max_fee, ESuiFeeExceedsMax);
+
+    // Verify user covers wrapper fee
+    assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFee);
 
     // Collect coverage fee
     if (fee_plan.coverage_fee_from_wallet > 0) {
