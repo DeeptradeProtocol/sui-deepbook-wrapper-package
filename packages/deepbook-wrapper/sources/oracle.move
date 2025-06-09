@@ -20,9 +20,9 @@ const DEEP_PRICE_FEED_ID: vector<u8> =
 const SUI_PRICE_FEED_ID: vector<u8> =
     x"23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744";
 
-/// Retrieves and validates the EMA (Exponential Moving Average) price from Pyth oracle
+/// Retrieves and validates the price from Pyth oracle
 /// This function performs the following validation steps:
-/// 1. Extracts the EMA price and confidence interval from the Pyth price feed
+/// 1. Extracts the price and confidence interval from the Pyth price feed
 /// 2. Validates the price reliability through:
 ///    - Confidence interval check: ensures price uncertainty is within acceptable bounds (≤10%)
 ///    - Staleness check: ensures price is not older than the maximum allowed age
@@ -33,22 +33,22 @@ const SUI_PRICE_FEED_ID: vector<u8> =
 /// - clock: System clock for timestamp verification
 ///
 /// Returns:
-/// - Option<Price>: The validated EMA price if all checks pass, none otherwise
+/// - Option<Price>: The validated price if all checks pass, none otherwise
 /// - PriceIdentifier: The identifier of the price feed, returned regardless of validation result
 ///
 /// Price Validation Details:
 /// - Confidence Check: Rejects prices where uncertainty exceeds (100/MIN_CONFIDENCE_RATIO)% = 10% of the price
 /// - Staleness Check: Rejects prices older than MAX_STALENESS_SECONDS (60 seconds)
-public fun get_pyth_ema_price(
+public fun get_pyth_price(
     price_info_object: &PriceInfoObject,
     clock: &Clock,
 ): (Option<Price>, PriceIdentifier) {
     let price_info = price_info_object.get_price_info_from_price_info_object();
     let price_feed = price_info.get_price_feed();
     let price_identifier = price_feed.get_price_identifier();
-    let ema_price = price_feed.get_ema_price();
-    let price_mag = ema_price.get_price().get_magnitude_if_positive();
-    let conf = ema_price.get_conf();
+    let price = price_feed.get_price();
+    let price_mag = price.get_price().get_magnitude_if_positive();
+    let conf = price.get_conf();
 
     // Check price confidence interval. We want to make sure that:
     // (conf / price) * 100 <= (100 / MIN_CONFIDENCE_RATIO)% -> conf * MIN_CONFIDENCE_RATIO <= price.
@@ -60,12 +60,12 @@ public fun get_pyth_ema_price(
 
     // Check price staleness. If the price is stale, it will be rejected.
     let cur_time_s = clock.timestamp_ms() / 1000;
-    let price_timestamp = ema_price.get_timestamp();
+    let price_timestamp = price.get_timestamp();
     if (cur_time_s > price_timestamp && cur_time_s - price_timestamp > MAX_STALENESS_SECONDS) {
         return (option::none(), price_identifier)
     };
 
-    (option::some(ema_price), price_identifier)
+    (option::some(price), price_identifier)
 }
 
 public fun get_deep_price_fee_id(): vector<u8> {

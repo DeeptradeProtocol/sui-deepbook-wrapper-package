@@ -194,7 +194,7 @@ public(package) fun get_sui_per_deep_from_reference_pool<ReferenceBaseAsset, Ref
 
 /// Calculates the SUI per DEEP price using oracle price feeds for DEEP/USD and SUI/USD
 /// This function performs the following steps:
-/// 1. Retrieves and validates EMA prices for both DEEP/USD and SUI/USD
+/// 1. Retrieves and validates prices for both DEEP/USD and SUI/USD
 /// 2. Verifies price feed identifiers match expected feeds
 /// 3. Calculates DEEP/SUI price by dividing DEEP/USD by SUI/USD prices
 /// 4. Adjusts decimal places to match DeepBook's DEEP/SUI price format (12 decimals)
@@ -220,11 +220,11 @@ public(package) fun get_sui_per_deep_from_oracle(
     clock: &Clock,
 ): Option<u64> {
     // Get DEEP/USD and SUI/USD prices
-    let (mut deep_usd_price_opt, deep_usd_price_identifier) = oracle::get_pyth_ema_price(
+    let (mut deep_usd_price_opt, deep_usd_price_identifier) = oracle::get_pyth_price(
         deep_usd_price_info,
         clock,
     );
-    let (mut sui_usd_price_opt, sui_usd_price_identifier) = oracle::get_pyth_ema_price(
+    let (mut sui_usd_price_opt, sui_usd_price_identifier) = oracle::get_pyth_price(
         sui_usd_price_info,
         clock,
     );

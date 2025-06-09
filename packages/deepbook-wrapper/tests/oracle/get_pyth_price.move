@@ -1,7 +1,7 @@
 #[test_only]
-module deepbook_wrapper::get_pyth_ema_price_tests;
+module deepbook_wrapper::get_pyth_price_tests;
 
-use deepbook_wrapper::oracle::get_pyth_ema_price;
+use deepbook_wrapper::oracle::get_pyth_price;
 use pyth::i64;
 use pyth::price;
 use pyth::price_feed;
@@ -39,13 +39,13 @@ fun happy() {
                 price::new(
                     i64::new(8, false),
                     0,
-                    i64::new(5, false),
+                    i64::new(4, true),
                     0,
                 ),
                 price::new(
                     i64::new(8, false),
                     0,
-                    i64::new(4, true),
+                    i64::new(5, false),
                     0,
                 ),
             ),
@@ -53,12 +53,12 @@ fun happy() {
         test_scenario::ctx(&mut scenario),
     );
 
-    let (mut ema_price_opt, price_identifier) = get_pyth_ema_price(
+    let (mut price_opt, price_identifier) = get_pyth_price(
         &price_info_object,
         &clock,
     );
-    let ema_price = ema_price_opt.extract();
-    let price_mag = ema_price.get_price().get_magnitude_if_positive();
+    let price = price_opt.extract();
+    let price_mag = price.get_price().get_magnitude_if_positive();
 
     assert_eq!(price_mag, 8);
     assert_eq!(price_identifier, example_price_identifier());
@@ -82,14 +82,14 @@ fun confidence_interval_exceeded() {
                 example_price_identifier(),
                 price::new(
                     i64::new(100, false),
-                    10,
-                    i64::new(5, false),
+                    11, // 11%
+                    i64::new(4, true),
                     0,
                 ),
                 price::new(
                     i64::new(100, false),
-                    11, // 11%
-                    i64::new(4, true),
+                    10,
+                    i64::new(5, false),
                     0,
                 ),
             ),
@@ -97,13 +97,13 @@ fun confidence_interval_exceeded() {
         test_scenario::ctx(&mut scenario),
     );
 
-    let (ema_price_opt, price_identifier) = get_pyth_ema_price(
+    let (price_opt, price_identifier) = get_pyth_price(
         &price_info_object,
         &clock,
     );
 
     // Confidence interval higher than 10% of the price
-    assert_eq!(ema_price_opt, option::none());
+    assert_eq!(price_opt, option::none());
     assert_eq!(price_identifier, example_price_identifier());
 
     price_info::destroy(price_info_object);
@@ -125,15 +125,15 @@ fun price_is_stale() {
             price_feed::new(
                 example_price_identifier(),
                 price::new(
-                    i64::new(100, false),
-                    0,
-                    i64::new(5, false),
-                    0,
-                ),
-                price::new(
                     i64::new(8, false),
                     0,
                     i64::new(4, true),
+                    0,
+                ),
+                price::new(
+                    i64::new(100, false),
+                    0,
+                    i64::new(5, false),
                     0,
                 ),
             ),
@@ -141,12 +141,12 @@ fun price_is_stale() {
         test_scenario::ctx(&mut scenario),
     );
 
-    let (ema_price_opt, price_identifier) = get_pyth_ema_price(
+    let (price_opt, price_identifier) = get_pyth_price(
         &price_info_object,
         &clock,
     );
 
-    assert_eq!(ema_price_opt, option::none());
+    assert_eq!(price_opt, option::none());
     assert_eq!(price_identifier, example_price_identifier());
 
     price_info::destroy(price_info_object);
@@ -167,15 +167,15 @@ fun price_magnitude_is_negative() {
             price_feed::new(
                 example_price_identifier(),
                 price::new(
-                    i64::new(100, false),
-                    0,
-                    i64::new(5, false),
-                    0,
-                ),
-                price::new(
                     i64::new(8, true), // negative magnitude
                     0,
                     i64::new(4, true),
+                    0,
+                ),
+                price::new(
+                    i64::new(100, false),
+                    0,
+                    i64::new(5, false),
                     0,
                 ),
             ),
@@ -183,7 +183,7 @@ fun price_magnitude_is_negative() {
         test_scenario::ctx(&mut scenario),
     );
 
-    get_pyth_ema_price(&price_info_object, &clock);
+    get_pyth_price(&price_info_object, &clock);
 
     price_info::destroy(price_info_object);
     clock::destroy_for_testing(clock);

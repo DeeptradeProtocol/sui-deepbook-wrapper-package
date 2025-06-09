@@ -1620,14 +1620,14 @@ fun new_price_info_object(
             0,
             price_feed::new(
                 price_identifier::from_byte_vec(price_id),
-                // We use only ema price so no need to set the general price
+                // Regular price
                 price::new(
-                    i64::new(0, false),
-                    0,
-                    i64::new(0, false),
-                    0,
+                    i64::new(price_magnitude, price_mag_is_negative),
+                    confidence,
+                    i64::new(price_expo, price_expo_is_negative),
+                    timestamp,
                 ),
-                // Ema price
+                // We use only regular price so no need to set the ema price
                 price::new(
                     i64::new(price_magnitude, price_mag_is_negative),
                     confidence,
