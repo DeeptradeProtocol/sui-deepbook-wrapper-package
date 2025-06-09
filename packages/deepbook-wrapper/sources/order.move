@@ -1333,6 +1333,46 @@ public(package) fun plan_fee_collection(
     }
 }
 
+/// Validates that actual fees don't exceed maximum allowed amounts with slippage
+/// Checks both DEEP and SUI fees against their respective limits
+///
+/// Parameters:
+/// - deep_required: Actual amount of DEEP required for the order
+/// - deep_from_reserves: Amount of DEEP to be taken from wrapper reserves
+/// - sui_per_deep: Current DEEP/SUI price from reference pool
+/// - estimated_deep_required: Estimated DEEP requirement used to calculate maximum allowed one
+/// - estimated_deep_required_slippage: Slippage in billionths applied to estimated DEEP requirement for maximum calculation
+/// - estimated_sui_fee: Estimated SUI fee used to calculate maximum allowed SUI fee
+/// - estimated_sui_fee_slippage: Slippage in billionths applied to estimated SUI fee for maximum calculation
+public(package) fun validate_fees_against_max(
+    deep_required: u64,
+    deep_from_reserves: u64,
+    sui_per_deep: u64,
+    estimated_deep_required: u64,
+    estimated_deep_required_slippage: u64,
+    estimated_sui_fee: u64,
+    estimated_sui_fee_slippage: u64,
+) {
+    // Calculate maximum allowed fees
+    let max_deep_required = apply_slippage(
+        estimated_deep_required,
+        estimated_deep_required_slippage,
+    );
+    let max_sui_fee = apply_slippage(estimated_sui_fee, estimated_sui_fee_slippage);
+
+    // Validate DEEP fee
+    assert!(deep_required <= max_deep_required, EDeepRequiredExceedsMax);
+
+    // Validate SUI fee (only applies when using wrapper DEEP reserves)
+    if (deep_from_reserves > 0) {
+        let (actual_sui_fee, _, _) = calculate_full_order_fee(
+            sui_per_deep,
+            deep_from_reserves,
+        );
+        assert!(actual_sui_fee <= max_sui_fee, ESuiFeeExceedsMax);
+    };
+}
+
 // === Private Functions ===
 /// Prepares order execution by handling all common order creation logic:
 /// 1. Verifies the caller owns the balance manager
@@ -1392,16 +1432,6 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     validate_slippage(estimated_deep_required_slippage);
     validate_slippage(estimated_sui_fee_slippage);
 
-    // Calculate max deep required and sui fee
-    let max_deep_required = apply_slippage(
-        estimated_deep_required,
-        estimated_deep_required_slippage,
-    );
-    let max_sui_fee = apply_slippage(estimated_sui_fee, estimated_sui_fee_slippage);
-
-    // Verify actual deep required doesn't exceed max deep required
-    assert!(deep_required <= max_deep_required, EDeepRequiredExceedsMax);
-
     // Get SUI per DEEP price from reference pool
     let sui_per_deep = get_sui_per_deep(reference_pool, clock);
 
@@ -1440,6 +1470,17 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         sui_per_deep,
     );
 
+    // Validate actual fees against maximum allowed ones
+    validate_fees_against_max(
+        deep_required,
+        deep_plan.from_deep_reserves,
+        sui_per_deep,
+        estimated_deep_required,
+        estimated_deep_required_slippage,
+        estimated_sui_fee,
+        estimated_sui_fee_slippage,
+    );
+
     // Step 1: Execute DEEP plan
     execute_deep_plan(wrapper, balance_manager, &mut deep_coin, &deep_plan, ctx);
 
@@ -1449,7 +1490,6 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         balance_manager,
         &mut sui_coin,
         &fee_plan,
-        max_sui_fee,
         ctx,
     );
 
@@ -1664,39 +1704,26 @@ fun execute_deep_plan(
 /// * `balance_manager` - User's balance manager to withdraw fees from
 /// * `sui_coin` - User's SUI coins to take fees from
 /// * `fee_plan` - Plan that specifies how much to take from each source
-/// * `max_fee` - Maximum acceptable fee amount calculated with slippage
 /// * `ctx` - Transaction context
 ///
 /// # Flow
-/// 1. Validates that actual fee doesn't exceed max fee with slippage
-/// 2. Checks if user can pay fees
-/// 3. Collects coverage fees:
+/// 1. Checks if user can pay fees
+/// 2. Collects coverage fees:
 ///    - Takes from wallet if needed
 ///    - Takes from balance manager if needed
-/// 4. Collects protocol fees:
+/// 3. Collects protocol fees:
 ///    - Takes from wallet if needed
 ///    - Takes from balance manager if needed
 ///
 /// # Aborts
-/// * `ESuiFeeExceedsMax` - If actual fee exceeds the maximum fee with slippage
 /// * `EInsufficientFee` - If user cannot cover the fees
 fun execute_fee_plan(
     wrapper: &mut Wrapper,
     balance_manager: &mut BalanceManager,
     sui_coin: &mut Coin<SUI>,
     fee_plan: &FeePlan,
-    max_fee: u64,
     ctx: &mut TxContext,
 ) {
-    let actual_fee =
-        fee_plan.coverage_fee_from_wallet
-        + fee_plan.coverage_fee_from_balance_manager
-        + fee_plan.protocol_fee_from_wallet
-        + fee_plan.protocol_fee_from_balance_manager;
-
-    // Verify actual fee doesn't exceed max fee
-    assert!(actual_fee <= max_fee, ESuiFeeExceedsMax);
-
     // Verify user covers wrapper fee
     assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFee);
 
