@@ -83,28 +83,26 @@ public struct InputCoinFeePlan has copy, drop {
 
 // === Errors ===
 /// Error when trying to use deep from reserves but there is not enough available
-#[error]
 const EInsufficientDeepReserves: u64 = 1;
 
 /// Error when user doesn't have enough coins to cover the required fee
-#[error]
 const EInsufficientFee: u64 = 2;
 
 /// Error when user doesn't have enough input coins to create the order
-#[error]
 const EInsufficientInput: u64 = 3;
 
 /// Error when the caller is not the owner of the balance manager
-#[error]
 const EInvalidOwner: u64 = 4;
 
 /// Error when actual deep required exceeds the max deep required
-#[error]
 const EDeepRequiredExceedsMax: u64 = 5;
 
 /// Error when actual sui fee exceeds the max sui fee
-#[error]
 const ESuiFeeExceedsMax: u64 = 6;
+
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===
 /// Creates a limit order on DeepBook using coins from various sources
@@ -142,7 +140,7 @@ const ESuiFeeExceedsMax: u64 = 6;
 /// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
 /// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
-public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -246,7 +244,7 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
 /// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
 /// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
-public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+public fun create_market_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -1009,6 +1007,46 @@ public(package) fun plan_fee_collection(
     }
 }
 
+/// Validates that actual fees don't exceed maximum allowed amounts with slippage
+/// Checks both DEEP and SUI fees against their respective limits
+///
+/// Parameters:
+/// - deep_required: Actual amount of DEEP required for the order
+/// - deep_from_reserves: Amount of DEEP to be taken from wrapper reserves
+/// - sui_per_deep: Current DEEP/SUI price from reference pool
+/// - estimated_deep_required: Estimated DEEP requirement used to calculate maximum allowed one
+/// - estimated_deep_required_slippage: Slippage in billionths applied to estimated DEEP requirement for maximum calculation
+/// - estimated_sui_fee: Estimated SUI fee used to calculate maximum allowed SUI fee
+/// - estimated_sui_fee_slippage: Slippage in billionths applied to estimated SUI fee for maximum calculation
+public(package) fun validate_fees_against_max(
+    deep_required: u64,
+    deep_from_reserves: u64,
+    sui_per_deep: u64,
+    estimated_deep_required: u64,
+    estimated_deep_required_slippage: u64,
+    estimated_sui_fee: u64,
+    estimated_sui_fee_slippage: u64,
+) {
+    // Calculate maximum allowed fees
+    let max_deep_required = apply_slippage(
+        estimated_deep_required,
+        estimated_deep_required_slippage,
+    );
+    let max_sui_fee = apply_slippage(estimated_sui_fee, estimated_sui_fee_slippage);
+
+    // Validate DEEP fee
+    assert!(deep_required <= max_deep_required, EDeepRequiredExceedsMax);
+
+    // Validate SUI fee (only applies when using wrapper DEEP reserves)
+    if (deep_from_reserves > 0) {
+        let (actual_sui_fee, _, _) = calculate_full_order_fee(
+            sui_per_deep,
+            deep_from_reserves,
+        );
+        assert!(actual_sui_fee <= max_sui_fee, ESuiFeeExceedsMax);
+    };
+}
+
 // === Private Functions ===
 /// Prepares order execution by handling all common order creation logic:
 /// 1. Verifies the caller owns the balance manager
@@ -1072,16 +1110,6 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     validate_slippage(estimated_deep_required_slippage);
     validate_slippage(estimated_sui_fee_slippage);
 
-    // Calculate max deep required and sui fee
-    let max_deep_required = apply_slippage(
-        estimated_deep_required,
-        estimated_deep_required_slippage,
-    );
-    let max_sui_fee = apply_slippage(estimated_sui_fee, estimated_sui_fee_slippage);
-
-    // Verify actual deep required doesn't exceed max deep required
-    assert!(deep_required <= max_deep_required, EDeepRequiredExceedsMax);
-
     // Get DEEP/SUI price from oracle price feeds with fallback to reference pool
     let sui_per_deep = get_sui_per_deep(
         deep_usd_price_info,
@@ -1125,6 +1153,17 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         sui_per_deep,
     );
 
+    // Validate actual fees against maximum allowed ones
+    validate_fees_against_max(
+        deep_required,
+        deep_plan.from_deep_reserves,
+        sui_per_deep,
+        estimated_deep_required,
+        estimated_deep_required_slippage,
+        estimated_sui_fee,
+        estimated_sui_fee_slippage,
+    );
+
     // Step 1: Execute DEEP plan
     execute_deep_plan(wrapper, balance_manager, &mut deep_coin, &deep_plan, ctx);
 
@@ -1134,7 +1173,6 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         balance_manager,
         &mut sui_coin,
         &fee_plan,
-        max_sui_fee,
         ctx,
     );
 
@@ -1349,40 +1387,28 @@ fun execute_deep_plan(
 /// * `balance_manager` - User's balance manager to withdraw fees from
 /// * `sui_coin` - User's SUI coins to take fees from
 /// * `fee_plan` - Plan that specifies how much to take from each source
-/// * `max_fee` - Maximum acceptable fee amount calculated with slippage
 /// * `ctx` - Transaction context
 ///
 /// # Flow
 /// 1. Checks if user can pay fees
-/// 2. Validates that actual fee doesn't exceed max fee with slippage
-/// 3. Collects coverage fees:
+/// 2. Collects coverage fees:
 ///    - Takes from wallet if needed
 ///    - Takes from balance manager if needed
-/// 4. Collects protocol fees:
+/// 3. Collects protocol fees:
 ///    - Takes from wallet if needed
 ///    - Takes from balance manager if needed
 ///
 /// # Aborts
 /// * `EInsufficientFee` - If user cannot cover the fees
-/// * `ESuiFeeExceedsMax` - If actual fee exceeds the maximum fee with slippage
 fun execute_fee_plan(
     wrapper: &mut Wrapper,
     balance_manager: &mut BalanceManager,
     sui_coin: &mut Coin<SUI>,
     fee_plan: &FeePlan,
-    max_fee: u64,
     ctx: &mut TxContext,
 ) {
+    // Verify user covers wrapper fee
     assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFee);
-
-    let actual_fee =
-        fee_plan.coverage_fee_from_wallet
-        + fee_plan.coverage_fee_from_balance_manager
-        + fee_plan.protocol_fee_from_wallet
-        + fee_plan.protocol_fee_from_balance_manager;
-
-    // Verify actual fee doesn't exceed max fee
-    assert!(actual_fee <= max_fee, ESuiFeeExceedsMax);
 
     // Collect coverage fee
     if (fee_plan.coverage_fee_from_wallet > 0) {
@@ -1609,4 +1635,79 @@ public fun assert_input_coin_fee_plan_eq(
     assert_eq!(actual.protocol_fee_from_wallet, expected_protocol_from_wallet);
     assert_eq!(actual.protocol_fee_from_balance_manager, expected_protocol_from_bm);
     assert_eq!(actual.user_covers_wrapper_fee, expected_sufficient);
+}
+
+// === Deprecated Functions ===
+#[
+    deprecated(
+        note = b"This function is deprecated. Please use `create_limit_order_v2` instead.",
+    ),
+    allow(
+        unused_type_parameter,
+    ),
+]
+public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+    _wrapper: &mut Wrapper,
+    _pool: &mut Pool<BaseToken, QuoteToken>,
+    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    _balance_manager: &mut BalanceManager,
+    _base_coin: Coin<BaseToken>,
+    _quote_coin: Coin<QuoteToken>,
+    _deep_coin: Coin<DEEP>,
+    _sui_coin: Coin<SUI>,
+    _price: u64,
+    _quantity: u64,
+    _is_bid: bool,
+    _expire_timestamp: u64,
+    _order_type: u8,
+    _self_matching_option: u8,
+    _client_order_id: u64,
+    _clock: &Clock,
+    _ctx: &mut TxContext,
+): (deepbook::order_info::OrderInfo) {
+    abort EFunctionDeprecated
+}
+
+#[
+    deprecated(
+        note = b"This function is deprecated. Please use `create_market_order_v2` instead.",
+    ),
+    allow(
+        unused_type_parameter,
+    ),
+]
+public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+    _wrapper: &mut Wrapper,
+    _pool: &mut Pool<BaseToken, QuoteToken>,
+    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    _balance_manager: &mut BalanceManager,
+    _base_coin: Coin<BaseToken>,
+    _quote_coin: Coin<QuoteToken>,
+    _deep_coin: Coin<DEEP>,
+    _sui_coin: Coin<SUI>,
+    _order_amount: u64,
+    _is_bid: bool,
+    _self_matching_option: u8,
+    _client_order_id: u64,
+    _clock: &Clock,
+    _ctx: &mut TxContext,
+): (deepbook::order_info::OrderInfo) {
+    abort EFunctionDeprecated
+}
+
+#[deprecated(note = b"This function is deprecated. Please use `create_order_core` instead.")]
+public(package) fun create_limit_order_core(
+    _is_pool_whitelisted: bool,
+    _deep_required: u64,
+    _balance_manager_deep: u64,
+    _balance_manager_sui: u64,
+    _balance_manager_input_coin: u64,
+    _deep_in_wallet: u64,
+    _sui_in_wallet: u64,
+    _wallet_input_coin: u64,
+    _wrapper_deep_reserves: u64,
+    _order_amount: u64,
+    _sui_per_deep: u64,
+): (DeepPlan, FeePlan, InputCoinDepositPlan) {
+    abort EFunctionDeprecated
 }

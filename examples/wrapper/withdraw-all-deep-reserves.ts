@@ -10,7 +10,7 @@ import { getDeepReservesBalance } from "./utils/getDeepReservesBalance";
   const { deepReservesRaw: amountToWithdraw, deepReserves: amountToWithdrawFormatted } = await getDeepReservesBalance();
 
   const withdrawnCoin = tx.moveCall({
-    target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves_v2`,
     arguments: [tx.object(WRAPPER_OBJECT_ID), tx.object(ADMIN_CAP_OBJECT_ID), tx.pure.u64(amountToWithdraw)],
   });
 
