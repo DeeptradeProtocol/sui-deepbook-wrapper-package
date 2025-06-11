@@ -120,7 +120,7 @@ const EFunctionDeprecated: u64 = 1000;
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for fallback DEEP/SUI price calculation
+/// - reference_pool: Reference pool for price calculation
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
@@ -140,7 +140,7 @@ const EFunctionDeprecated: u64 = 1000;
 /// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
 /// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
-public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+public fun create_limit_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -226,7 +226,7 @@ public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for fallback DEEP/SUI price calculation
+/// - reference_pool: Reference pool for price calculation
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
@@ -244,7 +244,7 @@ public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
 /// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
 /// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
-public fun create_market_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+public fun create_market_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -1110,7 +1110,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     validate_slippage(estimated_deep_required_slippage);
     validate_slippage(estimated_sui_fee_slippage);
 
-    // Get DEEP/SUI price from oracle price feeds with fallback to reference pool
+    // Get the best DEEP/SUI price
     let sui_per_deep = get_sui_per_deep(
         deep_usd_price_info,
         sui_usd_price_info,
@@ -1640,7 +1640,41 @@ public fun assert_input_coin_fee_plan_eq(
 // === Deprecated Functions ===
 #[
     deprecated(
-        note = b"This function is deprecated. Please use `create_limit_order_v2` instead.",
+        note = b"This function is deprecated. Please use `create_limit_order_v3` instead.",
+    ),
+    allow(
+        unused_type_parameter,
+    ),
+]
+public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+    _wrapper: &mut Wrapper,
+    _pool: &mut Pool<BaseToken, QuoteToken>,
+    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    _balance_manager: &mut BalanceManager,
+    _base_coin: Coin<BaseToken>,
+    _quote_coin: Coin<QuoteToken>,
+    _deep_coin: Coin<DEEP>,
+    _sui_coin: Coin<SUI>,
+    _price: u64,
+    _quantity: u64,
+    _is_bid: bool,
+    _expire_timestamp: u64,
+    _order_type: u8,
+    _self_matching_option: u8,
+    _client_order_id: u64,
+    _estimated_deep_required: u64,
+    _estimated_deep_required_slippage: u64,
+    _estimated_sui_fee: u64,
+    _estimated_sui_fee_slippage: u64,
+    _clock: &Clock,
+    _ctx: &mut TxContext,
+): (deepbook::order_info::OrderInfo) {
+    abort EFunctionDeprecated
+}
+
+#[
+    deprecated(
+        note = b"This function is deprecated. Please use `create_limit_order_v3` instead.",
     ),
     allow(
         unused_type_parameter,
@@ -1670,7 +1704,38 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
 
 #[
     deprecated(
-        note = b"This function is deprecated. Please use `create_market_order_v2` instead.",
+        note = b"This function is deprecated. Please use `create_market_order_v3` instead.",
+    ),
+    allow(
+        unused_type_parameter,
+    ),
+]
+public fun create_market_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+    _wrapper: &mut Wrapper,
+    _pool: &mut Pool<BaseToken, QuoteToken>,
+    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    _balance_manager: &mut BalanceManager,
+    _base_coin: Coin<BaseToken>,
+    _quote_coin: Coin<QuoteToken>,
+    _deep_coin: Coin<DEEP>,
+    _sui_coin: Coin<SUI>,
+    _order_amount: u64,
+    _is_bid: bool,
+    _self_matching_option: u8,
+    _client_order_id: u64,
+    _estimated_deep_required: u64,
+    _estimated_deep_required_slippage: u64,
+    _estimated_sui_fee: u64,
+    _estimated_sui_fee_slippage: u64,
+    _clock: &Clock,
+    _ctx: &mut TxContext,
+): (deepbook::order_info::OrderInfo) {
+    abort EFunctionDeprecated
+}
+
+#[
+    deprecated(
+        note = b"This function is deprecated. Please use `create_market_order_v3` instead.",
     ),
     allow(
         unused_type_parameter,
