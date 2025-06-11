@@ -7,7 +7,7 @@ use sui::clock::Clock;
 
 // === Constants ===
 /// Min confidence ratio of X means that the confidence interval must be less than (100/X)% of the price
-const MIN_CONFIDENCE_RATIO: u64 = 10;
+const MIN_CONFIDENCE_RATIO: u64 = 20;
 
 /// Maximum allowed price staleness in seconds
 const MAX_STALENESS_SECONDS: u64 = 60;
@@ -48,7 +48,7 @@ const EZeroPriceMagnitude: vector<u8> = b"Price magnitude is zero";
 /// - PriceIdentifier: The identifier of the price feed
 ///
 /// Aborts:
-/// - With EPriceConfidenceExceedsThreshold if price uncertainty exceeds (100/MIN_CONFIDENCE_RATIO)% = 10% of the price
+/// - With EPriceConfidenceExceedsThreshold if price uncertainty exceeds (100/MIN_CONFIDENCE_RATIO)% = 5% of the price
 /// - With EStalePrice if price is older than MAX_STALENESS_SECONDS (60 seconds)
 public fun get_pyth_price(
     price_info_object: &PriceInfoObject,
@@ -66,7 +66,7 @@ public fun get_pyth_price(
 
     // Check price confidence interval. We want to make sure that:
     // (conf / price) * 100 <= (100 / MIN_CONFIDENCE_RATIO)% -> conf * MIN_CONFIDENCE_RATIO <= price.
-    // That means the maximum price uncertainty is (100 / MIN_CONFIDENCE_RATIO)% = 10% of the price.
+    // That means the maximum price uncertainty is (100 / MIN_CONFIDENCE_RATIO)% = 5% of the price.
     // If it's higher, the price will be rejected.
     assert!(conf * MIN_CONFIDENCE_RATIO <= price_mag, EPriceConfidenceExceedsThreshold);
 

@@ -81,7 +81,7 @@ fun confidence_interval_exceeded() {
                 example_price_identifier(),
                 price::new(
                     i64::new(100, false),
-                    11, // 11%
+                    6, // 6%
                     i64::new(4, true),
                     0,
                 ),
