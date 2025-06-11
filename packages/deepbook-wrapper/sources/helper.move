@@ -23,6 +23,9 @@ const EInvalidSlippage: u64 = 2;
 #[error]
 const EInvalidPriceFeedIdentifier: vector<u8> = b"Invalid price feed identifier";
 
+#[error]
+const ENoAskPrice: vector<u8> = b"No ask price available in the order book";
+
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
 public(package) fun get_fee_bps<BaseToken, QuoteToken>(pool: &Pool<BaseToken, QuoteToken>): u64 {
@@ -142,6 +145,7 @@ public(package) fun get_sui_per_deep<ReferenceBaseAsset, ReferenceQuoteAsset>(
 }
 
 /// Gets the SUI per DEEP price from a reference pool, normalizing the price regardless of token order
+/// Uses the first ask price from the reference pool
 ///
 /// Parameters:
 /// - reference_pool: Pool containing SUI/DEEP or DEEP/SUI trading pair
@@ -161,6 +165,7 @@ public(package) fun get_sui_per_deep<ReferenceBaseAsset, ReferenceQuoteAsset>(
 /// Aborts with EIneligibleReferencePool if:
 /// - Pool is not whitelisted/registered
 /// - Pool does not contain SUI and DEEP tokens
+/// Aborts with ENoAskPrice if there are no ask prices available in the reference pool
 public(package) fun get_sui_per_deep_from_reference_pool<ReferenceBaseAsset, ReferenceQuoteAsset>(
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
     clock: &Clock,
@@ -169,7 +174,7 @@ public(package) fun get_sui_per_deep_from_reference_pool<ReferenceBaseAsset, Ref
         reference_pool.whitelisted() && reference_pool.registered_pool(),
         EIneligibleReferencePool,
     );
-    let reference_pool_price = reference_pool.mid_price(clock);
+    let reference_pool_price = get_pool_first_ask_price(reference_pool, clock);
 
     let reference_base_type = type_name::get<ReferenceBaseAsset>();
     let reference_quote_type = type_name::get<ReferenceQuoteAsset>();
@@ -324,4 +329,25 @@ public(package) fun calculate_market_order_params<BaseToken, QuoteToken>(
 public(package) fun validate_slippage(slippage: u64) {
     let float_scaling = constants::float_scaling();
     assert!(slippage <= float_scaling, EInvalidSlippage);
+}
+
+/// Gets the first (best) ask price from the order book
+///
+/// Parameters:
+/// - pool: The trading pool to query for ask prices
+/// - clock: System clock for current timestamp verification
+///
+/// Returns:
+/// - u64: The first ask price in the order book
+///
+/// Aborts with ENoAskPrice if there are no ask prices available
+public(package) fun get_pool_first_ask_price<BaseToken, QuoteToken>(
+    pool: &Pool<BaseToken, QuoteToken>,
+    clock: &Clock,
+): u64 {
+    let ticks = 1;
+    let (_, _, ask_prices, _) = pool.get_level2_ticks_from_mid(ticks, clock);
+
+    assert!(!ask_prices.is_empty(), ENoAskPrice);
+    ask_prices[0]
 }
