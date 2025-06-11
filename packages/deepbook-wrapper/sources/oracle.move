@@ -81,10 +81,10 @@ public fun get_pyth_price(
     (price, price_identifier)
 }
 
-public fun get_deep_price_fee_id(): vector<u8> {
+public fun get_deep_price_feed_id(): vector<u8> {
     DEEP_PRICE_FEED_ID
 }
 
-public fun get_sui_price_fee_id(): vector<u8> {
+public fun get_sui_price_feed_id(): vector<u8> {
     SUI_PRICE_FEED_ID
 }
