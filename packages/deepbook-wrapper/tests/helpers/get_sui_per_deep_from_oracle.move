@@ -1,8 +1,13 @@
 #[test_only]
 module deepbook_wrapper::get_sui_per_deep_from_oracle_tests;
 
-use deepbook_wrapper::helper::get_sui_per_deep_from_oracle;
-use deepbook_wrapper::oracle;
+use deepbook_wrapper::helper::{get_sui_per_deep_from_oracle, EInvalidPriceFeedIdentifier};
+use deepbook_wrapper::oracle::{
+    Self,
+    EPriceConfidenceExceedsThreshold,
+    EStalePrice,
+    EZeroPriceMagnitude
+};
 use pyth::i64;
 use pyth::price;
 use pyth::price_feed;
@@ -14,7 +19,7 @@ use sui::test_scenario::{Self, Scenario};
 
 const MAX_POSITIVE_MAGNITUDE: u64 = (1 << 63) - 1; // 9223372036854775807
 
-#[test]
+#[test, expected_failure(abort_code = EPriceConfidenceExceedsThreshold)]
 fun deep_price_object_is_out_of_confidence() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -45,18 +50,17 @@ fun deep_price_object_is_out_of_confidence() {
         current_time, // use current time to ensure price is fresh
     );
 
-    // Function should return none when DEEP price is out of confidence
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when DEEP price is out of confidence
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EStalePrice)]
 fun deep_price_object_is_stale() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -90,18 +94,16 @@ fun deep_price_object_is_stale() {
         current_time, // timestamp (fresh)
     );
 
-    // Function should return none when DEEP price is stale (> 60 seconds old)
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when DEEP price is stale (> 60 seconds old)
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
-
-#[test]
+#[test, expected_failure(abort_code = EPriceConfidenceExceedsThreshold)]
 fun sui_price_object_is_out_of_confidence() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -131,18 +133,17 @@ fun sui_price_object_is_out_of_confidence() {
         current_time, // use current time to ensure price is fresh
     );
 
-    // Function should return none when SUI price is out of confidence
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when SUI price is out of confidence
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EStalePrice)]
 fun sui_price_object_is_stale() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -176,18 +177,17 @@ fun sui_price_object_is_stale() {
         0, // timestamp (stale)
     );
 
-    // Function should return none when SUI price is stale (> 60 seconds old)
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when SUI price is stale (> 60 seconds old)
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EPriceConfidenceExceedsThreshold)]
 fun both_prices_are_out_of_confidence() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -217,18 +217,17 @@ fun both_prices_are_out_of_confidence() {
         current_time, // use current time to ensure price is fresh
     );
 
-    // Function should return none when both prices are out of confidence
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when both prices are out of confidence
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EStalePrice)]
 fun both_prices_are_stale() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -262,18 +261,17 @@ fun both_prices_are_stale() {
         0, // timestamp (stale)
     );
 
-    // Function should return none when both prices are stale (> 60 seconds old)
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when both prices are stale (> 60 seconds old)
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EInvalidPriceFeedIdentifier)]
 fun deep_price_id_is_wrong() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -304,18 +302,17 @@ fun deep_price_id_is_wrong() {
         current_time, // use current time to ensure price is fresh
     );
 
-    // Function should return none when DEEP price ID is wrong
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when DEEP price ID is wrong
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EInvalidPriceFeedIdentifier)]
 fun sui_price_id_is_wrong() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -346,18 +343,17 @@ fun sui_price_id_is_wrong() {
         current_time, // use current time to ensure price is fresh
     );
 
-    // Function should return none when SUI price ID is wrong
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when SUI price ID is wrong
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EInvalidPriceFeedIdentifier)]
 fun both_price_ids_are_wrong() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -388,18 +384,17 @@ fun both_price_ids_are_wrong() {
         current_time, // use current time to ensure price is fresh
     );
 
-    // Function should return none when both price IDs are wrong
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when both price IDs are wrong
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EInvalidPriceFeedIdentifier)]
 fun max_deep_price_and_invalid_sui_id() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -430,18 +425,17 @@ fun max_deep_price_and_invalid_sui_id() {
         current_time, // use current time to ensure price is fresh
     );
 
-    // Function should return none when SUI price ID is wrong, even with valid max DEEP price
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when SUI price ID is wrong, even with valid max DEEP price
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EInvalidPriceFeedIdentifier)]
 fun max_sui_price_and_invalid_deep_id() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -472,18 +466,17 @@ fun max_sui_price_and_invalid_deep_id() {
         current_time, // use current time to ensure price is fresh
     );
 
-    // Function should return none when DEEP price ID is wrong, even with valid max SUI price
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when DEEP price ID is wrong, even with valid max SUI price
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EStalePrice)]
 fun stale_deep_price_and_sui_price_out_of_confidence() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -515,18 +508,17 @@ fun stale_deep_price_and_sui_price_out_of_confidence() {
         current_time, // timestamp (fresh)
     );
 
-    // Function should return none when DEEP price is stale and SUI price is out of confidence
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when DEEP price is stale (checked first)
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EPriceConfidenceExceedsThreshold)]
 fun stale_sui_price_and_deep_price_out_of_confidence() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -558,9 +550,8 @@ fun stale_sui_price_and_deep_price_out_of_confidence() {
         0, // timestamp (stale)
     );
 
-    // Function should return none when SUI price is stale and DEEP price is out of confidence
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when DEEP price confidence exceeds threshold (checked first)
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -600,8 +591,7 @@ fun deep_price_expo_is_positive() {
     );
 
     // Function should abort because DEEP price exponent is positive
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none()); // This line won't be reached due to abort
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
@@ -641,8 +631,7 @@ fun sui_price_expo_is_positive() {
     );
 
     // Function should abort because SUI price exponent is positive
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none()); // This line won't be reached due to abort
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
@@ -682,8 +671,7 @@ fun both_price_expos_are_positive() {
     );
 
     // Function should abort because both price exponents are positive
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none()); // This line won't be reached due to abort
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
@@ -727,8 +715,7 @@ fun multiplier_calculation_overflows() {
     // sui_expo + 3 >= deep_expo will be: 60 + 3 >= 1, which is true
     // So decimal_adjustment = sui_expo + 3 - deep_expo = 60 + 3 - 1 = 62
     // This will make multiplier = 10^62 which should overflow
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none()); // This line won't be reached due to abort
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
@@ -769,8 +756,7 @@ fun deep_price_numerator_overflow() {
     );
 
     // Function should abort due to overflow in deep_price_mag * multiplier
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none()); // This line won't be reached due to abort
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
@@ -810,8 +796,7 @@ fun sui_price_denominator_overflow() {
     );
 
     // Function should abort due to overflow in sui_price_mag * multiplier
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none()); // This line won't be reached due to abort
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
@@ -820,7 +805,7 @@ fun sui_price_denominator_overflow() {
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EZeroPriceMagnitude)]
 fun deep_price_is_zero() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -850,18 +835,17 @@ fun deep_price_is_zero() {
         current_time,
     );
 
-    // Function should return none when DEEP price is zero
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when DEEP price is zero
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EZeroPriceMagnitude)]
 fun sui_price_is_zero() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -891,18 +875,17 @@ fun sui_price_is_zero() {
         current_time,
     );
 
-    // Function should return none when SUI price is zero
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when SUI price is zero
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EZeroPriceMagnitude)]
 fun both_prices_are_zero() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -932,11 +915,10 @@ fun both_prices_are_zero() {
         current_time,
     );
 
-    // Function should return none when both prices are zero
-    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result, option::none());
+    // Function should abort when DEEP price is zero (checked first)
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
+    // Cleanup won't be reached due to abort, but included for completeness
     clock::destroy_for_testing(clock);
     price_info::destroy(deep_price);
     price_info::destroy(sui_price);
@@ -974,8 +956,8 @@ fun deep_price_is_very_small() {
     );
 
     // Function should handle small DEEP price correctly
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 1_000_000_000);
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 1_000_000_000);
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1015,8 +997,8 @@ fun sui_price_is_very_small() {
     );
 
     // Function should handle small SUI price correctly
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 1_000_000_000_000_000);
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 1_000_000_000_000_000);
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1056,8 +1038,8 @@ fun both_prices_are_very_small() {
     );
 
     // Function should handle both small prices correctly
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 1_000_000_000_000);
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 1_000_000_000_000);
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1097,8 +1079,8 @@ fun small_price_with_large_exponent_difference() {
     );
 
     // Function should handle extreme exponent differences with small prices correctly
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 1_000_000_000_000_000_000);
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 1_000_000_000_000_000_000);
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1138,8 +1120,8 @@ fun deep_price_is_huge() {
     );
 
     // Function should handle large DEEP price correctly
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 1_000_000_000_000_000); // Should be 1000 with 12 decimals
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 1_000_000_000_000_000); // Should be 1000 with 12 decimals
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1179,8 +1161,8 @@ fun sui_price_is_huge() {
     );
 
     // Function should handle large SUI price correctly
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 1_000_000_000); // Should be 0.001 with 12 decimals
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 1_000_000_000); // Should be 0.001 with 12 decimals
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1219,8 +1201,8 @@ fun both_prices_are_huge() {
     );
 
     // Function should handle both large prices correctly
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 1_000_000_000_000); // Should be 1 with 12 decimals since prices are equal
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 1_000_000_000_000); // Should be 1 with 12 decimals since prices are equal
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1259,8 +1241,8 @@ fun huge_price_with_different_exponents() {
     );
 
     // Function should handle large prices with different exponents correctly
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 10_000_000_000); // Should be 0.01 with 12 decimals due to exponent difference
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 10_000_000_000); // Should be 0.01 with 12 decimals due to exponent difference
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1299,8 +1281,7 @@ fun deep_price_expo_is_zero() {
     );
 
     // We won't reach this point due to the abort
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 1_000_000_000_000);
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     // Cleanup won't be reached
     clock::destroy_for_testing(clock);
@@ -1339,8 +1320,7 @@ fun sui_price_expo_is_zero() {
     );
 
     // We won't reach this point due to the abort
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 1_000_000_000_000);
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     // Cleanup won't be reached
     clock::destroy_for_testing(clock);
@@ -1380,8 +1360,7 @@ fun both_price_expos_are_zero() {
     );
 
     // We won't reach this point due to the abort
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 1_000_000_000_000);
+    get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     // Cleanup won't be reached
     clock::destroy_for_testing(clock);
@@ -1421,8 +1400,8 @@ fun division_with_uneven_numbers() {
     );
 
     // Function should handle division with proper precision
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 300_000_000_000); // Should be 0.3 with 12 decimals
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 300_000_000_000); // Should be 0.3 with 12 decimals
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1462,8 +1441,8 @@ fun division_with_large_precision_loss() {
     );
 
     // Function should handle recurring decimal truncation
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 142_857_142_857); // Should be 0.142857142857 with 12 decimals
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 142_857_142_857); // Should be 0.142857142857 with 12 decimals
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1503,8 +1482,8 @@ fun division_with_prime_numbers() {
     );
 
     // Function should handle division of prime numbers correctly
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 739_130_434_782); // Should be 0.739130434782 with 12 decimals
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 739_130_434_782); // Should be 0.739130434782 with 12 decimals
 
     // Cleanup
     clock::destroy_for_testing(clock);
@@ -1547,8 +1526,8 @@ fun real_world_price_ratio() {
     // Calculate DEEP/SUI ratio
     // Expected calculation:
     // DEEP price in USD / SUI price in USD = 0.14909488 / 3.30187720 = 0.045154...
-    let mut result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
-    assert_eq!(result.extract(), 45_154_580_551); // Should be 0.045154580551 with 12 decimals
+    let result = get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
+    assert_eq!(result, 45_154_580_551); // Should be 0.045154580551 with 12 decimals
 
     // Cleanup
     clock::destroy_for_testing(clock);

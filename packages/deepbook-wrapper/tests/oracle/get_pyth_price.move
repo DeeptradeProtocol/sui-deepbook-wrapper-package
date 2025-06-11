@@ -1,7 +1,7 @@
 #[test_only]
 module deepbook_wrapper::get_pyth_price_tests;
 
-use deepbook_wrapper::oracle::get_pyth_price;
+use deepbook_wrapper::oracle::{get_pyth_price, EPriceConfidenceExceedsThreshold, EStalePrice};
 use pyth::i64;
 use pyth::price;
 use pyth::price_feed;
@@ -53,11 +53,10 @@ fun happy() {
         test_scenario::ctx(&mut scenario),
     );
 
-    let (mut price_opt, price_identifier) = get_pyth_price(
+    let (price, price_identifier) = get_pyth_price(
         &price_info_object,
         &clock,
     );
-    let price = price_opt.extract();
     let price_mag = price.get_price().get_magnitude_if_positive();
 
     assert_eq!(price_mag, 8);
@@ -68,7 +67,7 @@ fun happy() {
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EPriceConfidenceExceedsThreshold)]
 fun confidence_interval_exceeded() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -97,21 +96,18 @@ fun confidence_interval_exceeded() {
         test_scenario::ctx(&mut scenario),
     );
 
-    let (price_opt, price_identifier) = get_pyth_price(
+    get_pyth_price(
         &price_info_object,
         &clock,
     );
 
-    // Confidence interval higher than 10% of the price
-    assert_eq!(price_opt, option::none());
-    assert_eq!(price_identifier, example_price_identifier());
-
+    // Cleanup won't be reached due to abort, but included for completeness
     price_info::destroy(price_info_object);
     clock::destroy_for_testing(clock);
     test_scenario::end(scenario);
 }
 
-#[test]
+#[test, expected_failure(abort_code = EStalePrice)]
 fun price_is_stale() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -141,14 +137,12 @@ fun price_is_stale() {
         test_scenario::ctx(&mut scenario),
     );
 
-    let (price_opt, price_identifier) = get_pyth_price(
+    get_pyth_price(
         &price_info_object,
         &clock,
     );
 
-    assert_eq!(price_opt, option::none());
-    assert_eq!(price_identifier, example_price_identifier());
-
+    // Cleanup won't be reached due to abort, but included for completeness
     price_info::destroy(price_info_object);
     clock::destroy_for_testing(clock);
     test_scenario::end(scenario);

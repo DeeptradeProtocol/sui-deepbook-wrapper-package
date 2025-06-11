@@ -20,6 +20,9 @@ const EIneligibleReferencePool: u64 = 1;
 #[error]
 const EInvalidSlippage: u64 = 2;
 
+#[error]
+const EInvalidPriceFeedIdentifier: vector<u8> = b"Invalid price feed identifier";
+
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
 public(package) fun get_fee_bps<BaseToken, QuoteToken>(pool: &Pool<BaseToken, QuoteToken>): u64 {
@@ -122,17 +125,18 @@ public(package) fun get_sui_per_deep<ReferenceBaseAsset, ReferenceQuoteAsset>(
     clock: &Clock,
 ): u64 {
     // Try to get price from oracle feeds first
-    let mut oracle_sui_per_deep_opt = get_sui_per_deep_from_oracle(
+    let oracle_sui_per_deep = get_sui_per_deep_from_oracle(
         deep_usd_price_info,
         sui_usd_price_info,
         clock,
     );
 
-    // Fall back to reference pool price if oracle price is unavailable
-    if (oracle_sui_per_deep_opt.is_none()) {
+    // WIP state!
+    // Fall back to reference pool price if oracle price is zero
+    if (oracle_sui_per_deep == 0) {
         get_sui_per_deep_from_reference_pool(reference_pool, clock)
     } else {
-        oracle_sui_per_deep_opt.extract()
+        oracle_sui_per_deep
     }
 }
 
@@ -205,10 +209,9 @@ public(package) fun get_sui_per_deep_from_reference_pool<ReferenceBaseAsset, Ref
 /// - clock: System clock for price staleness verification
 ///
 /// Returns:
-/// - Option<u64>: The calculated SUI per DEEP price with 12 decimal places if all validations pass,
-///   none otherwise
+/// - u64: The calculated SUI per DEEP price with 12 decimal places
 ///
-/// Returns none if:
+/// Aborts if:
 /// - Either price feed is unavailable
 /// - Price feed identifiers don't match expected DEEP/USD and SUI/USD feeds
 /// - Price validation fails (staleness, confidence interval)
@@ -218,46 +221,31 @@ public(package) fun get_sui_per_deep_from_oracle(
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
     clock: &Clock,
-): Option<u64> {
+): u64 {
     // Get DEEP/USD and SUI/USD prices
-    let (mut deep_usd_price_opt, deep_usd_price_identifier) = oracle::get_pyth_price(
+    let (deep_usd_price, deep_usd_price_identifier) = oracle::get_pyth_price(
         deep_usd_price_info,
         clock,
     );
-    let (mut sui_usd_price_opt, sui_usd_price_identifier) = oracle::get_pyth_price(
+    let (sui_usd_price, sui_usd_price_identifier) = oracle::get_pyth_price(
         sui_usd_price_info,
         clock,
     );
 
-    // Validate price availability
-    if (deep_usd_price_opt.is_none() || sui_usd_price_opt.is_none()) {
-        return option::none()
-    };
-
     // Validate price feed identifiers
     let deep_price_id = deep_usd_price_identifier.get_bytes();
     let sui_price_id = sui_usd_price_identifier.get_bytes();
-    if (
-        deep_price_id != oracle::get_deep_price_fee_id() ||
-        sui_price_id != oracle::get_sui_price_fee_id()
-    ) {
-        return option::none()
-    };
+    assert!(
+        deep_price_id == oracle::get_deep_price_fee_id() && sui_price_id == oracle::get_sui_price_fee_id(),
+        EInvalidPriceFeedIdentifier,
+    );
 
-    // Extract prices and validate their magnitudes and exponents
-    let deep_usd_price = deep_usd_price_opt.extract();
-    let sui_usd_price = sui_usd_price_opt.extract();
-
+    // Get magnitudes and exponents of the prices
     let deep_expo = deep_usd_price.get_expo().get_magnitude_if_negative();
     let sui_expo = sui_usd_price.get_expo().get_magnitude_if_negative();
 
     let deep_price_mag = deep_usd_price.get_price().get_magnitude_if_positive();
     let sui_price_mag = sui_usd_price.get_price().get_magnitude_if_positive();
-
-    // Return none if either price is zero
-    if (deep_price_mag == 0 || sui_price_mag == 0) {
-        return option::none()
-    };
 
     // Since Move doesn't support negative numbers, we calculate a positive adjustment
     // that can be applied either to numerator or denominator to achieve the same result
@@ -278,7 +266,7 @@ public(package) fun get_sui_per_deep_from_oracle(
         math::div(deep_price_mag, sui_price_mag * multiplier)
     };
 
-    option::some(sui_per_deep)
+    sui_per_deep
 }
 
 /// Calculates base quantity and DEEP requirements for a market order based on order type
