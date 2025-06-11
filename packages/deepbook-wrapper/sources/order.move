@@ -1759,20 +1759,3 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
 ): (deepbook::order_info::OrderInfo) {
     abort EFunctionDeprecated
 }
-
-#[deprecated(note = b"This function is deprecated. Please use `create_order_core` instead.")]
-public(package) fun create_limit_order_core(
-    _is_pool_whitelisted: bool,
-    _deep_required: u64,
-    _balance_manager_deep: u64,
-    _balance_manager_sui: u64,
-    _balance_manager_input_coin: u64,
-    _deep_in_wallet: u64,
-    _sui_in_wallet: u64,
-    _wallet_input_coin: u64,
-    _wrapper_deep_reserves: u64,
-    _order_amount: u64,
-    _sui_per_deep: u64,
-): (DeepPlan, FeePlan, InputCoinDepositPlan) {
-    abort EFunctionDeprecated
-}
