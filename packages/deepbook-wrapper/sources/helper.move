@@ -96,47 +96,48 @@ public(package) fun get_order_deep_price_params<BaseToken, QuoteToken>(
     (order_deep_price.asset_is_base(), order_deep_price.deep_per_asset())
 }
 
-/// Gets the SUI per DEEP price, primarily from oracle price feeds with fallback to reference pool
+/// Gets the DEEP/SUI price by comparing oracle and reference pool prices and selecting the best rate for the wrapper
 ///
-/// This function implements a two-step price retrieval strategy:
-/// 1. Attempts to calculate price from DEEP/USD and SUI/USD oracle feeds
-/// 2. Falls back to reference pool's price if oracle prices are unavailable or invalid
+/// This function implements a dual-price strategy to prevent arbitrage:
+/// 1. Gets price from both oracle feeds and reference pool (both must be healthy)
+/// 2. Returns the MAXIMUM price (users pay more SUI for DEEP)
 ///
 /// The reference pool must be either DEEP/SUI or SUI/DEEP trading pair and must be
-/// whitelisted and registered. This ensures reliable fallback price source.
+/// whitelisted and registered.
 ///
 /// Parameters:
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
-/// - reference_pool: Pool containing DEEP/SUI or SUI/DEEP trading pair for fallback
+/// - reference_pool: Pool containing DEEP/SUI or SUI/DEEP trading pair
 /// - clock: System clock for price staleness verification
 ///
 /// Returns:
-/// - u64: SUI per DEEP price with 12 decimal places
+/// - u64: DEEP/SUI price with 12 decimal places (maximum of oracle and reference pool)
 ///
 /// Aborts if:
+/// - Oracle price feeds are invalid, stale, or unavailable
 /// - Reference pool is not whitelisted/registered
 /// - Reference pool doesn't contain DEEP and SUI tokens
-/// - Both oracle prices and reference pool price are invalid/unavailable
+/// - Reference pool price calculation fails
 public(package) fun get_sui_per_deep<ReferenceBaseAsset, ReferenceQuoteAsset>(
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
     clock: &Clock,
 ): u64 {
-    // Try to get price from oracle feeds first
+    // Get prices from both sources
     let oracle_sui_per_deep = get_sui_per_deep_from_oracle(
         deep_usd_price_info,
         sui_usd_price_info,
         clock,
     );
+    let reference_sui_per_deep = get_sui_per_deep_from_reference_pool(reference_pool, clock);
 
-    // WIP state!
-    // Fall back to reference pool price if oracle price is zero
-    if (oracle_sui_per_deep == 0) {
-        get_sui_per_deep_from_reference_pool(reference_pool, clock)
-    } else {
+    // Choose maximum (best for wrapper - users pay more SUI for DEEP)
+    if (oracle_sui_per_deep > reference_sui_per_deep) {
         oracle_sui_per_deep
+    } else {
+        reference_sui_per_deep
     }
 }
 
