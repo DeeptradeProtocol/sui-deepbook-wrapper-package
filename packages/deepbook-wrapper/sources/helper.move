@@ -12,13 +12,12 @@ use sui::sui::SUI;
 use token::deep::DEEP;
 
 // === Errors ===
-/// Error when the reference pool is not eligible for the order
 #[error]
-const EIneligibleReferencePool: u64 = 1;
+const EIneligibleReferencePool: vector<u8> = b"Reference pool is not eligible for the order";
 
-/// Error when the slippage is invalid (greater than 100% in billionths)
+/// Error when the slippage is greater than 100% in billionths
 #[error]
-const EInvalidSlippage: u64 = 2;
+const EInvalidSlippage: vector<u8> = b"Invalid slippage";
 
 #[error]
 const EInvalidPriceFeedIdentifier: vector<u8> = b"Invalid price feed identifier";
