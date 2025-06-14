@@ -8,6 +8,7 @@ use deepbook_wrapper::helper::{
     calculate_market_order_params
 };
 use deepbook_wrapper::math;
+use deepbook_wrapper::oracle::OracleConfig;
 use pyth::price_info::PriceInfoObject;
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
@@ -32,6 +33,7 @@ const EFunctionDeprecated: vector<u8> = b"Function is deprecated";
 /// Parameters:
 /// - pool: The trading pool where the order will be placed
 /// - reference_pool: Reference pool for price calculation
+/// - config: Oracle configuration object
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - deep_in_balance_manager: Amount of DEEP available in user's balance manager
@@ -54,6 +56,7 @@ public fun estimate_full_fee_limit_v3<
 >(
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    config: &OracleConfig,
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
     deep_in_balance_manager: u64,
@@ -67,6 +70,7 @@ public fun estimate_full_fee_limit_v3<
 
     // Get the best DEEP/SUI price
     let sui_per_deep = get_sui_per_deep(
+        config,
         deep_usd_price_info,
         sui_usd_price_info,
         reference_pool,
@@ -95,6 +99,7 @@ public fun estimate_full_fee_limit_v3<
 /// Parameters:
 /// - pool: The trading pool where the order will be placed
 /// - reference_pool: Reference pool for price calculation
+/// - config: Oracle configuration object
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - deep_in_balance_manager: Amount of DEEP available in user's balance manager
@@ -117,6 +122,7 @@ public fun estimate_full_fee_market_v3<
 >(
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    config: &OracleConfig,
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
     deep_in_balance_manager: u64,
@@ -130,6 +136,7 @@ public fun estimate_full_fee_market_v3<
 
     // Get the best DEEP/SUI price
     let sui_per_deep = get_sui_per_deep(
+        config,
         deep_usd_price_info,
         sui_usd_price_info,
         reference_pool,

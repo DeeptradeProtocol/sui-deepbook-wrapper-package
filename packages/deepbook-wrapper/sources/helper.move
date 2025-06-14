@@ -3,7 +3,7 @@ module deepbook_wrapper::helper;
 use deepbook::constants;
 use deepbook::pool::{Self, Pool};
 use deepbook_wrapper::math;
-use deepbook_wrapper::oracle;
+use deepbook_wrapper::oracle::{Self, OracleConfig};
 use pyth::price_info::PriceInfoObject;
 use std::type_name;
 use sui::clock::Clock;
@@ -109,6 +109,7 @@ public(package) fun get_order_deep_price_params<BaseToken, QuoteToken>(
 /// whitelisted and registered.
 ///
 /// Parameters:
+/// - config: Oracle configuration object
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - reference_pool: Pool containing DEEP/SUI or SUI/DEEP trading pair
@@ -123,6 +124,7 @@ public(package) fun get_order_deep_price_params<BaseToken, QuoteToken>(
 /// - Reference pool doesn't contain DEEP and SUI tokens
 /// - Reference pool price calculation fails
 public(package) fun get_sui_per_deep<ReferenceBaseAsset, ReferenceQuoteAsset>(
+    config: &OracleConfig,
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -130,6 +132,7 @@ public(package) fun get_sui_per_deep<ReferenceBaseAsset, ReferenceQuoteAsset>(
 ): u64 {
     // Get prices from both sources
     let oracle_sui_per_deep = get_sui_per_deep_from_oracle(
+        config,
         deep_usd_price_info,
         sui_usd_price_info,
         clock,
@@ -210,6 +213,7 @@ public(package) fun get_sui_per_deep_from_reference_pool<ReferenceBaseAsset, Ref
 /// 4. Adjusts decimal places to match DeepBook's DEEP/SUI price format (12 decimals)
 ///
 /// Parameters:
+/// - config: Oracle configuration object
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - clock: System clock for price staleness verification
@@ -224,6 +228,7 @@ public(package) fun get_sui_per_deep_from_reference_pool<ReferenceBaseAsset, Ref
 ///
 /// Technical details of the price calculation can be found in docs/oracle-price-calculation.md
 public(package) fun get_sui_per_deep_from_oracle(
+    config: &OracleConfig,
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
     clock: &Clock,
@@ -242,7 +247,8 @@ public(package) fun get_sui_per_deep_from_oracle(
     let deep_price_id = deep_usd_price_identifier.get_bytes();
     let sui_price_id = sui_usd_price_identifier.get_bytes();
     assert!(
-        deep_price_id == oracle::get_deep_price_feed_id() && sui_price_id == oracle::get_sui_price_feed_id(),
+        deep_price_id == oracle::get_deep_price_feed_id(config) &&
+            sui_price_id == oracle::get_sui_price_feed_id(config),
         EInvalidPriceFeedIdentifier,
     );
 

@@ -16,6 +16,7 @@ use deepbook_wrapper::helper::{
     validate_slippage,
     apply_slippage
 };
+use deepbook_wrapper::oracle::OracleConfig;
 use deepbook_wrapper::wrapper::{
     Wrapper,
     join_deep_reserves_coverage_fee,
@@ -121,6 +122,7 @@ const EFunctionDeprecated: u64 = 1000;
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
 /// - reference_pool: Reference pool for price calculation
+/// - config: Oracle configuration object
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
@@ -144,6 +146,7 @@ public fun create_limit_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    config: &OracleConfig,
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
     balance_manager: &mut BalanceManager,
@@ -176,6 +179,7 @@ public fun create_limit_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
         wrapper,
         pool,
         reference_pool,
+        config,
         deep_usd_price_info,
         sui_usd_price_info,
         balance_manager,
@@ -227,6 +231,7 @@ public fun create_limit_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
 /// - reference_pool: Reference pool for price calculation
+/// - config: Oracle configuration object
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
@@ -248,6 +253,7 @@ public fun create_market_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Ref
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    config: &OracleConfig,
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
     balance_manager: &mut BalanceManager,
@@ -279,6 +285,7 @@ public fun create_market_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Ref
         wrapper,
         pool,
         reference_pool,
+        config,
         deep_usd_price_info,
         sui_usd_price_info,
         balance_manager,
@@ -1067,6 +1074,7 @@ public(package) fun validate_fees_against_max(
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
 /// - reference_pool: Reference pool used for fallback DEEP/SUI price calculation
+/// - config: Oracle configuration object
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
@@ -1086,6 +1094,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     wrapper: &mut Wrapper,
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    config: &OracleConfig,
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
     balance_manager: &mut BalanceManager,
@@ -1112,6 +1121,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
 
     // Get the best DEEP/SUI price
     let sui_per_deep = get_sui_per_deep(
+        config,
         deep_usd_price_info,
         sui_usd_price_info,
         reference_pool,
