@@ -24,6 +24,10 @@ const EInvalidPriceFeedIdentifier: u64 = 3;
 /// Error when there are no ask prices available in the order book
 const ENoAskPrice: u64 = 4;
 
+#[error]
+const EUnexpectedPositiveExponent: vector<u8> =
+    b"Price feed returned positive exponent, indicating significant Pyth format change requiring manual review";
+
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
 public(package) fun get_fee_bps<BaseToken, QuoteToken>(pool: &Pool<BaseToken, QuoteToken>): u64 {
@@ -245,8 +249,15 @@ public(package) fun get_sui_per_deep_from_oracle(
     );
 
     // Get magnitudes and exponents of the prices
-    let deep_expo = deep_usd_price.get_expo().get_magnitude_if_negative();
-    let sui_expo = sui_usd_price.get_expo().get_magnitude_if_negative();
+    let deep_expo_i64 = deep_usd_price.get_expo();
+    let sui_expo_i64 = sui_usd_price.get_expo();
+
+    // Explicit checks for negative exponents - fail fast if Pyth changes format
+    assert!(deep_expo_i64.get_is_negative(), EUnexpectedPositiveExponent);
+    assert!(sui_expo_i64.get_is_negative(), EUnexpectedPositiveExponent);
+
+    let deep_expo = deep_expo_i64.get_magnitude_if_negative();
+    let sui_expo = sui_expo_i64.get_magnitude_if_negative();
 
     let deep_price_mag = deep_usd_price.get_price().get_magnitude_if_positive();
     let sui_price_mag = sui_usd_price.get_price().get_magnitude_if_positive();
