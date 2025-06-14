@@ -22,7 +22,7 @@ class MoveCodeAnalyzer {
       docComment: /^\s*\/\/\/.*$/,
       blankLine: /^\s*$/,
       // Deprecated method patterns (based on actual codebase)
-      deprecatedAttribute: /^\s*#?\s*\[?deprecated\b/i,
+      deprecatedAttribute: /^\s*#\[\s*$/, // More precise: must start with #[
       deprecatedSectionHeader: /^\s*\/\/.*===.*deprecated.*===/i,
       deprecatedComment: /^\s*\/\/.*deprecated/i,
       deprecatedConstant: /^\s*const\s+.*deprecated.*:/i,
@@ -54,8 +54,17 @@ class MoveCodeAnalyzer {
   }
 
   countBraces(line) {
-    const openBraces = (line.match(/{/g) || []).length;
-    const closeBraces = (line.match(/}/g) || []).length;
+    // Remove string literals and comments before counting braces
+    let cleanLine = line;
+
+    // Remove string literals (basic implementation for b"..." and "...")
+    cleanLine = cleanLine.replace(/b?"[^"]*"/g, '""');
+
+    // Remove single-line comments
+    cleanLine = cleanLine.replace(/\/\/.*$/, "");
+
+    const openBraces = (cleanLine.match(/{/g) || []).length;
+    const closeBraces = (cleanLine.match(/}/g) || []).length;
     return openBraces - closeBraces;
   }
 
@@ -64,8 +73,8 @@ class MoveCodeAnalyzer {
   }
 
   containsDeprecated(line) {
-    // Only match 'deprecated' in attribute context, not in variable names or strings
-    return /^\s*deprecated\s*\(/.test(line.trim());
+    // Match 'deprecated(' anywhere on the line within attribute context
+    return /deprecated\s*\(/.test(line.trim());
   }
 
   startsFunctionBody(line) {
@@ -85,9 +94,7 @@ class MoveCodeAnalyzer {
     };
 
     let inMultiLineComment = false;
-    let inDeprecatedBlock = false;
-    let braceDepth = 0;
-    let lookingForDeprecated = false;
+    let inDeprecatedSection = false;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -107,36 +114,14 @@ class MoveCodeAnalyzer {
         continue;
       }
 
-      // Simplified deprecated block detection
-      // Step 1: Start looking when we see #[
-      if (this.startsAttribute(line)) {
-        lookingForDeprecated = true;
+      // Simple deprecated section detection - start counting after the marker
+      if (line.includes("// === Deprecated Functions ===")) {
+        inDeprecatedSection = true;
+        stats.comments++; // Count the marker itself as a comment
+        continue;
       }
 
-      // Step 2: If we find 'deprecated' while looking, start deprecated block
-      if (lookingForDeprecated && this.containsDeprecated(line)) {
-        inDeprecatedBlock = true;
-        lookingForDeprecated = false;
-        braceDepth = 0;
-      }
-
-      // Step 3: Track brace depth to know when function ends
-      if (inDeprecatedBlock) {
-        braceDepth += this.countBraces(line);
-
-        // Exit when braces balance back to 0 (function complete)
-        if (braceDepth <= 0 && line.includes("}")) {
-          inDeprecatedBlock = false;
-          braceDepth = 0;
-        }
-      }
-
-      // Reset looking state if we go too far without finding deprecated
-      if (lookingForDeprecated && this.isFunctionStart(line) && !inDeprecatedBlock) {
-        lookingForDeprecated = false;
-      }
-
-      // Simplified line classification with proper prioritization
+      // Line classification with proper prioritization
       if (this.patterns.blankLine.test(line)) {
         stats.blank++;
       } else if (
@@ -145,11 +130,8 @@ class MoveCodeAnalyzer {
         this.patterns.multiLineCommentFull.test(line)
       ) {
         stats.comments++;
-      } else if (inDeprecatedBlock) {
-        // Inside deprecated block - count as deprecated code (including attributes, function signature, body)
-        stats.deprecated++;
-      } else if (this.isDeprecatedLine(line)) {
-        // Standalone deprecated markers (outside functions) - fallback case
+      } else if (inDeprecatedSection) {
+        // Inside deprecated section - count as deprecated code (including attributes, function signatures, bodies)
         stats.deprecated++;
       } else {
         stats.code++;
