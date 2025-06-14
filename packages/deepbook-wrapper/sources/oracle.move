@@ -1,5 +1,6 @@
 module deepbook_wrapper::oracle;
 
+use deepbook_wrapper::admin::AdminCap;
 use pyth::price::Price;
 use pyth::price_identifier::PriceIdentifier;
 use pyth::price_info::PriceInfoObject;
@@ -12,13 +13,21 @@ const MIN_CONFIDENCE_RATIO: u64 = 20;
 /// Maximum allowed price staleness in seconds
 const MAX_STALENESS_SECONDS: u64 = 60;
 
-/// DEEP price feed id
-const DEEP_PRICE_FEED_ID: vector<u8> =
+/// Initial DEEP price feed id (used during initialization)
+const INITIAL_DEEP_PRICE_FEED_ID: vector<u8> =
     x"29bdd5248234e33bd93d3b81100b5fa32eaa5997843847e2c2cb16d7c6d9f7ff";
 
-/// SUI price feed id
-const SUI_PRICE_FEED_ID: vector<u8> =
+/// Initial SUI price feed id (used during initialization)
+const INITIAL_SUI_PRICE_FEED_ID: vector<u8> =
     x"23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744";
+
+// === Structs ===
+/// Configuration object that stores the current price feed IDs
+public struct OracleConfig has key {
+    id: UID,
+    deep_price_feed_id: vector<u8>,
+    sui_price_feed_id: vector<u8>,
+}
 
 // === Errors ===
 #[error]
@@ -31,6 +40,37 @@ const EStalePrice: vector<u8> = b"Oracle price is stale";
 #[error]
 const EZeroPriceMagnitude: vector<u8> = b"Price magnitude is zero";
 
+// === Public-Mutative Functions ===
+/// Update the DEEP price feed ID
+public fun update_deep_price_feed_id(
+    config: &mut OracleConfig,
+    _admin_cap: &AdminCap,
+    new_feed_id: vector<u8>,
+) {
+    config.deep_price_feed_id = new_feed_id;
+}
+
+/// Update the SUI price feed ID
+public fun update_sui_price_feed_id(
+    config: &mut OracleConfig,
+    _admin_cap: &AdminCap,
+    new_feed_id: vector<u8>,
+) {
+    config.sui_price_feed_id = new_feed_id;
+}
+
+/// Update both price feed IDs at once
+public fun update_price_feed_ids(
+    config: &mut OracleConfig,
+    _admin_cap: &AdminCap,
+    new_deep_feed_id: vector<u8>,
+    new_sui_feed_id: vector<u8>,
+) {
+    config.deep_price_feed_id = new_deep_feed_id;
+    config.sui_price_feed_id = new_sui_feed_id;
+}
+
+// === Public-View Functions ===
 /// Retrieves and validates the price from Pyth oracle
 /// This function performs the following validation steps:
 /// 1. Extracts the price and confidence interval from the Pyth price feed
@@ -81,10 +121,41 @@ public fun get_pyth_price(
     (price, price_identifier)
 }
 
-public fun get_deep_price_feed_id(): vector<u8> {
-    DEEP_PRICE_FEED_ID
+/// Get the current DEEP price feed ID from configuration
+public fun get_deep_price_feed_id(config: &OracleConfig): vector<u8> {
+    config.deep_price_feed_id
 }
 
-public fun get_sui_price_feed_id(): vector<u8> {
-    SUI_PRICE_FEED_ID
+/// Get the current SUI price feed ID from configuration
+public fun get_sui_price_feed_id(config: &OracleConfig): vector<u8> {
+    config.sui_price_feed_id
+}
+
+/// Get both price feed IDs from configuration
+public fun get_price_feed_ids(config: &OracleConfig): (vector<u8>, vector<u8>) {
+    (config.deep_price_feed_id, config.sui_price_feed_id)
+}
+
+// === Private Functions ===
+/// Initialize the oracle configuration with default price feed IDs
+fun init(ctx: &mut TxContext) {
+    let config = OracleConfig {
+        id: object::new(ctx),
+        deep_price_feed_id: INITIAL_DEEP_PRICE_FEED_ID,
+        sui_price_feed_id: INITIAL_SUI_PRICE_FEED_ID,
+    };
+    transfer::share_object(config);
+}
+
+#[test_only]
+public fun create_oracle_config_for_testing(
+    deep_feed_id: vector<u8>,
+    sui_feed_id: vector<u8>,
+    ctx: &mut TxContext,
+): OracleConfig {
+    OracleConfig {
+        id: object::new(ctx),
+        deep_price_feed_id: deep_feed_id,
+        sui_price_feed_id: sui_feed_id,
+    }
 }
