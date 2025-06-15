@@ -32,12 +32,10 @@ public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop,
 
 // === Errors ===
 /// Error when the user has not enough DEEP to cover the deepbook and protocol fees
-#[error]
 const ENotEnoughFee: u64 = 1;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
-#[error]
 const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===

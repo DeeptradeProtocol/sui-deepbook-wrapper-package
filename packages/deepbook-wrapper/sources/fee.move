@@ -21,8 +21,9 @@ const PROTOCOL_FEE_BPS: u64 = 10_000_000;
 const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
 
 // === Errors ===
-#[error]
-const EFunctionDeprecated: vector<u8> = b"Function is deprecated";
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+const EFunctionDeprecated: u64 = 1000;
 
 // === Public-View Functions ===
 /// Calculates the total fee estimate for a limit order in SUI coins
