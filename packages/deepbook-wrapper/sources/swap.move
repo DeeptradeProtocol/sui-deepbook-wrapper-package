@@ -35,7 +35,8 @@ const EInsufficientOutputAmount: u64 = 1;
 /// 1. Handles DEEP payment for non-whitelisted pools
 /// 2. Executes swap through DeepBook
 /// 3. Processes wrapper fees
-/// 4. Returns remaining base and received quote tokens
+/// 4. Validates minimum output amount meets user requirements
+/// 5. Returns remaining base and received quote tokens
 public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
@@ -93,7 +94,8 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
 /// 1. Handles DEEP payment for non-whitelisted pools
 /// 2. Executes swap through DeepBook
 /// 3. Processes wrapper fees
-/// 4. Returns received base and remaining quote tokens
+/// 4. Validates minimum output amount meets user requirements
+/// 5. Returns received base and remaining quote tokens
 public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
@@ -151,7 +153,8 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
 /// # Flow
 /// 1. Executes swap through DeepBook
 /// 2. Processes wrapper fees
-/// 3. Returns remaining base and received quote tokens
+/// 3. Validates minimum output amount meets user requirements
+/// 4. Returns remaining base and received quote tokens
 public fun swap_exact_base_for_quote_input_fee<BaseToken, QuoteToken>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
@@ -202,7 +205,8 @@ public fun swap_exact_base_for_quote_input_fee<BaseToken, QuoteToken>(
 /// # Flow
 /// 1. Executes swap through DeepBook
 /// 2. Processes wrapper fees
-/// 3. Returns received base and remaining quote tokens
+/// 3. Validates minimum output amount meets user requirements
+/// 4. Returns received base and remaining quote tokens
 public fun swap_exact_quote_for_base_input_fee<BaseToken, QuoteToken>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
