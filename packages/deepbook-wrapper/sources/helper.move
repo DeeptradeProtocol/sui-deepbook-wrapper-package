@@ -13,18 +13,16 @@ use token::deep::DEEP;
 
 // === Errors ===
 /// Error when the reference pool is not eligible for the order
-#[error]
 const EIneligibleReferencePool: u64 = 1;
 
 /// Error when the slippage is invalid (greater than 100% in billionths)
-#[error]
 const EInvalidSlippage: u64 = 2;
 
-#[error]
-const EInvalidPriceFeedIdentifier: vector<u8> = b"Invalid price feed identifier";
+/// Error when the provided price feed identifier doesn't match the expected one
+const EInvalidPriceFeedIdentifier: u64 = 3;
 
-#[error]
-const ENoAskPrice: vector<u8> = b"No ask price available in the order book";
+/// Error when there are no ask prices available in the order book
+const ENoAskPrice: u64 = 4;
 
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
