@@ -13,6 +13,10 @@ use deepbook_wrapper::wrapper::{
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
 
+// === Errors ===
+/// Error when the final output amount is below the user's specified minimum
+const EInsufficientOutputAmount: u64 = 1;
+
 // === Public-Mutative Functions ===
 /// Swaps a specific amount of base tokens for quote tokens.
 ///
@@ -65,6 +69,9 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
 
     let fee_bps = get_fee_bps(pool);
     join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
+
+    // Verify that the final output after wrapper fees still meets the user's minimum requirement
+    validate_minimum_output(&result_quote, min_quote_out);
 
     (base_remainder, result_quote)
 }
@@ -121,6 +128,9 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
     let fee_bps = get_fee_bps(pool);
     join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
 
+    // Verify that the final output after wrapper fees still meets the user's minimum requirement
+    validate_minimum_output(&result_base, min_base_out);
+
     (result_base, quote_remainder)
 }
 
@@ -169,6 +179,9 @@ public fun swap_exact_base_for_quote_input_fee<BaseToken, QuoteToken>(
     let fee_bps = get_fee_bps(pool);
     join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
 
+    // Verify that the final output after wrapper fees still meets the user's minimum requirement
+    validate_minimum_output(&result_quote, min_quote_out);
+
     (base_remainder, result_quote)
 }
 
@@ -216,6 +229,9 @@ public fun swap_exact_quote_for_base_input_fee<BaseToken, QuoteToken>(
 
     let fee_bps = get_fee_bps(pool);
     join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
+
+    // Verify that the final output after wrapper fees still meets the user's minimum requirement
+    validate_minimum_output(&result_base, min_base_out);
 
     (result_base, quote_remainder)
 }
@@ -311,6 +327,16 @@ public fun get_quantity_out_input_fee<BaseToken, QuoteToken>(
 }
 
 // === Private Functions ===
+/// Validates that a coin's value meets the minimum required amount
+/// Aborts with EInsufficientOutputAmount if the check fails
+///
+/// # Arguments
+/// * `coin` - The coin to validate
+/// * `minimum` - The minimum required value
+fun validate_minimum_output<CoinType>(coin: &Coin<CoinType>, minimum: u64) {
+    assert!(coin.value() >= minimum, EInsufficientOutputAmount);
+}
+
 /// Applies wrapper protocol fees to the output quantities from a DeepBook swap operation.
 /// This function handles fee calculations for both base-to-quote and quote-to-base swaps.
 ///
