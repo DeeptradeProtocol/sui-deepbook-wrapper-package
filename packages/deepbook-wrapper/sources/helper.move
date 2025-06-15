@@ -24,9 +24,8 @@ const EInvalidPriceFeedIdentifier: u64 = 3;
 /// Error when there are no ask prices available in the order book
 const ENoAskPrice: u64 = 4;
 
-#[error]
-const EUnexpectedPositiveExponent: vector<u8> =
-    b"Price feed returned positive exponent, indicating significant Pyth format change requiring manual review";
+/// Error when the price feed returned positive exponent, indicating significant Pyth format change requiring manual review
+const EUnexpectedPositiveExponent: u64 = 5;
 
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
