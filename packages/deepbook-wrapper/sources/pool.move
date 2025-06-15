@@ -31,13 +31,12 @@ public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop,
 }
 
 // === Errors ===
-#[error]
-const ENotEnoughFee: vector<u8> =
-    b"User does not have enough DEEP coins to cover DeepBook and protocol fees for pool creation";
+/// Error when the user has not enough DEEP to cover the deepbook and protocol fees
+const ENotEnoughFee: u64 = 1;
 
-#[error]
-const EFunctionDeprecated: vector<u8> =
-    b"This function has been deprecated and is no longer supported";
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===
 /// Creates a new permissionless pool for trading between BaseAsset and QuoteAsset

@@ -12,22 +12,20 @@ use sui::sui::SUI;
 use token::deep::DEEP;
 
 // === Errors ===
-#[error]
-const EIneligibleReferencePool: vector<u8> = b"Reference pool is not eligible for the order";
+/// Error when the reference pool is not eligible for the order
+const EIneligibleReferencePool: u64 = 1;
 
-/// Error when the slippage is greater than 100% in billionths
-#[error]
-const EInvalidSlippage: vector<u8> = b"Invalid slippage";
+/// Error when the slippage is invalid (greater than 100% in billionths)
+const EInvalidSlippage: u64 = 2;
 
-#[error]
-const EInvalidPriceFeedIdentifier: vector<u8> = b"Invalid price feed identifier";
+/// Error when the provided price feed identifier doesn't match the expected one
+const EInvalidPriceFeedIdentifier: u64 = 3;
 
-#[error]
-const ENoAskPrice: vector<u8> = b"No ask price available in the order book";
+/// Error when there are no ask prices available in the order book
+const ENoAskPrice: u64 = 4;
 
-#[error]
-const EUnexpectedPositiveExponent: vector<u8> =
-    b"Price feed returned positive exponent, indicating significant Pyth format change requiring manual review";
+/// Error when the price feed returned positive exponent, indicating significant Pyth format change requiring manual review
+const EUnexpectedPositiveExponent: u64 = 5;
 
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
