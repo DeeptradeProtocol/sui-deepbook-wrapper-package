@@ -7,7 +7,6 @@ use deepbook_wrapper::wrapper::{
     Wrapper,
     join_deep_reserves_coverage_fee,
     join,
-    get_deep_reserves_value,
     split_deep_reserves
 };
 use sui::clock::Clock;
@@ -49,8 +48,9 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
     let deep_payment = if (pool::whitelisted(pool)) {
         coin::zero(ctx)
     } else {
-        let deep_reserves_value = get_deep_reserves_value(wrapper);
-        split_deep_reserves(wrapper, deep_reserves_value, ctx)
+        let base_quantity = base_in.value();
+        let (_, _, deep_required) = pool.get_quote_quantity_out(base_quantity, clock);
+        split_deep_reserves(wrapper, deep_required, ctx)
     };
 
     // Execute swap through DeepBook's native swap function
@@ -108,8 +108,9 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
     let deep_payment = if (pool::whitelisted(pool)) {
         coin::zero(ctx)
     } else {
-        let deep_reserves_value = get_deep_reserves_value(wrapper);
-        split_deep_reserves(wrapper, deep_reserves_value, ctx)
+        let quote_quantity = quote_in.value();
+        let (_, _, deep_required) = pool.get_base_quantity_out(quote_quantity, clock);
+        split_deep_reserves(wrapper, deep_required, ctx)
     };
 
     // Execute swap through DeepBook's native swap function
