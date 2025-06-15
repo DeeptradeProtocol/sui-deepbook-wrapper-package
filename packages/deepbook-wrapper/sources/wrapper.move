@@ -27,13 +27,14 @@ public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
 }
 
 // === Errors ===
+/// Error when trying to use a fund capability with a different wrapper than it was created for
 #[error]
-const EInvalidFundCap: vector<u8> =
-    b"Fund capability does not match the wrapper it was created for";
+const EInvalidFundCap: u64 = 1;
 
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
 #[error]
-const EFunctionDeprecated: vector<u8> =
-    b"This function has been deprecated and is no longer supported";
+const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===
 /// Create a new fund capability for the wrapper

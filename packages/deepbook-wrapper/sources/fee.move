@@ -22,8 +22,7 @@ const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
 
 // === Errors ===
 #[error]
-const EFunctionDeprecated: vector<u8> =
-    b"This function has been deprecated and is no longer supported";
+const EFunctionDeprecated: vector<u8> = b"Function is deprecated";
 
 // === Public-View Functions ===
 /// Calculates the total fee estimate for a limit order in SUI coins

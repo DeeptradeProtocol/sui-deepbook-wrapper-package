@@ -82,32 +82,27 @@ public struct InputCoinFeePlan has copy, drop {
 }
 
 // === Errors ===
-#[error]
-const EInsufficientDeepReserves: vector<u8> =
-    b"Wrapper does not have enough DEEP reserves to cover order requirements";
+/// Error when trying to use deep from reserves but there is not enough available
+const EInsufficientDeepReserves: u64 = 1;
 
-#[error]
-const EInsufficientFee: vector<u8> =
-    b"User does not have sufficient coins to cover the wrapper fees";
+/// Error when user doesn't have enough coins to cover the required fee
+const EInsufficientFee: u64 = 2;
 
-#[error]
-const EInsufficientInput: vector<u8> = b"User does not have enough input coins to place the order";
+/// Error when user doesn't have enough input coins to create the order
+const EInsufficientInput: u64 = 3;
 
-#[error]
-const EInvalidOwner: vector<u8> =
-    b"Transaction sender is not the owner of the provided balance manager";
+/// Error when the caller is not the owner of the balance manager
+const EInvalidOwner: u64 = 4;
 
-#[error]
-const EDeepRequiredExceedsMax: vector<u8> =
-    b"Actual DEEP requirement exceeds maximum allowed amount with applied slippage";
+/// Error when actual deep required exceeds the max deep required
+const EDeepRequiredExceedsMax: u64 = 5;
 
-#[error]
-const ESuiFeeExceedsMax: vector<u8> =
-    b"Actual SUI fee exceeds maximum allowed amount with applied slippage";
+/// Error when actual sui fee exceeds the max sui fee
+const ESuiFeeExceedsMax: u64 = 6;
 
-#[error]
-const EFunctionDeprecated: vector<u8> =
-    b"This function has been deprecated and is no longer supported";
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===
 /// Creates a limit order on DeepBook using coins from various sources
