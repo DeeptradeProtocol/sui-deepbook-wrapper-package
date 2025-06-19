@@ -6,10 +6,15 @@ use deepbook_wrapper::math;
 use deepbook_wrapper::oracle;
 use pyth::price_info::PriceInfoObject;
 use std::type_name;
+use std::u64;
 use sui::clock::Clock;
 use sui::coin::Coin;
 use sui::sui::SUI;
 use token::deep::DEEP;
+
+// === Constants ===
+/// The maximum power of 10 that doesn't overflow u64. 10^20 overflows u64
+const MAX_SAFE_U64_POWER_OF_TEN: u64 = 19;
 
 // === Errors ===
 /// Error when the reference pool is not eligible for the order
@@ -25,6 +30,9 @@ const EInvalidPriceFeedIdentifier: vector<u8> = b"Invalid price feed identifier"
 
 #[error]
 const ENoAskPrice: vector<u8> = b"No ask price available in the order book";
+
+/// Error when the decimal adjustment exceeds maximum safe power of 10 for u64
+const EDecimalAdjustmentTooLarge: u64 = 5;
 
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
@@ -261,7 +269,10 @@ public(package) fun get_sui_per_deep_from_oracle(
     } else {
         deep_expo - 3 - sui_expo
     };
-    let multiplier = math::pow(10, decimal_adjustment);
+
+    // Verify that the decimal adjustment is within the safe range
+    assert!(decimal_adjustment <= MAX_SAFE_U64_POWER_OF_TEN, EDecimalAdjustmentTooLarge);
+    let multiplier = u64::pow(10, decimal_adjustment as u8);
 
     // Calculate SUI per DEEP price
     // The multiplier position (numerator vs denominator) depends on the exponent delta
