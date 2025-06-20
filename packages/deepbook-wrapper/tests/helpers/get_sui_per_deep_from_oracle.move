@@ -57,11 +57,7 @@ fun deep_price_object_is_out_of_confidence() {
     // Function should abort when DEEP price is out of confidence
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EStalePrice)]
@@ -101,11 +97,7 @@ fun deep_price_object_is_stale() {
     // Function should abort when DEEP price is stale (> 60 seconds old)
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 #[test, expected_failure(abort_code = EPriceConfidenceExceedsThreshold)]
 fun sui_price_object_is_out_of_confidence() {
@@ -140,11 +132,7 @@ fun sui_price_object_is_out_of_confidence() {
     // Function should abort when SUI price is out of confidence
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EStalePrice)]
@@ -184,11 +172,7 @@ fun sui_price_object_is_stale() {
     // Function should abort when SUI price is stale (> 60 seconds old)
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EPriceConfidenceExceedsThreshold)]
@@ -224,11 +208,7 @@ fun both_prices_are_out_of_confidence() {
     // Function should abort when both prices are out of confidence
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EStalePrice)]
@@ -268,11 +248,7 @@ fun both_prices_are_stale() {
     // Function should abort when both prices are stale (> 60 seconds old)
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EInvalidPriceFeedIdentifier)]
@@ -309,11 +285,7 @@ fun deep_price_id_is_wrong() {
     // Function should abort when DEEP price ID is wrong
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EInvalidPriceFeedIdentifier)]
@@ -350,11 +322,7 @@ fun sui_price_id_is_wrong() {
     // Function should abort when SUI price ID is wrong
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EInvalidPriceFeedIdentifier)]
@@ -391,11 +359,7 @@ fun both_price_ids_are_wrong() {
     // Function should abort when both price IDs are wrong
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EInvalidPriceFeedIdentifier)]
@@ -432,11 +396,7 @@ fun max_deep_price_and_invalid_sui_id() {
     // Function should abort when SUI price ID is wrong, even with valid max DEEP price
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EInvalidPriceFeedIdentifier)]
@@ -473,11 +433,7 @@ fun max_sui_price_and_invalid_deep_id() {
     // Function should abort when DEEP price ID is wrong, even with valid max SUI price
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EStalePrice)]
@@ -515,11 +471,7 @@ fun stale_deep_price_and_sui_price_out_of_confidence() {
     // Function should abort when DEEP price is stale (checked first)
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EPriceConfidenceExceedsThreshold)]
@@ -557,11 +509,7 @@ fun stale_sui_price_and_deep_price_out_of_confidence() {
     // Function should abort when DEEP price confidence exceeds threshold (checked first)
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure]
@@ -597,11 +545,7 @@ fun deep_price_expo_is_positive() {
     // Function should abort because DEEP price exponent is positive
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure]
@@ -637,11 +581,7 @@ fun sui_price_expo_is_positive() {
     // Function should abort because SUI price exponent is positive
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure]
@@ -677,11 +617,7 @@ fun both_price_expos_are_positive() {
     // Function should abort because both price exponents are positive
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EDecimalAdjustmentTooLarge)]
@@ -721,11 +657,7 @@ fun decimal_adjustment_exceeds_safe_limit() {
     // decimal_adjustment = 25 + 3 - 1 = 27, which exceeds MAX_SAFE_U64_POWER_OF_TEN (19)
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EDecimalAdjustmentTooLarge)]
@@ -766,11 +698,7 @@ fun decimal_adjustment_exceeds_safe_limit_denominator_case() {
     // decimal_adjustment = deep_expo - 3 - sui_expo = 30 - 3 - 1 = 26, which exceeds MAX_SAFE_U64_POWER_OF_TEN (19)
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure]
@@ -810,11 +738,7 @@ fun multiplier_calculation_overflows() {
     // This will make multiplier = 10^62 which should overflow
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure]
@@ -851,11 +775,7 @@ fun deep_price_numerator_overflow() {
     // Function should abort due to overflow in deep_price_mag * multiplier
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure]
@@ -891,11 +811,7 @@ fun sui_price_denominator_overflow() {
     // Function should abort due to overflow in sui_price_mag * multiplier
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EZeroPriceMagnitude)]
@@ -931,11 +847,7 @@ fun deep_price_is_zero() {
     // Function should abort when DEEP price is zero
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EZeroPriceMagnitude)]
@@ -971,11 +883,7 @@ fun sui_price_is_zero() {
     // Function should abort when SUI price is zero
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EZeroPriceMagnitude)]
@@ -1011,11 +919,7 @@ fun both_prices_are_zero() {
     // Function should abort when DEEP price is zero (checked first)
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test]
@@ -1376,11 +1280,7 @@ fun deep_price_expo_is_zero() {
     // We won't reach this point due to the abort
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure]
@@ -1415,11 +1315,7 @@ fun sui_price_expo_is_zero() {
     // We won't reach this point due to the abort
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure]
@@ -1455,11 +1351,7 @@ fun both_price_expos_are_zero() {
     // We won't reach this point due to the abort
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
-    // Cleanup won't be reached
-    clock::destroy_for_testing(clock);
-    price_info::destroy(deep_price);
-    price_info::destroy(sui_price);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test]

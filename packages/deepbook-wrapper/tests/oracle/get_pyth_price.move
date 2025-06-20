@@ -101,10 +101,7 @@ fun confidence_interval_exceeded() {
         &clock,
     );
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    price_info::destroy(price_info_object);
-    clock::destroy_for_testing(clock);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure(abort_code = EStalePrice)]
@@ -142,10 +139,7 @@ fun price_is_stale() {
         &clock,
     );
 
-    // Cleanup won't be reached due to abort, but included for completeness
-    price_info::destroy(price_info_object);
-    clock::destroy_for_testing(clock);
-    test_scenario::end(scenario);
+    abort
 }
 
 #[test, expected_failure]
@@ -179,7 +173,5 @@ fun price_magnitude_is_negative() {
 
     get_pyth_price(&price_info_object, &clock);
 
-    price_info::destroy(price_info_object);
-    clock::destroy_for_testing(clock);
-    test_scenario::end(scenario);
+    abort
 }
