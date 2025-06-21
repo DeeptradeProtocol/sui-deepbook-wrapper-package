@@ -137,6 +137,20 @@ When creating a new trading pool, there are two separate fees:
 
 DeepBook protocol requires 500 DEEP coins as a fee for each new pool creation. Additionally, the Wrapper charges 100 DEEP coins as its pool creation fee.
 
+## Development Tools
+
+### Lines of Code Analysis
+
+Analyze and count lines of code across all DeepBook Wrapper modules:
+
+```bash
+node scripts/count-loc.js [--help for options]
+```
+
+The script provides a detailed breakdown by module and calculates effective lines of code. It analyzes both source files and test files separately.
+
+Example: `🎯 Effective LoC (sources only): 1,234 lines`
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.

@@ -28,12 +28,10 @@ public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
 
 // === Errors ===
 /// Error when trying to use a fund capability with a different wrapper than it was created for
-#[error]
 const EInvalidFundCap: u64 = 1;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
-#[error]
 const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===
