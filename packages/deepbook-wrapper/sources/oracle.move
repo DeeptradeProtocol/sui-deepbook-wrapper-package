@@ -21,15 +21,14 @@ const SUI_PRICE_FEED_ID: vector<u8> =
     x"23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744";
 
 // === Errors ===
-#[error]
-const EPriceConfidenceExceedsThreshold: vector<u8> =
-    b"Oracle price confidence interval exceeds threshold";
+/// Error when the price confidence interval exceeds the threshold
+const EPriceConfidenceExceedsThreshold: u64 = 1;
 
-#[error]
-const EStalePrice: vector<u8> = b"Oracle price is stale";
+/// Error when the price is stale
+const EStalePrice: u64 = 2;
 
-#[error]
-const EZeroPriceMagnitude: vector<u8> = b"Price magnitude is zero";
+/// Error when the price magnitude is zero
+const EZeroPriceMagnitude: u64 = 3;
 
 // === Public-View Functions ===
 /// Retrieves and validates the price from Pyth oracle
