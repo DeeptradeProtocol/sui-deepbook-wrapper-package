@@ -8,7 +8,6 @@ edition = "2024.beta"
 deepbook = { local = "../deepbook", address = "0xcaf6ba059d539a97646d47f0b9ddf843e138d215e2a12ca1f4585d386f7aec3a" }
 token = { local = "../token", address = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270" }
 Pyth = { local = "../pyth", address = "0x04e20ddf36af412a4096f9014f4a565af9e812db9a05cc40254846cf6ed0ad91" }
-Wormhole = { local = "../wormhole", address = "0x5306f64e312b581766351c07af79c72fcb1cd25147157fdc2f8ad76de9a3fb6a" }
 
 # DeepBook V3 dependencies with specific commit
 # deepbook = { git = "https://github.com/MystenLabs/deepbookv3.git", subdir = "packages/deepbook", rev = "197b5339e69fb95ffce64994869b1b61dcb56c8d" }

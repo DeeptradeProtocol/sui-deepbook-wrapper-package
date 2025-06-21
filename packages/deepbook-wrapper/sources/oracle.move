@@ -30,11 +30,12 @@ const EStalePrice: u64 = 2;
 /// Error when the price magnitude is zero
 const EZeroPriceMagnitude: u64 = 3;
 
+// === Public-View Functions ===
 /// Retrieves and validates the price from Pyth oracle
 /// This function performs the following validation steps:
 /// 1. Extracts the price and confidence interval from the Pyth price feed
 /// 2. Validates the price reliability through:
-///    - Confidence interval check: ensures price uncertainty is within acceptable bounds (≤10%)
+///    - Confidence interval check: ensures price uncertainty is within acceptable bounds (≤5%)
 ///    - Staleness check: ensures price is not older than the maximum allowed age
 /// 3. Returns the validated price if all checks pass, aborts otherwise
 ///
@@ -80,10 +81,10 @@ public fun get_pyth_price(
     (price, price_identifier)
 }
 
-public fun get_deep_price_feed_id(): vector<u8> {
+public fun deep_price_feed_id(): vector<u8> {
     DEEP_PRICE_FEED_ID
 }
 
-public fun get_sui_price_feed_id(): vector<u8> {
+public fun sui_price_feed_id(): vector<u8> {
     SUI_PRICE_FEED_ID
 }
