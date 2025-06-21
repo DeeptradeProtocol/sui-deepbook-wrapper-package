@@ -30,6 +30,9 @@ public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
 /// Error when trying to use a fund capability with a different wrapper than it was created for
 const EInvalidFundCap: u64 = 1;
 
+/// Error when trying to use deep from reserves but there is not enough available
+const EInsufficientDeepReserves: u64 = 2;
+
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
 const EFunctionDeprecated: u64 = 1000;
@@ -150,6 +153,9 @@ public(package) fun split_deep_reserves(
     amount: u64,
     ctx: &mut TxContext,
 ): Coin<DEEP> {
+    let available_deep_reserves = wrapper.deep_reserves.value();
+    assert!(amount <= available_deep_reserves, EInsufficientDeepReserves);
+
     coin::from_balance(
         balance::split(&mut wrapper.deep_reserves, amount),
         ctx,
