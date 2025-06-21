@@ -6,6 +6,7 @@ use deepbook_wrapper::helper::get_fee_bps;
 use deepbook_wrapper::wrapper::{
     Wrapper,
     join_deep_reserves_coverage_fee,
+    join_protocol_fee,
     join,
     split_deep_reserves
 };
@@ -64,7 +65,7 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Apply wrapper protocol fees to the output
+    // Apply wrapper DEEP reserves coverage fees to the output
     let mut result_quote = quote_out;
     join(wrapper, deep_remainder);
 
@@ -124,7 +125,7 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Apply wrapper protocol fees to the output
+    // Apply wrapper DEEP reserves coverage fees to the output
     let mut result_base = base_out;
     join(wrapper, deep_remainder);
 
@@ -181,7 +182,7 @@ public fun swap_exact_base_for_quote_input_fee<BaseToken, QuoteToken>(
     join(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
-    join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
+    join_protocol_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
 
     // Verify that the final output after wrapper fees still meets the user's minimum requirement
     validate_minimum_output(&result_quote, min_quote_out);
@@ -233,7 +234,7 @@ public fun swap_exact_quote_for_base_input_fee<BaseToken, QuoteToken>(
     join(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
-    join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
+    join_protocol_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
 
     // Verify that the final output after wrapper fees still meets the user's minimum requirement
     validate_minimum_output(&result_base, min_base_out);
