@@ -31,6 +31,7 @@ const EStalePrice: vector<u8> = b"Oracle price is stale";
 #[error]
 const EZeroPriceMagnitude: vector<u8> = b"Price magnitude is zero";
 
+// === Public-View Functions ===
 /// Retrieves and validates the price from Pyth oracle
 /// This function performs the following validation steps:
 /// 1. Extracts the price and confidence interval from the Pyth price feed
@@ -81,10 +82,10 @@ public fun get_pyth_price(
     (price, price_identifier)
 }
 
-public fun get_deep_price_feed_id(): vector<u8> {
+public fun deep_price_feed_id(): vector<u8> {
     DEEP_PRICE_FEED_ID
 }
 
-public fun get_sui_price_feed_id(): vector<u8> {
+public fun sui_price_feed_id(): vector<u8> {
     SUI_PRICE_FEED_ID
 }

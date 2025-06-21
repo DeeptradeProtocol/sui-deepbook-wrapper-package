@@ -250,7 +250,7 @@ public(package) fun get_sui_per_deep_from_oracle(
     let deep_price_id = deep_usd_price_identifier.get_bytes();
     let sui_price_id = sui_usd_price_identifier.get_bytes();
     assert!(
-        deep_price_id == oracle::get_deep_price_feed_id() && sui_price_id == oracle::get_sui_price_feed_id(),
+        deep_price_id == oracle::deep_price_feed_id() && sui_price_id == oracle::sui_price_feed_id(),
         EInvalidPriceFeedIdentifier,
     );
 

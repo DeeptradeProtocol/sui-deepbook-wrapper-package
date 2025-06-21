@@ -1531,7 +1531,7 @@ fun new_deep_price_object(
     price_expo_is_negative: bool,
     timestamp: u64,
 ): PriceInfoObject {
-    let price_id = oracle::get_deep_price_feed_id();
+    let price_id = oracle::deep_price_feed_id();
     new_price_info_object(
         scenario,
         price_id,
@@ -1554,7 +1554,7 @@ fun new_sui_price_object(
     price_expo_is_negative: bool,
     timestamp: u64,
 ): PriceInfoObject {
-    let price_id = oracle::get_sui_price_feed_id();
+    let price_id = oracle::sui_price_feed_id();
     new_price_info_object(
         scenario,
         price_id,
