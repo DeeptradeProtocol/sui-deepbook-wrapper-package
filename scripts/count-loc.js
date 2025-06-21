@@ -358,20 +358,13 @@ function main() {
 Usage: node scripts/count-loc.js [options]
 
 Options:
-  --include-comments    Include comment lines in effective count
-  --include-blank      Include blank lines in effective count  
-  --include-deprecated  Include deprecated lines in effective count (default: excluded)
-  --details           Show configuration details
-  --help              Show this help message
+  --include-comments      Include comment lines in effective count
+  --include-blank         Include blank lines in effective count  
+  --include-deprecated    Include deprecated lines in effective count
+  --details               Show configuration details
+  --help                  Show this help message
 
 Default: Counts only code lines (skips comments, blank lines, and deprecated code)
-
-Deprecated Patterns Detected:
-  • #[deprecated(...)]          - Sui deprecated attributes
-  • // === Deprecated ===       - Section headers  
-  • const EFunctionDeprecated   - Error constants
-  • abort EFunctionDeprecated   - Abort statements
-  • // Deprecated comments      - Comment markers
 `);
     return;
   }
