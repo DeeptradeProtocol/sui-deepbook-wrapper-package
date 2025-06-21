@@ -103,7 +103,7 @@ public fun withdraw_deep_reserves_v2(
 
 // === Public-View Functions ===
 /// Get the value of DEEP in the reserves
-public fun get_deep_reserves_value(wrapper: &Wrapper): u64 {
+public fun deep_reserves(wrapper: &Wrapper): u64 {
     balance::value(&wrapper.deep_reserves)
 }
 
@@ -267,5 +267,10 @@ public fun withdraw_deep_reserves(
     _amount: u64,
     _ctx: &mut TxContext,
 ): Coin<DEEP> {
+    abort EFunctionDeprecated
+}
+
+#[deprecated(note = b"This function is deprecated. Please use `deep_reserves` instead.")]
+public fun get_deep_reserves_value(_wrapper: &Wrapper): u64 {
     abort EFunctionDeprecated
 }

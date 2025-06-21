@@ -20,7 +20,7 @@ use deepbook_wrapper::wrapper::{
     Wrapper,
     join_deep_reserves_coverage_fee,
     join_protocol_fee,
-    get_deep_reserves_value,
+    deep_reserves,
     split_deep_reserves
 };
 use pyth::price_info::PriceInfoObject;
@@ -1136,7 +1136,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
     // Get wrapper deep reserves
-    let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
+    let wrapper_deep_reserves = deep_reserves(wrapper);
 
     // Get the order plans from the core logic
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
