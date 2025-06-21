@@ -281,7 +281,7 @@ public(package) fun calculate_protocol_fee(sui_per_deep: u64, deep_from_reserves
 /// # Returns
 /// * `u64` - The calculated protocol fee amount
 public(package) fun calculate_input_coin_protocol_fee(amount: u64, taker_fee: u64): u64 {
-    let deepbook_fee = calculate_fee_by_rate(taker_fee, amount);
+    let deepbook_fee = calculate_fee_by_rate(amount, taker_fee);
     let protocol_fee = math::mul(deepbook_fee, INPUT_COIN_PROTOCOL_FEE_MULTIPLIER);
 
     protocol_fee
