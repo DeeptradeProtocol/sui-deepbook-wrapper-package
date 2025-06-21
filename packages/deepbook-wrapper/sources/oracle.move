@@ -35,7 +35,7 @@ const EZeroPriceMagnitude: vector<u8> = b"Price magnitude is zero";
 /// This function performs the following validation steps:
 /// 1. Extracts the price and confidence interval from the Pyth price feed
 /// 2. Validates the price reliability through:
-///    - Confidence interval check: ensures price uncertainty is within acceptable bounds (≤10%)
+///    - Confidence interval check: ensures price uncertainty is within acceptable bounds (≤5%)
 ///    - Staleness check: ensures price is not older than the maximum allowed age
 /// 3. Returns the validated price if all checks pass, aborts otherwise
 ///
