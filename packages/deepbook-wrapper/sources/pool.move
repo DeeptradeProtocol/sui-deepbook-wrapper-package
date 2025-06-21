@@ -120,16 +120,6 @@ public fun update_create_pool_protocol_fee_v2(
     config.protocol_fee = new_fee;
 }
 
-/// Create a new create pool config object
-public fun create_pool_creation_config(_admin: &AdminCap, ctx: &mut TxContext) {
-    let config = CreatePoolConfig {
-        id: object::new(ctx),
-        protocol_fee: DEFAULT_CREATE_POOL_PROTOCOL_FEE,
-    };
-
-    transfer::share_object(config);
-}
-
 // === Public-View Functions ===
 /// Get the current protocol fee for creating a pool
 public fun get_create_pool_protocol_fee(config: &CreatePoolConfig): u64 {
@@ -177,5 +167,10 @@ public fun update_create_pool_protocol_fee(
     _config: &mut CreatePoolConfig,
     _new_fee: u64,
 ) {
+    abort EFunctionDeprecated
+}
+
+#[deprecated(note = b"This function is deprecated. No new function is needed.")]
+public fun create_pool_creation_config(_admin: &AdminCap, _ctx: &mut TxContext) {
     abort EFunctionDeprecated
 }
