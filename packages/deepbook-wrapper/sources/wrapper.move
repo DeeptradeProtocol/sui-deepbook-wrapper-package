@@ -22,9 +22,7 @@ public struct FundCap has key, store {
 }
 
 /// Key struct for storing charged fees by coin type
-public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
-    dummy_field: bool,
-}
+public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {}
 
 // === Errors ===
 /// Error when trying to use a fund capability with a different wrapper than it was created for
@@ -76,7 +74,7 @@ public fun admin_withdraw_protocol_fee_v2<CoinType>(
     _admin: &AdminCap,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
 
     if (bag::contains(&wrapper.protocol_fees, key)) {
         coin::from_balance(
@@ -118,7 +116,7 @@ public(package) fun join_deep_reserves_coverage_fee<CoinType>(
         return
     };
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
     if (bag::contains(&wrapper.deep_reserves_coverage_fees, key)) {
         balance::join(
             bag::borrow_mut(&mut wrapper.deep_reserves_coverage_fees, key),
@@ -136,7 +134,7 @@ public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Bala
         return
     };
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
     if (bag::contains(&wrapper.protocol_fees, key)) {
         balance::join(
             bag::borrow_mut(&mut wrapper.protocol_fees, key),
@@ -190,7 +188,7 @@ fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
     wrapper: &mut Wrapper,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
 
     if (bag::contains(&wrapper.deep_reserves_coverage_fees, key)) {
         coin::from_balance(
