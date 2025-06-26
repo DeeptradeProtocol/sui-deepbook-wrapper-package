@@ -29,6 +29,29 @@ use sui::coin::Coin;
 use sui::sui::SUI;
 use token::deep::DEEP;
 
+// === Errors ===
+/// Error when trying to use deep from reserves but there is not enough available
+const EInsufficientDeepReserves: u64 = 1;
+
+/// Error when user doesn't have enough coins to cover the required fee
+const EInsufficientFee: u64 = 2;
+
+/// Error when user doesn't have enough input coins to create the order
+const EInsufficientInput: u64 = 3;
+
+/// Error when the caller is not the owner of the balance manager
+const EInvalidOwner: u64 = 4;
+
+/// Error when actual deep required exceeds the max deep required
+const EDeepRequiredExceedsMax: u64 = 5;
+
+/// Error when actual sui fee exceeds the max sui fee
+const ESuiFeeExceedsMax: u64 = 6;
+
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+const EFunctionDeprecated: u64 = 1000;
+
 // === Structs ===
 /// Tracks how DEEP will be sourced for an order
 /// Used to coordinate token sourcing from user wallet and wrapper reserves
@@ -80,29 +103,6 @@ public struct InputCoinFeePlan has copy, drop {
     /// Whether user has enough coins to cover the fee
     user_covers_wrapper_fee: bool,
 }
-
-// === Errors ===
-/// Error when trying to use deep from reserves but there is not enough available
-const EInsufficientDeepReserves: u64 = 1;
-
-/// Error when user doesn't have enough coins to cover the required fee
-const EInsufficientFee: u64 = 2;
-
-/// Error when user doesn't have enough input coins to create the order
-const EInsufficientInput: u64 = 3;
-
-/// Error when the caller is not the owner of the balance manager
-const EInvalidOwner: u64 = 4;
-
-/// Error when actual deep required exceeds the max deep required
-const EDeepRequiredExceedsMax: u64 = 5;
-
-/// Error when actual sui fee exceeds the max sui fee
-const ESuiFeeExceedsMax: u64 = 6;
-
-/// A generic error code for any function that is no longer supported.
-/// The value 1000 is used by convention across modules for this purpose.
-const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===
 /// Creates a limit order on DeepBook using coins from various sources
