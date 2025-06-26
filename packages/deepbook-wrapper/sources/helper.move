@@ -12,10 +12,6 @@ use sui::coin::Coin;
 use sui::sui::SUI;
 use token::deep::DEEP;
 
-// === Constants ===
-/// The maximum power of 10 that doesn't overflow u64. 10^20 overflows u64
-const MAX_SAFE_U64_POWER_OF_TEN: u64 = 19;
-
 // === Errors ===
 /// Error when the reference pool is not eligible for the order
 const EIneligibleReferencePool: u64 = 1;
@@ -34,6 +30,10 @@ const EUnexpectedPositiveExponent: u64 = 5;
 
 /// Error when the decimal adjustment exceeds maximum safe power of 10 for u64
 const EDecimalAdjustmentTooLarge: u64 = 6;
+
+// === Constants ===
+/// The maximum power of 10 that doesn't overflow u64. 10^20 overflows u64
+const MAX_SAFE_U64_POWER_OF_TEN: u64 = 19;
 
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
