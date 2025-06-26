@@ -1,6 +1,6 @@
 module deepbook_wrapper::swap;
 
-use deepbook::pool::{Self, Pool};
+use deepbook::pool::Pool;
 use deepbook_wrapper::fee::{calculate_fee_by_rate, charge_swap_fee};
 use deepbook_wrapper::helper::get_fee_bps;
 use deepbook_wrapper::wrapper::{
@@ -46,7 +46,7 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
     // Determine if DEEP payment is needed based on pool whitelist status
-    let deep_payment = if (pool::whitelisted(pool)) {
+    let deep_payment = if (pool.whitelisted()) {
         coin::zero(ctx)
     } else {
         let base_quantity = base_in.value();
@@ -55,8 +55,7 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
     };
 
     // Execute swap through DeepBook's native swap function
-    let (base_remainder, quote_out, deep_remainder) = pool::swap_exact_quantity(
-        pool,
+    let (base_remainder, quote_out, deep_remainder) = pool.swap_exact_quantity(
         base_in,
         coin::zero(ctx),
         deep_payment,
@@ -106,7 +105,7 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
     // Determine if DEEP payment is needed based on pool whitelist status
-    let deep_payment = if (pool::whitelisted(pool)) {
+    let deep_payment = if (pool.whitelisted()) {
         coin::zero(ctx)
     } else {
         let quote_quantity = quote_in.value();
@@ -115,8 +114,7 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
     };
 
     // Execute swap through DeepBook's native swap function
-    let (base_out, quote_remainder, deep_remainder) = pool::swap_exact_quantity(
-        pool,
+    let (base_out, quote_remainder, deep_remainder) = pool.swap_exact_quantity(
         coin::zero(ctx),
         quote_in,
         deep_payment,
@@ -166,8 +164,7 @@ public fun swap_exact_base_for_quote_input_fee<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
     // Execute swap through DeepBook's native swap function with input fee model
-    let (base_remainder, quote_out, deep_remainder) = pool::swap_exact_quantity(
-        pool,
+    let (base_remainder, quote_out, deep_remainder) = pool.swap_exact_quantity(
         base_in,
         coin::zero(ctx),
         coin::zero(ctx), // No DEEP payment needed for input fee model
@@ -218,8 +215,7 @@ public fun swap_exact_quote_for_base_input_fee<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
     // Execute swap through DeepBook's native swap function with input fee model
-    let (base_out, quote_remainder, deep_remainder) = pool::swap_exact_quantity(
-        pool,
+    let (base_out, quote_remainder, deep_remainder) = pool.swap_exact_quantity(
         coin::zero(ctx),
         quote_in,
         coin::zero(ctx), // No DEEP payment needed for input fee model
@@ -269,8 +265,7 @@ public fun get_quantity_out<BaseToken, QuoteToken>(
 ): (u64, u64, u64) {
     // Get the raw output quantities from DeepBook
     // This method can return zero values in case input quantities don't meet the minimum lot size
-    let (base_out, quote_out, deep_required) = pool::get_quantity_out(
-        pool,
+    let (base_out, quote_out, deep_required) = pool.get_quantity_out(
         base_quantity,
         quote_quantity,
         clock,
@@ -314,8 +309,7 @@ public fun get_quantity_out_input_fee<BaseToken, QuoteToken>(
 ): (u64, u64, u64) {
     // Get the raw output quantities from DeepBook using input fee model
     // This method can return zero values in case input quantities don't meet the minimum lot size
-    let (base_out, quote_out, deep_required) = pool::get_quantity_out_input_fee(
-        pool,
+    let (base_out, quote_out, deep_required) = pool.get_quantity_out_input_fee(
         base_quantity,
         quote_quantity,
         clock,
