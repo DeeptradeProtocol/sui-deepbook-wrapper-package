@@ -1,7 +1,7 @@
 module deepbook_wrapper::helper;
 
 use deepbook::constants;
-use deepbook::pool::{Self, Pool};
+use deepbook::pool::Pool;
 use deepbook_wrapper::math;
 use deepbook_wrapper::oracle;
 use pyth::price_info::PriceInfoObject;
@@ -38,7 +38,7 @@ const MAX_SAFE_U64_POWER_OF_TEN: u64 = 19;
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
 public(package) fun get_fee_bps<BaseToken, QuoteToken>(pool: &Pool<BaseToken, QuoteToken>): u64 {
-    let (fee_bps, _, _) = pool::pool_trade_params(pool);
+    let (fee_bps, _, _) = pool.pool_trade_params();
     fee_bps
 }
 
@@ -61,7 +61,7 @@ public(package) fun calculate_deep_required<BaseToken, QuoteToken>(
     if (pool.whitelisted()) {
         0
     } else {
-        let (deep_req, _) = pool::get_order_deep_required(pool, quantity, price);
+        let (deep_req, _) = pool.get_order_deep_required(quantity, price);
 
         deep_req
     }
@@ -96,7 +96,7 @@ public(package) fun calculate_order_amount(quantity: u64, price: u64, is_bid: bo
 public(package) fun get_order_deep_price_params<BaseToken, QuoteToken>(
     pool: &Pool<BaseToken, QuoteToken>,
 ): (bool, u64) {
-    let order_deep_price = pool::get_order_deep_price(pool);
+    let order_deep_price = pool.get_order_deep_price();
     (order_deep_price.asset_is_base(), order_deep_price.deep_per_asset())
 }
 

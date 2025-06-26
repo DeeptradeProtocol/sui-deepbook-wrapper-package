@@ -1,7 +1,7 @@
 module deepbook_wrapper::fee;
 
 use deepbook::constants::fee_penalty_multiplier;
-use deepbook::pool::{Self, Pool};
+use deepbook::pool::Pool;
 use deepbook_wrapper::helper::{
     calculate_deep_required,
     get_sui_per_deep,
@@ -9,7 +9,7 @@ use deepbook_wrapper::helper::{
 };
 use deepbook_wrapper::math;
 use pyth::price_info::PriceInfoObject;
-use sui::balance::{Self, Balance};
+use sui::balance::Balance;
 use sui::clock::Clock;
 use sui::coin::Coin;
 
@@ -64,7 +64,7 @@ public fun estimate_full_fee_limit_v3<
     clock: &Clock,
 ): (u64, u64, u64, u64) {
     // Check if pool is whitelisted
-    let is_pool_whitelisted = pool::whitelisted(pool);
+    let is_pool_whitelisted = pool.whitelisted();
 
     // Get the best DEEP/SUI price
     let sui_per_deep = get_sui_per_deep(
@@ -127,7 +127,7 @@ public fun estimate_full_fee_market_v3<
     clock: &Clock,
 ): (u64, u64, u64, u64) {
     // Check if pool is whitelisted
-    let is_pool_whitelisted = pool::whitelisted(pool);
+    let is_pool_whitelisted = pool.whitelisted();
 
     // Get the best DEEP/SUI price
     let sui_per_deep = get_sui_per_deep(
@@ -331,8 +331,8 @@ public(package) fun charge_swap_fee<CoinType>(
     fee_bps: u64,
 ): Balance<CoinType> {
     let coin_balance = coin.balance_mut();
-    let value = balance::value(coin_balance);
-    balance::split(coin_balance, calculate_fee_by_rate(value, fee_bps))
+    let value = coin_balance.value();
+    coin_balance.split(calculate_fee_by_rate(value, fee_bps))
 }
 
 // === Deprecated Functions ===

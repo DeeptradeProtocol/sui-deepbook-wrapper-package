@@ -1,7 +1,8 @@
 module deepbook_wrapper::order;
 
-use deepbook::balance_manager::{Self, BalanceManager, TradeProof};
-use deepbook::pool::{Self, Pool};
+use deepbook::balance_manager::{BalanceManager, TradeProof};
+use deepbook::order_info::OrderInfo;
+use deepbook::pool::Pool;
 use deepbook_wrapper::fee::{
     calculate_full_order_fee,
     calculate_input_coin_protocol_fee,
@@ -164,7 +165,7 @@ public fun create_limit_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
     estimated_sui_fee_slippage: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate DEEP required for limit order
     let deep_required = calculate_deep_required(pool, quantity, price);
 
@@ -265,7 +266,7 @@ public fun create_market_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Ref
     estimated_sui_fee_slippage: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate base quantity and DEEP required for market order
     let (base_quantity, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
@@ -347,7 +348,7 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     client_order_id: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
@@ -362,8 +363,7 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     );
 
     // Place limit order
-    pool::place_limit_order(
-        pool,
+    pool.place_limit_order(
         balance_manager,
         &proof,
         client_order_id,
@@ -409,7 +409,7 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
     client_order_id: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate base quantity for market order
     let (base_quantity, _) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
@@ -481,7 +481,7 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
     client_order_id: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
@@ -502,8 +502,7 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
     );
 
     // Place limit order with pay_with_deep set to false since we're using input coins for fees
-    pool::place_limit_order(
-        pool,
+    pool.place_limit_order(
         balance_manager,
         &proof,
         client_order_id,
@@ -552,7 +551,7 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     client_order_id: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate base quantity for market order
 
     // We use calculate_market_order_params to get base quantity, which uses `get_quantity_out` under the hood,
@@ -582,8 +581,7 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     );
 
     // Place market order with pay_with_deep set to false since we're using input coins for fees
-    pool::place_market_order(
-        pool,
+    pool.place_market_order(
         balance_manager,
         &proof,
         client_order_id,
@@ -1104,7 +1102,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
+    assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
     // Validate slippage parameters
     validate_slippage(estimated_deep_required_slippage);
@@ -1221,11 +1219,11 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
+    assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
     // Get balances from balance manager
-    let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
-    let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
+    let balance_manager_base = balance_manager.balance<BaseToken>();
+    let balance_manager_quote = balance_manager.balance<QuoteToken>();
     let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
 
     // Get balances from wallet coins
@@ -1255,7 +1253,7 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     transfer_if_nonzero(quote_coin, ctx.sender());
 
     // Step 4: Generate and return proof
-    balance_manager::generate_proof_as_owner(balance_manager, ctx)
+    balance_manager.generate_proof_as_owner(ctx)
 }
 
 /// Prepares order execution by handling input coin fee and deposit logic
@@ -1290,14 +1288,14 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
+    assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
     // Get pool whitelisted status
-    let is_pool_whitelisted = pool::whitelisted(pool);
+    let is_pool_whitelisted = pool.whitelisted();
 
     // Get balances from balance manager
-    let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
-    let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
+    let balance_manager_base = balance_manager.balance<BaseToken>();
+    let balance_manager_quote = balance_manager.balance<QuoteToken>();
     let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
 
     // Get balances from wallet coins
@@ -1340,7 +1338,7 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     transfer_if_nonzero(quote_coin, ctx.sender());
 
     // Generate and return proof
-    balance_manager::generate_proof_as_owner(balance_manager, ctx)
+    balance_manager.generate_proof_as_owner(ctx)
 }
 
 /// Executes the DEEP coin sourcing plan by acquiring coins from specified sources
@@ -1367,14 +1365,14 @@ fun execute_deep_plan(
     // Take DEEP from wallet if needed
     if (deep_plan.from_user_wallet > 0) {
         let payment = deep_coin.split(deep_plan.from_user_wallet, ctx);
-        balance_manager::deposit(balance_manager, payment, ctx);
+        balance_manager.deposit(payment, ctx);
     };
 
     // Take DEEP from wrapper reserves if needed
     if (deep_plan.from_deep_reserves > 0) {
         let reserve_payment = split_deep_reserves(wrapper, deep_plan.from_deep_reserves, ctx);
 
-        balance_manager::deposit(balance_manager, reserve_payment, ctx);
+        balance_manager.deposit(reserve_payment, ctx);
     };
 }
 
@@ -1416,8 +1414,7 @@ fun execute_fee_plan(
         join_deep_reserves_coverage_fee(wrapper, fee);
     };
     if (fee_plan.coverage_fee_from_balance_manager > 0) {
-        let fee = balance_manager::withdraw<SUI>(
-            balance_manager,
+        let fee = balance_manager.withdraw<SUI>(
             fee_plan.coverage_fee_from_balance_manager,
             ctx,
         );
@@ -1430,8 +1427,7 @@ fun execute_fee_plan(
         join_protocol_fee(wrapper, fee);
     };
     if (fee_plan.protocol_fee_from_balance_manager > 0) {
-        let fee = balance_manager::withdraw<SUI>(
-            balance_manager,
+        let fee = balance_manager.withdraw<SUI>(
             fee_plan.protocol_fee_from_balance_manager,
             ctx,
         );
@@ -1484,15 +1480,13 @@ fun execute_input_coin_fee_plan<BaseToken, QuoteToken>(
     // Collect protocol fee from balance manager if needed
     if (fee_plan.protocol_fee_from_balance_manager > 0) {
         if (is_bid) {
-            let fee = balance_manager::withdraw<QuoteToken>(
-                balance_manager,
+            let fee = balance_manager.withdraw<QuoteToken>(
                 fee_plan.protocol_fee_from_balance_manager,
                 ctx,
             );
             join_protocol_fee(wrapper, fee.into_balance());
         } else {
-            let fee = balance_manager::withdraw<BaseToken>(
-                balance_manager,
+            let fee = balance_manager.withdraw<BaseToken>(
                 fee_plan.protocol_fee_from_balance_manager,
                 ctx,
             );
@@ -1527,11 +1521,11 @@ fun execute_input_coin_deposit_plan<BaseToken, QuoteToken>(
         if (is_bid) {
             // Quote coins for bid
             let payment = quote_coin.split(deposit_plan.from_user_wallet, ctx);
-            balance_manager::deposit(balance_manager, payment, ctx);
+            balance_manager.deposit(payment, ctx);
         } else {
             // Base coins for ask
             let payment = base_coin.split(deposit_plan.from_user_wallet, ctx);
-            balance_manager::deposit(balance_manager, payment, ctx);
+            balance_manager.deposit(payment, ctx);
         };
     };
 }
@@ -1668,7 +1662,7 @@ public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
     _estimated_sui_fee_slippage: u64,
     _clock: &Clock,
     _ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     abort EFunctionDeprecated
 }
 
@@ -1698,7 +1692,7 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
     _client_order_id: u64,
     _clock: &Clock,
     _ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     abort EFunctionDeprecated
 }
 
@@ -1729,7 +1723,7 @@ public fun create_market_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, Ref
     _estimated_sui_fee_slippage: u64,
     _clock: &Clock,
     _ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     abort EFunctionDeprecated
 }
 
@@ -1756,7 +1750,7 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
     _client_order_id: u64,
     _clock: &Clock,
     _ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     abort EFunctionDeprecated
 }
 
