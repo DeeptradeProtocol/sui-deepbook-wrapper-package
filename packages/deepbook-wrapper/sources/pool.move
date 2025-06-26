@@ -10,6 +10,14 @@ use sui::coin::Coin;
 use sui::event;
 use token::deep::DEEP;
 
+// === Errors ===
+/// Error when the user has not enough DEEP to cover the deepbook and protocol fees
+const ENotEnoughFee: u64 = 1;
+
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+const EFunctionDeprecated: u64 = 1000;
+
 // === Constants ===
 // Default protocol fee for creating a pool
 const DEFAULT_CREATE_POOL_PROTOCOL_FEE: u64 = 100 * 1_000_000; // 100 DEEP
@@ -29,14 +37,6 @@ public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop,
     lot_size: u64,
     min_size: u64,
 }
-
-// === Errors ===
-/// Error when the user has not enough DEEP to cover the deepbook and protocol fees
-const ENotEnoughFee: u64 = 1;
-
-/// A generic error code for any function that is no longer supported.
-/// The value 1000 is used by convention across modules for this purpose.
-const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===
 /// Creates a new permissionless pool for trading between BaseAsset and QuoteAsset
