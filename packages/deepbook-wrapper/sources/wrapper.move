@@ -6,6 +6,17 @@ use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
 use token::deep::DEEP;
 
+// === Errors ===
+/// Error when trying to use a fund capability with a different wrapper than it was created for
+const EInvalidFundCap: u64 = 1;
+
+/// Error when trying to use deep from reserves but there is not enough available
+const EInsufficientDeepReserves: u64 = 2;
+
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+const EFunctionDeprecated: u64 = 1000;
+
 // === Structs ===
 /// Wrapper struct for DeepBook V3
 public struct Wrapper has key, store {
@@ -25,17 +36,6 @@ public struct FundCap has key, store {
 public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
     dummy_field: bool,
 }
-
-// === Errors ===
-/// Error when trying to use a fund capability with a different wrapper than it was created for
-const EInvalidFundCap: u64 = 1;
-
-/// Error when trying to use deep from reserves but there is not enough available
-const EInsufficientDeepReserves: u64 = 2;
-
-/// A generic error code for any function that is no longer supported.
-/// The value 1000 is used by convention across modules for this purpose.
-const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===
 /// Create a new fund capability for the wrapper
