@@ -75,6 +75,8 @@ public fun create_permissionless_pool_v2<BaseAsset, QuoteAsset>(
     min_size: u64,
     ctx: &mut TxContext,
 ): ID {
+    wrapper.verify_version();
+
     let deepbook_fee = constants::pool_creation_fee();
     let protocol_fee = config.protocol_fee;
     let total_fee = deepbook_fee + protocol_fee;

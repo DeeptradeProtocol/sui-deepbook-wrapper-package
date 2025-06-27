@@ -1,9 +1,11 @@
 module deepbook_wrapper::wrapper;
 
 use deepbook_wrapper::admin::AdminCap;
+use deepbook_wrapper::helper::current_version;
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
+use sui::vec_set::{Self, VecSet};
 use token::deep::DEEP;
 
 // === Errors ===
@@ -13,6 +15,14 @@ const EInvalidFundCap: u64 = 1;
 /// Error when trying to use deep from reserves but there is not enough available
 const EInsufficientDeepReserves: u64 = 2;
 
+/// Allowed versions management errors
+const EVersionAlreadyEnabled: u64 = 3;
+const ECannotDisableCurrentVersion: u64 = 4;
+const EVersionNotEnabled: u64 = 5;
+
+/// Error when trying to use shared object in a package whose version is not enabled
+const EPackageVersionNotEnabled: u64 = 6;
+
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
 const EFunctionDeprecated: u64 = 1000;
@@ -21,6 +31,7 @@ const EFunctionDeprecated: u64 = 1000;
 /// Wrapper struct for DeepBook V3
 public struct Wrapper has key, store {
     id: UID,
+    allowed_versions: VecSet<u16>,
     deep_reserves: Balance<DEEP>,
     deep_reserves_coverage_fees: Bag,
     protocol_fees: Bag,
@@ -48,6 +59,7 @@ public fun create_fund_cap_v2(wrapper: &Wrapper, _admin: &AdminCap, ctx: &mut Tx
 
 /// Join DEEP coins into the wrapper's reserves
 public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
+    wrapper.verify_version();
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
@@ -57,6 +69,7 @@ public fun withdraw_deep_reserves_coverage_fee_v2<CoinType>(
     fund_cap: &FundCap,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
+    wrapper.verify_version();
     assert!(fund_cap.wrapper_id == wrapper.id.to_inner(), EInvalidFundCap);
     withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
 }
@@ -67,6 +80,7 @@ public fun admin_withdraw_deep_reserves_coverage_fee_v2<CoinType>(
     _admin: &AdminCap,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
+    wrapper.verify_version();
     withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
 }
 
@@ -76,6 +90,8 @@ public fun admin_withdraw_protocol_fee_v2<CoinType>(
     _admin: &AdminCap,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
+    wrapper.verify_version();
+
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
 
     if (wrapper.protocol_fees.contains(key)) {
@@ -93,7 +109,21 @@ public fun withdraw_deep_reserves_v2(
     amount: u64,
     ctx: &mut TxContext,
 ): Coin<DEEP> {
+    wrapper.verify_version();
     wrapper.deep_reserves.split(amount).into_coin(ctx)
+}
+
+/// Enable a package version
+public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
+    assert!(!wrapper.allowed_versions.contains(&version), EVersionAlreadyEnabled);
+    wrapper.allowed_versions.insert(version);
+}
+
+/// Disable a package version
+public fun disable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
+    assert!(version != current_version(), ECannotDisableCurrentVersion);
+    assert!(wrapper.allowed_versions.contains(&version), EVersionNotEnabled);
+    wrapper.allowed_versions.remove(&version);
 }
 
 // === Public-View Functions ===
@@ -108,6 +138,8 @@ public(package) fun join_deep_reserves_coverage_fee<CoinType>(
     wrapper: &mut Wrapper,
     fee: Balance<CoinType>,
 ) {
+    wrapper.verify_version();
+
     if (fee.value() == 0) {
         fee.destroy_zero();
         return
@@ -124,6 +156,8 @@ public(package) fun join_deep_reserves_coverage_fee<CoinType>(
 
 /// Add collected protocol fees to the wrapper's fee storage
 public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Balance<CoinType>) {
+    wrapper.verify_version();
+
     if (fee.value() == 0) {
         fee.destroy_zero();
         return
@@ -144,10 +178,18 @@ public(package) fun split_deep_reserves(
     amount: u64,
     ctx: &mut TxContext,
 ): Coin<DEEP> {
+    wrapper.verify_version();
+
     let available_deep_reserves = wrapper.deep_reserves.value();
     assert!(amount <= available_deep_reserves, EInsufficientDeepReserves);
 
     wrapper.deep_reserves.split(amount).into_coin(ctx)
+}
+
+/// Verify that the current package version is enabled in the wrapper
+public(package) fun verify_version(wrapper: &Wrapper) {
+    let package_version = current_version();
+    assert!(wrapper.allowed_versions.contains(&package_version), EPackageVersionNotEnabled);
 }
 
 // === Private Functions ===
@@ -155,6 +197,7 @@ public(package) fun split_deep_reserves(
 fun init(ctx: &mut TxContext) {
     let wrapper = Wrapper {
         id: object::new(ctx),
+        allowed_versions: vec_set::singleton(current_version()),
         deep_reserves: balance::zero(),
         deep_reserves_coverage_fees: bag::new(ctx),
         protocol_fees: bag::new(ctx),
@@ -178,6 +221,8 @@ fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
     wrapper: &mut Wrapper,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
+    wrapper.verify_version();
+
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
 
     if (wrapper.deep_reserves_coverage_fees.contains(key)) {
