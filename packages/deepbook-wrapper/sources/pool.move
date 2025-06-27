@@ -16,6 +16,7 @@ const ENotEnoughFee: u64 = 1;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
+#[allow(unused_const)]
 const EFunctionDeprecated: u64 = 1000;
 
 // === Constants ===
@@ -65,7 +66,7 @@ public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop,
 ///
 /// # Aborts
 /// * `ENotEnoughFee` - If user doesn't provide enough DEEP to cover all fees
-public fun create_permissionless_pool_v2<BaseAsset, QuoteAsset>(
+public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     wrapper: &mut Wrapper,
     config: &CreatePoolConfig,
     registry: &mut Registry,
@@ -114,7 +115,7 @@ public fun create_permissionless_pool_v2<BaseAsset, QuoteAsset>(
 }
 
 /// Update the protocol fee for creating a pool
-public fun update_create_pool_protocol_fee_v2(
+public fun update_create_pool_protocol_fee(
     config: &mut CreatePoolConfig,
     _admin: &AdminCap,
     new_fee: u64,
@@ -137,42 +138,4 @@ fun init(ctx: &mut TxContext) {
     };
 
     transfer::share_object(config);
-}
-
-// === Deprecated Functions ===
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `create_permissionless_pool_v2` instead.",
-    ),
-]
-#[allow(unused_type_parameter)]
-public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
-    _wrapper: &mut Wrapper,
-    _config: &CreatePoolConfig,
-    _registry: &mut Registry,
-    _tick_size: u64,
-    _lot_size: u64,
-    _min_size: u64,
-    _creation_fee: Coin<DEEP>,
-    _ctx: &mut TxContext,
-): ID {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `update_create_pool_protocol_fee_v2` instead.",
-    ),
-]
-public fun update_create_pool_protocol_fee(
-    _admin: &AdminCap,
-    _config: &mut CreatePoolConfig,
-    _new_fee: u64,
-) {
-    abort EFunctionDeprecated
-}
-
-#[deprecated(note = b"This function is deprecated. No new function is needed.")]
-public fun create_pool_creation_config(_admin: &AdminCap, _ctx: &mut TxContext) {
-    abort EFunctionDeprecated
 }
