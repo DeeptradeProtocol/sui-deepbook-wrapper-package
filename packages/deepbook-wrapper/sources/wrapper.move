@@ -113,13 +113,13 @@ public fun withdraw_deep_reserves_v2(
     wrapper.deep_reserves.split(amount).into_coin(ctx)
 }
 
-/// Enable a package version
+/// Enable the specified package version for the wrapper
 public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
     assert!(!wrapper.allowed_versions.contains(&version), EVersionAlreadyEnabled);
     wrapper.allowed_versions.insert(version);
 }
 
-/// Disable a package version
+/// Disable the specified package version for the wrapper
 public fun disable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
     assert!(version != current_version(), ECannotDisableCurrentVersion);
     assert!(wrapper.allowed_versions.contains(&version), EVersionNotEnabled);
