@@ -5,6 +5,16 @@ use pyth::price_identifier::PriceIdentifier;
 use pyth::price_info::PriceInfoObject;
 use sui::clock::Clock;
 
+// === Errors ===
+/// Error when the price confidence interval exceeds the threshold
+const EPriceConfidenceExceedsThreshold: u64 = 1;
+
+/// Error when the price is stale
+const EStalePrice: u64 = 2;
+
+/// Error when the price magnitude is zero
+const EZeroPriceMagnitude: u64 = 3;
+
 // === Constants ===
 /// Min confidence ratio of X means that the confidence interval must be less than (100/X)% of the price
 const MIN_CONFIDENCE_RATIO: u64 = 20;
@@ -19,16 +29,6 @@ const DEEP_PRICE_FEED_ID: vector<u8> =
 /// SUI price feed id
 const SUI_PRICE_FEED_ID: vector<u8> =
     x"23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744";
-
-// === Errors ===
-/// Error when the price confidence interval exceeds the threshold
-const EPriceConfidenceExceedsThreshold: u64 = 1;
-
-/// Error when the price is stale
-const EStalePrice: u64 = 2;
-
-/// Error when the price magnitude is zero
-const EZeroPriceMagnitude: u64 = 3;
 
 // === Public-View Functions ===
 /// Retrieves and validates the price from Pyth oracle

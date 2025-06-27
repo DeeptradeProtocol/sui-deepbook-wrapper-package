@@ -1,7 +1,7 @@
 module deepbook_wrapper::helper;
 
 use deepbook::constants;
-use deepbook::pool::{Self, Pool};
+use deepbook::pool::Pool;
 use deepbook_wrapper::math;
 use deepbook_wrapper::oracle;
 use pyth::price_info::PriceInfoObject;
@@ -11,10 +11,6 @@ use sui::clock::Clock;
 use sui::coin::Coin;
 use sui::sui::SUI;
 use token::deep::DEEP;
-
-// === Constants ===
-/// The maximum power of 10 that doesn't overflow u64. 10^20 overflows u64
-const MAX_SAFE_U64_POWER_OF_TEN: u64 = 19;
 
 // === Errors ===
 /// Error when the reference pool is not eligible for the order
@@ -35,10 +31,14 @@ const EUnexpectedPositiveExponent: u64 = 5;
 /// Error when the decimal adjustment exceeds maximum safe power of 10 for u64
 const EDecimalAdjustmentTooLarge: u64 = 6;
 
+// === Constants ===
+/// The maximum power of 10 that doesn't overflow u64. 10^20 overflows u64
+const MAX_SAFE_U64_POWER_OF_TEN: u64 = 19;
+
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
 public(package) fun get_fee_bps<BaseToken, QuoteToken>(pool: &Pool<BaseToken, QuoteToken>): u64 {
-    let (fee_bps, _, _) = pool::pool_trade_params(pool);
+    let (fee_bps, _, _) = pool.pool_trade_params();
     fee_bps
 }
 
@@ -51,14 +51,6 @@ public(package) fun transfer_if_nonzero<CoinType>(coins: Coin<CoinType>, recipie
     };
 }
 
-/// Determines if a pool is whitelisted
-/// Whitelisted pools don't require DEEP tokens and don't charge fees
-public(package) fun is_pool_whitelisted<BaseToken, QuoteToken>(
-    pool: &Pool<BaseToken, QuoteToken>,
-): bool {
-    pool::whitelisted(pool)
-}
-
 /// Calculates the total amount of DEEP required for an order using the taker fee rate
 /// Returns 0 for whitelisted pools
 public(package) fun calculate_deep_required<BaseToken, QuoteToken>(
@@ -66,10 +58,10 @@ public(package) fun calculate_deep_required<BaseToken, QuoteToken>(
     quantity: u64,
     price: u64,
 ): u64 {
-    if (is_pool_whitelisted(pool)) {
+    if (pool.whitelisted()) {
         0
     } else {
-        let (deep_req, _) = pool::get_order_deep_required(pool, quantity, price);
+        let (deep_req, _) = pool.get_order_deep_required(quantity, price);
 
         deep_req
     }
@@ -104,7 +96,7 @@ public(package) fun calculate_order_amount(quantity: u64, price: u64, is_bid: bo
 public(package) fun get_order_deep_price_params<BaseToken, QuoteToken>(
     pool: &Pool<BaseToken, QuoteToken>,
 ): (bool, u64) {
-    let order_deep_price = pool::get_order_deep_price(pool);
+    let order_deep_price = pool.get_order_deep_price();
     (order_deep_price.asset_is_base(), order_deep_price.deep_per_asset())
 }
 
