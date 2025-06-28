@@ -45,6 +45,8 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
+    wrapper.verify_version();
+
     // Determine if DEEP payment is needed based on pool whitelist status
     let deep_payment = if (pool.whitelisted()) {
         coin::zero(ctx)
@@ -104,6 +106,8 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
+    wrapper.verify_version();
+
     // Determine if DEEP payment is needed based on pool whitelist status
     let deep_payment = if (pool.whitelisted()) {
         coin::zero(ctx)
@@ -163,6 +167,8 @@ public fun swap_exact_base_for_quote_input_fee<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
+    wrapper.verify_version();
+
     // Execute swap through DeepBook's native swap function with input fee model
     let (base_remainder, quote_out, deep_remainder) = pool.swap_exact_quantity(
         base_in,
@@ -214,6 +220,8 @@ public fun swap_exact_quote_for_base_input_fee<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
+    wrapper.verify_version();
+
     // Execute swap through DeepBook's native swap function with input fee model
     let (base_out, quote_remainder, deep_remainder) = pool.swap_exact_quantity(
         coin::zero(ctx),
