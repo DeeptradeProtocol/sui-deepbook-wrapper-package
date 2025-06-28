@@ -1,0 +1,12 @@
+[package]
+name = "deepbook_wrapper_specs"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+SuiProver = { git = "https://github.com/asymptotic-code/sui-prover.git", subdir = "packages/sui-prover", rev = "main", override = true }
+# deepbook_wrapper = { local = "../deepbook-wrapper", address = "0xb2ad6a50acbc9e17ba001d80b4201081cf84d3c11a19e6bc1dc25d27d6c68b54" }
+deepbook = { git = "https://github.com/MystenLabs/deepbookv3.git", subdir = "packages/deepbook", rev = "main" }
+
+[addresses]
+deepbook_wrapper_specs = "0x0"
