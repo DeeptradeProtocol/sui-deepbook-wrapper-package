@@ -4,6 +4,7 @@ use deepbook_wrapper::admin::AdminCap;
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
+use sui::event;
 use token::deep::DEEP;
 
 // === Errors ===
@@ -30,6 +31,24 @@ public struct Wrapper has key, store {
 public struct FundCap has key, store {
     id: UID,
     wrapper_id: ID,
+}
+
+/// Event emitted when DEEP coins are withdrawn from the wrapper's reserves
+public struct DeepReservesWithdrawn has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
+/// Event emitted when deep reserves coverage fees are withdrawn for a specific coin type
+public struct CoverageFeeWithdrawn<phantom CoinType> has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
+/// Event emitted when protocol fees are withdrawn for a specific coin type
+public struct ProtocolFeeWithdrawn<phantom CoinType> has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
 }
 
 /// Key struct for storing charged fees by coin type
@@ -80,7 +99,14 @@ public fun admin_withdraw_protocol_fee_v2<CoinType>(
 
     if (wrapper.protocol_fees.contains(key)) {
         let balance = wrapper.protocol_fees.borrow_mut(key);
-        balance::withdraw_all(balance).into_coin(ctx)
+        let coin = balance::withdraw_all(balance).into_coin(ctx);
+
+        event::emit(ProtocolFeeWithdrawn<CoinType> {
+            wrapper_id: wrapper.id.to_inner(),
+            amount: coin.value(),
+        });
+
+        coin
     } else {
         coin::zero(ctx)
     }
@@ -93,7 +119,14 @@ public fun withdraw_deep_reserves_v2(
     amount: u64,
     ctx: &mut TxContext,
 ): Coin<DEEP> {
-    wrapper.deep_reserves.split(amount).into_coin(ctx)
+    let coin = split_deep_reserves(wrapper, amount, ctx);
+
+    event::emit(DeepReservesWithdrawn {
+        wrapper_id: wrapper.id.to_inner(),
+        amount,
+    });
+
+    coin
 }
 
 // === Public-View Functions ===
@@ -182,7 +215,14 @@ fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
 
     if (wrapper.deep_reserves_coverage_fees.contains(key)) {
         let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
-        balance::withdraw_all(balance).into_coin(ctx)
+        let coin = balance::withdraw_all(balance).into_coin(ctx);
+
+        event::emit(CoverageFeeWithdrawn<CoinType> {
+            wrapper_id: wrapper.id.to_inner(),
+            amount: coin.value(),
+        });
+
+        coin
     } else {
         coin::zero(ctx)
     }
