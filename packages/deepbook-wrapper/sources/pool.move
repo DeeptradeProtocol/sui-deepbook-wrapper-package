@@ -38,6 +38,13 @@ public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop,
     min_size: u64,
 }
 
+/// Event emitted when the protocol fee for creating a pool is updated
+public struct PoolCreationProtocolFeeUpdated has copy, drop {
+    config_id: ID,
+    old_fee: u64,
+    new_fee: u64,
+}
+
 // === Public-Mutative Functions ===
 /// Creates a new permissionless pool for trading between BaseAsset and QuoteAsset
 /// Collects both DeepBook creation fee and protocol fee in DEEP coins
@@ -117,7 +124,14 @@ public fun update_create_pool_protocol_fee_v2(
     _admin: &AdminCap,
     new_fee: u64,
 ) {
+    let old_fee = config.protocol_fee;
     config.protocol_fee = new_fee;
+
+    event::emit(PoolCreationProtocolFeeUpdated {
+        config_id: config.id.to_inner(),
+        old_fee,
+        new_fee,
+    });
 }
 
 // === Public-View Functions ===
