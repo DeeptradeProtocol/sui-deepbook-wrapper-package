@@ -129,9 +129,9 @@ public(package) fun join_deep_reserves_coverage_fee<CoinType>(
     // Update historical total
     if (wrapper.historical_coverage_fees.contains(key)) {
         let current_total = wrapper.historical_coverage_fees.borrow_mut(key);
-        *current_total = *current_total + (fee_amount as u128);
+        *current_total = *current_total + (fee_amount as u256);
     } else {
-        wrapper.historical_coverage_fees.add(key, fee_amount as u128);
+        wrapper.historical_coverage_fees.add(key, fee_amount as u256);
     };
 }
 
@@ -156,9 +156,9 @@ public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Bala
     // Update historical total
     if (wrapper.historical_protocol_fees.contains(key)) {
         let current_total = wrapper.historical_protocol_fees.borrow_mut(key);
-        *current_total = *current_total + (fee_amount as u128);
+        *current_total = *current_total + (fee_amount as u256);
     } else {
-        wrapper.historical_protocol_fees.add(key, fee_amount as u128);
+        wrapper.historical_protocol_fees.add(key, fee_amount as u256);
     };
 }
 

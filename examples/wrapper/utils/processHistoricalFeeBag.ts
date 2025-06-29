@@ -2,7 +2,7 @@ import { CoinsMapByCoinType, CoinsMetadataMapByCoinType } from "./types";
 import { provider } from "../../common";
 import { getCoinMetadata } from "./getCoinMetadata";
 
-// Process historical fees from a specific bag (stored as u128 values)
+// Process historical fees from a specific bag (stored as u256 values)
 export async function processHistoricalFeeBag(bagId: string): Promise<{
   coinsMapByCoinType: CoinsMapByCoinType;
   coinsMetadataMapByCoinType: CoinsMetadataMapByCoinType;
@@ -26,7 +26,7 @@ export async function processHistoricalFeeBag(bagId: string): Promise<{
       const fieldValue = fieldObject.data.content.fields;
 
       // The field name should contain the coin type information
-      // Historical fees are stored as ChargedFeeKey<CoinType> -> u128
+      // Historical fees are stored as ChargedFeeKey<CoinType> -> u256
       if (fieldName && typeof fieldName === "object" && "type" in fieldName) {
         const nameType = (fieldName as any).type;
 
@@ -37,7 +37,7 @@ export async function processHistoricalFeeBag(bagId: string): Promise<{
             nameType.length - 1,
           );
 
-          // The historical amount is stored directly as u128 in the field value
+          // The historical amount is stored directly as u256 in the field value
           const historicalAmount = (fieldValue as any).value || fieldValue;
 
           // Add to summary
