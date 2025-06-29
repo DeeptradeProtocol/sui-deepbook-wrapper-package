@@ -24,6 +24,8 @@ public struct Wrapper has key, store {
     deep_reserves: Balance<DEEP>,
     deep_reserves_coverage_fees: Bag,
     protocol_fees: Bag,
+    historical_coverage_fees: Bag,
+    historical_protocol_fees: Bag,
 }
 
 /// Capability for managing funds in the wrapper
@@ -108,33 +110,55 @@ public(package) fun join_deep_reserves_coverage_fee<CoinType>(
     wrapper: &mut Wrapper,
     fee: Balance<CoinType>,
 ) {
-    if (fee.value() == 0) {
+    let fee_amount = fee.value();
+    if (fee_amount == 0) {
         fee.destroy_zero();
         return
     };
 
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
+
+    // Update current fees
     if (wrapper.deep_reserves_coverage_fees.contains(key)) {
         let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
         balance::join(balance, fee);
     } else {
         wrapper.deep_reserves_coverage_fees.add(key, fee);
     };
+
+    // Update historical total
+    if (wrapper.historical_coverage_fees.contains(key)) {
+        let current_total = wrapper.historical_coverage_fees.borrow_mut(key);
+        *current_total = *current_total + (fee_amount as u256);
+    } else {
+        wrapper.historical_coverage_fees.add(key, fee_amount as u256);
+    };
 }
 
 /// Add collected protocol fees to the wrapper's fee storage
 public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Balance<CoinType>) {
-    if (fee.value() == 0) {
+    let fee_amount = fee.value();
+    if (fee_amount == 0) {
         fee.destroy_zero();
         return
     };
 
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
+
+    // Update current fees
     if (wrapper.protocol_fees.contains(key)) {
         let balance = wrapper.protocol_fees.borrow_mut(key);
         balance::join(balance, fee);
     } else {
         wrapper.protocol_fees.add(key, fee);
+    };
+
+    // Update historical total
+    if (wrapper.historical_protocol_fees.contains(key)) {
+        let current_total = wrapper.historical_protocol_fees.borrow_mut(key);
+        *current_total = *current_total + (fee_amount as u256);
+    } else {
+        wrapper.historical_protocol_fees.add(key, fee_amount as u256);
     };
 }
 
@@ -158,6 +182,8 @@ fun init(ctx: &mut TxContext) {
         deep_reserves: balance::zero(),
         deep_reserves_coverage_fees: bag::new(ctx),
         protocol_fees: bag::new(ctx),
+        historical_coverage_fees: bag::new(ctx),
+        historical_protocol_fees: bag::new(ctx),
     };
 
     // Create a fund capability for the deployer
