@@ -1,0 +1,20 @@
+# IDE
+**/.history/
+**/.vscode/
+**/.idea/
+
+# OSX
+.DS_Store
+
+# Move build directory
+build
+
+# Node.js
+node_modules
+
+# misc
+.env
+
+# logs
+*.log
+/logs
