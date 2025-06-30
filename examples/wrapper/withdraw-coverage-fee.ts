@@ -3,7 +3,10 @@ import { keypair, provider, user } from "../common";
 import { FUND_CAP_OBJECT_ID, NS_COIN_TYPE, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
 import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 
+// FundCap will be removed. No need to add multi-sig support in this example.
+
 // yarn ts-node examples/wrapper/withdraw-coverage-fee.ts > withdraw-coverage-fee.log 2>&1
+/*
 (async () => {
   const tx = getWithdrawFeeTx({
     coinType: NS_COIN_TYPE,
@@ -16,5 +19,4 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 
   console.log(res);
 })();
-
-
+*/
