@@ -6,7 +6,7 @@ import { base64ToBytes } from "../utils";
 // Set this value to the amount you want to set the new fee to
 const NEW_FEE = 200 * 1_000_000; // 200 DEEP
 
-// Paste your multisig signers base64! pubkeys, weights, threshold and multisig address here
+// Paste your multisig signers base64! pubkeys, weights, threshold and hex multisig address here
 const miltisigSignersBase64Pubkeys: string[] = [];
 const weights: number[] = [];
 const threshold = 0;

@@ -6,7 +6,7 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 import { getWrapperBags } from "./utils/getWrapperBags";
 import { processFeesBag } from "./utils/processFeeBag";
 
-// Paste your multisig signers base64! pubkeys, weights, threshold and multisig address here
+// Paste your multisig signers base64! pubkeys, weights, threshold and hex multisig address here
 const miltisigSignersBase64Pubkeys: string[] = [];
 const weights: number[] = [];
 const threshold = 0;

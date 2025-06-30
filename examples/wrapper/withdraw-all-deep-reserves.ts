@@ -4,7 +4,7 @@ import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../c
 import { base64ToBytes } from "../utils";
 import { getDeepReservesBalance } from "./utils/getDeepReservesBalance";
 
-// Paste your multisig signers base64! pubkeys, weights, threshold and multisig address here
+// Paste your multisig signers base64! pubkeys, weights, threshold and hex multisig address here
 const miltisigSignersBase64Pubkeys: string[] = [];
 const weights: number[] = [];
 const threshold = 0;

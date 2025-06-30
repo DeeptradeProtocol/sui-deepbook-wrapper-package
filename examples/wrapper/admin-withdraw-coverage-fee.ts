@@ -3,7 +3,7 @@ import { ADMIN_CAP_OBJECT_ID, NS_COIN_TYPE, WRAPPER_PACKAGE_ID } from "../consta
 import { base64ToBytes } from "../utils";
 import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 
-// Paste your multisig signers base64! pubkeys, weights, threshold and multisig address here
+// Paste your multisig signers base64! pubkeys, weights, threshold and hex multisig address here
 const miltisigSignersBase64Pubkeys: string[] = [];
 const weights: number[] = [];
 const threshold = 0;
