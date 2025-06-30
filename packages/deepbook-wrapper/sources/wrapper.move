@@ -1,6 +1,7 @@
 module deepbook_wrapper::wrapper;
 
 use deepbook_wrapper::admin::AdminCap;
+use multisig::multisig;
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
@@ -12,6 +13,9 @@ const EInvalidFundCap: u64 = 1;
 
 /// Error when trying to use deep from reserves but there is not enough available
 const EInsufficientDeepReserves: u64 = 2;
+
+/// Error when the sender is not a multisig address
+const ESenderIsNotMultisig: u64 = 3;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
@@ -61,21 +65,69 @@ public fun withdraw_deep_reserves_coverage_fee_v2<CoinType>(
     withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
 }
 
-/// Withdraw collected deep reserves coverage fees for a specific coin type using admin capability
+/// Withdraws collected deep reserves coverage fees for a specific coin type using admin capability with multi-signature verification
+/// Verifies sender matches the multi-sig address, then withdraws all accumulated coverage fees
+///
+/// Parameters:
+/// - wrapper: Mutable reference to the wrapper object containing the fee storage
+/// - _admin: Admin capability
+/// - pks: Vector of public keys of the signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions (must be > 0 and <= sum of weights)
+/// - ctx: Mutable transaction context for coin creation and sender verification
+///
+/// Returns:
+/// - Coin<CoinType>: All accumulated coverage fees of the specified type, or zero coin if none exist
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
 public fun admin_withdraw_deep_reserves_coverage_fee_v2<CoinType>(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
+
     withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
 }
 
-/// Withdraw collected protocol fees for a specific coin type using admin capability
+/// Withdraws collected protocol fees for a specific coin type using admin capability with multi-signature verification
+/// Verifies sender matches the multi-sig address, then withdraws all accumulated protocol fees
+///
+/// Parameters:
+/// - wrapper: Mutable reference to the wrapper object containing the protocol fee storage
+/// - _admin: Admin capability
+/// - pks: Vector of public keys of the signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions (must be > 0 and <= sum of weights)
+/// - ctx: Mutable transaction context for coin creation and sender verification
+///
+/// Returns:
+/// - Coin<CoinType>: All accumulated protocol fees of the specified type, or zero coin if none exist
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
 public fun admin_withdraw_protocol_fee_v2<CoinType>(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
+
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
 
     if (wrapper.protocol_fees.contains(key)) {
@@ -86,13 +138,39 @@ public fun admin_withdraw_protocol_fee_v2<CoinType>(
     }
 }
 
-/// Withdraw DEEP coins from the wrapper's reserves
+/// Withdraws a specified amount of DEEP coins from the wrapper's reserves with multi-signature verification
+/// Verifies sender matches the multi-sig address, then withdraws the requested amount from reserves
+///
+/// Parameters:
+/// - wrapper: Mutable reference to the wrapper object containing the DEEP reserves
+/// - _admin: Admin capability
+/// - amount: Amount of DEEP tokens to withdraw
+/// - pks: Vector of public keys of the signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions (must be > 0 and <= sum of weights)
+/// - ctx: Mutable transaction context for coin creation and sender verification
+///
+/// Returns:
+/// - Coin<DEEP>: The requested amount of DEEP tokens withdrawn from reserves
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
+/// - With EInsufficientDeepReserves if the requested amount exceeds available reserves (handled internally)
 public fun withdraw_deep_reserves_v2(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
     amount: u64,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
     ctx: &mut TxContext,
 ): Coin<DEEP> {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
+
     wrapper.deep_reserves.split(amount).into_coin(ctx)
 }
 
