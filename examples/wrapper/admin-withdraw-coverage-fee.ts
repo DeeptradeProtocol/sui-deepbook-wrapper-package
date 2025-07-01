@@ -6,7 +6,7 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 (async () => {
   const tx = getWithdrawFeeTx({
     coinType: NS_COIN_TYPE,
-    target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves_coverage_fee_v2`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves_coverage_fee`,
     user,
     adminCapId: ADMIN_CAP_OBJECT_ID,
   });
