@@ -1,39 +1,42 @@
 module deepbook_wrapper::wrapper;
 
 use deepbook_wrapper::admin::AdminCap;
+use deepbook_wrapper::helper::current_version;
 use multisig::multisig;
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
+use sui::vec_set::{Self, VecSet};
 use token::deep::DEEP;
 
 // === Errors ===
-/// Error when trying to use a fund capability with a different wrapper than it was created for
-const EInvalidFundCap: u64 = 1;
-
 /// Error when trying to use deep from reserves but there is not enough available
-const EInsufficientDeepReserves: u64 = 2;
+const EInsufficientDeepReserves: u64 = 1;
+
+/// Allowed versions management errors
+const EVersionAlreadyEnabled: u64 = 3;
+const ECannotDisableCurrentVersion: u64 = 4;
+const EVersionNotEnabled: u64 = 5;
+
+/// Error when trying to use shared object in a package whose version is not enabled
+const EPackageVersionNotEnabled: u64 = 6;
 
 /// Error when the sender is not a multisig address
 const ESenderIsNotMultisig: u64 = 3;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
+#[allow(unused_const)]
 const EFunctionDeprecated: u64 = 1000;
 
 // === Structs ===
 /// Wrapper struct for DeepBook V3
 public struct Wrapper has key, store {
     id: UID,
+    allowed_versions: VecSet<u16>,
     deep_reserves: Balance<DEEP>,
     deep_reserves_coverage_fees: Bag,
     protocol_fees: Bag,
-}
-
-/// Capability for managing funds in the wrapper
-public struct FundCap has key, store {
-    id: UID,
-    wrapper_id: ID,
 }
 
 /// Key struct for storing charged fees by coin type
@@ -42,27 +45,10 @@ public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
 }
 
 // === Public-Mutative Functions ===
-/// Create a new fund capability for the wrapper
-public fun create_fund_cap_v2(wrapper: &Wrapper, _admin: &AdminCap, ctx: &mut TxContext): FundCap {
-    FundCap {
-        id: object::new(ctx),
-        wrapper_id: wrapper.id.to_inner(),
-    }
-}
-
 /// Join DEEP coins into the wrapper's reserves
 public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
+    wrapper.verify_version();
     wrapper.deep_reserves.join(deep_coin.into_balance());
-}
-
-/// Withdraw collected deep reserves coverage fees for a specific coin type using fund capability
-public fun withdraw_deep_reserves_coverage_fee_v2<CoinType>(
-    wrapper: &mut Wrapper,
-    fund_cap: &FundCap,
-    ctx: &mut TxContext,
-): Coin<CoinType> {
-    assert!(fund_cap.wrapper_id == wrapper.id.to_inner(), EInvalidFundCap);
-    withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
 }
 
 /// Withdraws collected deep reserves coverage fees for a specific coin type using admin capability with multi-signature verification
@@ -82,7 +68,7 @@ public fun withdraw_deep_reserves_coverage_fee_v2<CoinType>(
 /// Aborts:
 /// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
 ///   derived from the provided pks, weights, and threshold parameters
-public fun admin_withdraw_deep_reserves_coverage_fee_v2<CoinType>(
+public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
     pks: vector<vector<u8>>,
@@ -94,8 +80,16 @@ public fun admin_withdraw_deep_reserves_coverage_fee_v2<CoinType>(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
     );
+    wrapper.verify_version();
 
-    withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
+    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+
+    if (wrapper.deep_reserves_coverage_fees.contains(key)) {
+        let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
+        balance::withdraw_all(balance).into_coin(ctx)
+    } else {
+        coin::zero(ctx)
+    }
 }
 
 /// Withdraws collected protocol fees for a specific coin type using admin capability with multi-signature verification
@@ -115,7 +109,7 @@ public fun admin_withdraw_deep_reserves_coverage_fee_v2<CoinType>(
 /// Aborts:
 /// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
 ///   derived from the provided pks, weights, and threshold parameters
-public fun admin_withdraw_protocol_fee_v2<CoinType>(
+public fun withdraw_protocol_fee<CoinType>(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
     pks: vector<vector<u8>>,
@@ -127,6 +121,7 @@ public fun admin_withdraw_protocol_fee_v2<CoinType>(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
     );
+    wrapper.verify_version();
 
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
 
@@ -157,7 +152,7 @@ public fun admin_withdraw_protocol_fee_v2<CoinType>(
 /// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
 ///   derived from the provided pks, weights, and threshold parameters
 /// - With EInsufficientDeepReserves if the requested amount exceeds available reserves (handled internally)
-public fun withdraw_deep_reserves_v2(
+public fun withdraw_deep_reserves(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
     amount: u64,
@@ -170,8 +165,22 @@ public fun withdraw_deep_reserves_v2(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
     );
+    wrapper.verify_version();
 
     wrapper.deep_reserves.split(amount).into_coin(ctx)
+}
+
+/// Enable the specified package version for the wrapper
+public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
+    assert!(!wrapper.allowed_versions.contains(&version), EVersionAlreadyEnabled);
+    wrapper.allowed_versions.insert(version);
+}
+
+/// Disable the specified package version for the wrapper
+public fun disable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
+    assert!(version != current_version(), ECannotDisableCurrentVersion);
+    assert!(wrapper.allowed_versions.contains(&version), EVersionNotEnabled);
+    wrapper.allowed_versions.remove(&version);
 }
 
 // === Public-View Functions ===
@@ -186,6 +195,8 @@ public(package) fun join_deep_reserves_coverage_fee<CoinType>(
     wrapper: &mut Wrapper,
     fee: Balance<CoinType>,
 ) {
+    wrapper.verify_version();
+
     if (fee.value() == 0) {
         fee.destroy_zero();
         return
@@ -202,6 +213,8 @@ public(package) fun join_deep_reserves_coverage_fee<CoinType>(
 
 /// Add collected protocol fees to the wrapper's fee storage
 public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Balance<CoinType>) {
+    wrapper.verify_version();
+
     if (fee.value() == 0) {
         fee.destroy_zero();
         return
@@ -222,10 +235,18 @@ public(package) fun split_deep_reserves(
     amount: u64,
     ctx: &mut TxContext,
 ): Coin<DEEP> {
+    wrapper.verify_version();
+
     let available_deep_reserves = wrapper.deep_reserves.value();
     assert!(amount <= available_deep_reserves, EInsufficientDeepReserves);
 
     wrapper.deep_reserves.split(amount).into_coin(ctx)
+}
+
+/// Verify that the current package version is enabled in the wrapper
+public(package) fun verify_version(wrapper: &Wrapper) {
+    let package_version = current_version();
+    assert!(wrapper.allowed_versions.contains(&package_version), EPackageVersionNotEnabled);
 }
 
 // === Private Functions ===
@@ -233,108 +254,12 @@ public(package) fun split_deep_reserves(
 fun init(ctx: &mut TxContext) {
     let wrapper = Wrapper {
         id: object::new(ctx),
+        allowed_versions: vec_set::singleton(current_version()),
         deep_reserves: balance::zero(),
         deep_reserves_coverage_fees: bag::new(ctx),
         protocol_fees: bag::new(ctx),
     };
 
-    // Create a fund capability for the deployer
-    let fund_cap = FundCap {
-        id: object::new(ctx),
-        wrapper_id: wrapper.id.to_inner(),
-    };
-
     // Share the wrapper object
     transfer::share_object(wrapper);
-
-    // Transfer the fund capability to the transaction sender
-    transfer::transfer(fund_cap, ctx.sender());
-}
-
-/// Internal helper function to handle the common withdrawal logic
-fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
-    wrapper: &mut Wrapper,
-    ctx: &mut TxContext,
-): Coin<CoinType> {
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
-
-    if (wrapper.deep_reserves_coverage_fees.contains(key)) {
-        let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
-        balance::withdraw_all(balance).into_coin(ctx)
-    } else {
-        coin::zero(ctx)
-    }
-}
-
-// === Deprecated Functions ===
-#[deprecated(note = b"This function is deprecated. Please use `create_fund_cap_v2` instead.")]
-public fun create_fund_cap(_admin: &AdminCap, _wrapper: &Wrapper, _ctx: &mut TxContext): FundCap {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `withdraw_deep_reserves_coverage_fee_v2` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun withdraw_deep_reserves_coverage_fee<CoinType>(
-    _fund_cap: &FundCap,
-    _wrapper: &mut Wrapper,
-    _ctx: &mut TxContext,
-): Coin<CoinType> {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `admin_withdraw_deep_reserves_coverage_fee_v2` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun admin_withdraw_deep_reserves_coverage_fee<CoinType>(
-    _admin: &AdminCap,
-    _wrapper: &mut Wrapper,
-    _ctx: &mut TxContext,
-): Coin<CoinType> {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `admin_withdraw_protocol_fee_v2` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun admin_withdraw_protocol_fee<CoinType>(
-    _admin: &AdminCap,
-    _wrapper: &mut Wrapper,
-    _ctx: &mut TxContext,
-): Coin<CoinType> {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `withdraw_deep_reserves_v2` instead.",
-    ),
-]
-public fun withdraw_deep_reserves(
-    _admin: &AdminCap,
-    _wrapper: &mut Wrapper,
-    _amount: u64,
-    _ctx: &mut TxContext,
-): Coin<DEEP> {
-    abort EFunctionDeprecated
-}
-
-#[deprecated(note = b"This function is deprecated. Please use `deep_reserves` instead.")]
-public fun get_deep_reserves_value(_wrapper: &Wrapper): u64 {
-    abort EFunctionDeprecated
 }

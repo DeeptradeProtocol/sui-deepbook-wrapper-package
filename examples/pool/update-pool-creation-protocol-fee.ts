@@ -12,7 +12,7 @@ const weights: number[] = [];
 const threshold = 0;
 const multisigAddress = "";
 
-// yarn ts-node examples/pool/update-create-pool-protocol-fee.ts
+// yarn ts-node examples/pool/update-pool-creation-protocol-fee.ts
 (async () => {
   console.warn(`Building transaction to update pool creation protocol fee to ${NEW_FEE / 1_000_000} DEEP`);
 
@@ -21,7 +21,7 @@ const multisigAddress = "";
   const tx = new Transaction();
 
   tx.moveCall({
-    target: `${WRAPPER_PACKAGE_ID}::pool::update_create_pool_protocol_fee_v2`,
+    target: `${WRAPPER_PACKAGE_ID}::pool::update_pool_creation_protocol_fee`,
     arguments: [
       tx.object(POOL_CREATION_CONFIG_OBJECT_ID),
       tx.object(ADMIN_CAP_OBJECT_ID),

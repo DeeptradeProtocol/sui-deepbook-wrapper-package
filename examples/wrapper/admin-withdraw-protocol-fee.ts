@@ -18,7 +18,7 @@ const multisigAddress = "";
   // Withdraw SUI protocol fee
   const tx = getWithdrawFeeTx({
     coinType: SUI_COIN_TYPE,
-    target: `${WRAPPER_PACKAGE_ID}::wrapper::admin_withdraw_protocol_fee_v2`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_protocol_fee`,
     user: multisigAddress,
     adminCapId: ADMIN_CAP_OBJECT_ID,
     pks,
@@ -29,7 +29,7 @@ const multisigAddress = "";
   // Withdraw DEEP protocol fee (pool creation fee)
   getWithdrawFeeTx({
     coinType: DEEP_COIN_TYPE,
-    target: `${WRAPPER_PACKAGE_ID}::wrapper::admin_withdraw_protocol_fee_v2`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_protocol_fee`,
     user: multisigAddress,
     adminCapId: ADMIN_CAP_OBJECT_ID,
     transaction: tx,

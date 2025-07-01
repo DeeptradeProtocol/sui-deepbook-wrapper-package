@@ -31,7 +31,7 @@ const multisigAddress = "";
   for (const coinType of coinTypes) {
     getWithdrawFeeTx({
       coinType,
-      target: `${WRAPPER_PACKAGE_ID}::wrapper::admin_withdraw_deep_reserves_coverage_fee_v2`,
+      target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves_coverage_fee`,
       user: multisigAddress,
       adminCapId: ADMIN_CAP_OBJECT_ID,
       transaction: tx,

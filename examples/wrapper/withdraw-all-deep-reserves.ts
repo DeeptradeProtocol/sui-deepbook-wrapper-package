@@ -19,7 +19,7 @@ const multisigAddress = "";
   const pks = miltisigSignersBase64Pubkeys.map((pubkey) => base64ToBytes(pubkey));
 
   const withdrawnCoin = tx.moveCall({
-    target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves_v2`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves`,
     arguments: [
       tx.object(WRAPPER_OBJECT_ID),
       tx.object(ADMIN_CAP_OBJECT_ID),
