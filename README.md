@@ -11,12 +11,11 @@ This wrapper simplifies the trading experience by automatically handling DEEP co
 
 The wrapper acts as an intermediary, managing all DEEP-related fee operations.
 
-
 ## System Design
 
 For detailed technical specifications and implementation details, please refer to:
-- [DeepBook Wrapper Design](docs/DESIGN.md)
 
+- [DeepBook Wrapper Design](docs/DESIGN.md)
 
 ### Swaps
 
@@ -41,16 +40,15 @@ Obviously, not all users has DEEP coins on their balance, so we've created the w
 The fee that was charged for that determined in the output token of a swap.
 For instance, if it's swap USDC to SUI, the fee would be determined in SUI coin.
 
-As of DeepBook version 3.1, it introduce ability to charge fee in input coin for swaps. 
+As of DeepBook version 3.1, it introduce ability to charge fee in input coin for swaps.
 Since that, the existing fee charging model could be described as following:
-DeepBook charge fee in `input coin`, `taker fee` * `fee penalty multiplier`, where `fee penalty multiplier` is `1.25`.
+DeepBook charge fee in `input coin`, `taker fee` \* `fee penalty multiplier`, where `fee penalty multiplier` is `1.25`.
 
 Deepbook Wrapper charge fee in `output coin`, so it remains the same as it was before and equal to the `taker_fee`.
 
-
 ### Order Fees
 
-DeepBook protocol requires DEEP coins as a fees for order placement, the fees calculated based on order price and size. 
+DeepBook protocol requires DEEP coins as a fees for order placement, the fees calculated based on order price and size.
 The Deepbook Wrapper handles these fees in two ways:
 
 1. **If user has enough DEEP to cover the order fees**: No additional fees are charged. DEEP coins are provided from the user's wallet balance.
@@ -60,6 +58,7 @@ The Deepbook Wrapper handles these fees in two ways:
    - **Protocol Fee**: 1% of the reserve coverage fee; paid in SUI coin.
 
 **Fee Scaling**: The more DEEP a user has in their wallet, the lower the fees:
+
 - When user has all DEEP required for order: 0% reserve coverage fee + 0% protocol fee
 - When user has partial DEEP required: reserve coverage fee + 1% protocol fee
 - When user has no DEEP: reserve coverage fee + 1% protocol fee
@@ -72,29 +71,31 @@ For whitelisted pools, there is no DEEP fees, so no fees are charged.
 ### DEEP Reserves Sustainability
 
 #### Swap Fees
+
 The Deepbook Wrapper provides DEEP tokens from its reserves for trades on non-whitelisted pools, while collecting fees in the traded tokens. This creates a potential economic risk:
 
 - **Risk**: High volume of low-value token trades could deplete the DEEP reserves faster than the collected fees can replenish it (when converted back to DEEP)
 - **Impact**: The Deepbook Wrapper could become economically unsustainable if the value of consumed DEEP exceeds the value of collected fees
 
 Several approaches could address this economic risk:
+
 1. **Token Whitelisting**: Limit wrapper usage to specific tokens with sufficient value and liquidity
 2. **SUI-based Fees**: Collect swap fees in SUI instead of output tokens, matching the order fee model
 
 However, this would only become necessary if DeepBook transitions to permissionless pool creation AND the ecosystem grows to support thousands of token types with active trading. Given that DeepBook pools are currently permissioned, this is not an immediate concern.
 
 #### Order Fees
-The Deepbook Wrapper's order fee structure has minimal economic risk. By collecting fees in SUI, we maintain a stable and liquid asset for reserves management. Since reserve coverage fees directly match the DEEP amount needed, there's a fair value exchange. The additional 1% protocol fee helps cover operational costs and reserves maintenance.
 
+The Deepbook Wrapper's order fee structure has minimal economic risk. By collecting fees in SUI, we maintain a stable and liquid asset for reserves management. Since reserve coverage fees directly match the DEEP amount needed, there's a fair value exchange. The additional 1% protocol fee helps cover operational costs and reserves maintenance.
 
 ## Deployment
 
 1. Go to `packages/deepbook-wrapper` directory
 2. Uncomment `0x0` address in Move.toml before deploying contract
 3. Run command:
-`sui client publish --gas-budget 220000000 --skip-dependency-verification`
+   `sui client publish --gas-budget 220000000 --skip-dependency-verification`
 4. Use new `address` of deployed package in Move.toml
-5. Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
+5. Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`.
 6. Add DEEP coins to reserves by `examples/wrapper/join.ts`
 
 ## Upgrade
@@ -102,17 +103,17 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 1. Go to `packages/deepbook-wrapper` directory (`cd packages/deepbook-wrapper/`)
 2. Set `address` to `0x0` in `Move.toml`
 3. Verify compability:
-`sui-local sui client upgrade --dry-run --verify-compatibility --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
+   `sui-local sui client upgrade --dry-run --verify-compatibility --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
 4. Dry run upgrade:
-`sui client upgrade --dry-run --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
+   `sui client upgrade --dry-run --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
 5. Upgrade:
-`sui client upgrade --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
-4. (optional) Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
-5. Set `address` to new `address` of deployed package in `Move.toml`
-6. Build contract with new address: `sui move build`
-
+   `sui client upgrade --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
+6. (optional) Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`.
+7. Set `address` to new `address` of deployed package in `Move.toml`
+8. Build contract with new address: `sui move build`
 
 ## Wrapper Package Ids:
+
 ```
 0x1271ca74fee31ee2ffb4d6373eafb9ada44cdef0700ca34ec650b21de60cc80b
 0xd7ca30ad715278a28f01c572ac7be3168e9800321f1b3f96eb9d13dfc856419c
@@ -125,15 +126,12 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 0x2356885eae212599c0c7a42d648cc2100dedfa4698f8fc58fc6b9f67806f2bfc
 ```
 
-
-
 ## Fee & Reserves Withdrawal (Admin Only)
 
 1. Run `examples/wrapper/get-charged-fee-info.ts` to get the list of coins with charged fees (coverage fees and protocol fees).
 2. Run `examples/wrapper/admin-withdraw-all-coins-coverage-fee.ts` to withdraw all coins coverage fees (coverage fees charged in output coin of each swap and for limit/market orders in SUI).
 3. Run `examples/wrapper/admin-withdraw-protocol-fee.ts` to withdraw all protocol fees (protocol fees charged in SUI, pool creation fees charged in DEEP).
 4. Run `examples/wrapper/withdraw-all-deep-reserves.ts` to withdraw all DEEP coins from reserves.
-
 
 ## Pool Creation Fees
 
