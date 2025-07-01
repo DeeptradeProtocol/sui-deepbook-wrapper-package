@@ -4,9 +4,9 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 
 // yarn ts-node examples/wrapper/admin-withdraw-coverage-fee.ts > admin-withdraw-coverage-fee.log 2>&1
 (async () => {
-  const tx = await getWithdrawFeeTx({
+  const tx = getWithdrawFeeTx({
     coinType: NS_COIN_TYPE,
-    target: `${WRAPPER_PACKAGE_ID}::wrapper::admin_withdraw_deep_reserves_coverage_fee_v2`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves_coverage_fee_v2`,
     user,
     adminCapId: ADMIN_CAP_OBJECT_ID,
   });
