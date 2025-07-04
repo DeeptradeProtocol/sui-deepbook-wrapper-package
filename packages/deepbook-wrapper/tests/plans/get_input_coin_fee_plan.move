@@ -7,6 +7,7 @@ use std::unit_test::assert_eq;
 
 // ===== Constants =====
 const TAKER_FEE_RATE: u64 = 1_000_000; // 0.1% in billionths
+const PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000; // 75% in billionths
 
 // ===== No Fee Required Tests =====
 
@@ -14,6 +15,7 @@ const TAKER_FEE_RATE: u64 = 1_000_000; // 0.1% in billionths
 public fun whitelisted_pool_requires_no_fee() {
     let is_pool_whitelisted = true;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 1_000_000;
     let coin_in_wallet = 1000;
     let balance_manager_coin = 1000;
@@ -22,6 +24,7 @@ public fun whitelisted_pool_requires_no_fee() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -41,10 +44,15 @@ public fun whitelisted_pool_requires_no_fee() {
 public fun fee_from_wallet_only() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 1_000_000;
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     let coin_in_wallet = protocol_fee * 2; // Plenty in wallet
     let balance_manager_coin = 0; // Nothing in balance manager
@@ -53,6 +61,7 @@ public fun fee_from_wallet_only() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -70,10 +79,15 @@ public fun fee_from_wallet_only() {
 public fun fee_from_balance_manager_only() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 2_000_000;
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     let coin_in_wallet = 0; // Nothing in wallet
     let balance_manager_coin = protocol_fee * 2; // Plenty in balance manager
@@ -82,6 +96,7 @@ public fun fee_from_balance_manager_only() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -99,10 +114,15 @@ public fun fee_from_balance_manager_only() {
 public fun fee_split_between_wallet_and_balance_manager() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 3_000_000;
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     // Put 2/3 in BM, 1/3 in wallet
     let balance_manager_coin = (protocol_fee * 2) / 3;
@@ -112,6 +132,7 @@ public fun fee_split_between_wallet_and_balance_manager() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -135,10 +156,15 @@ public fun fee_split_between_wallet_and_balance_manager() {
 public fun insufficient_fee_resources() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 1_000_000;
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     // Total available is 50% of required fee
     let coin_in_wallet = protocol_fee / 4; // 25% in wallet
@@ -148,6 +174,7 @@ public fun insufficient_fee_resources() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -165,10 +192,15 @@ public fun insufficient_fee_resources() {
 public fun almost_sufficient_fee_resources() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 2_000_000;
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     // Total available is 1 less than required fee
     let coin_in_wallet = protocol_fee / 2; // 50% in wallet
@@ -178,6 +210,7 @@ public fun almost_sufficient_fee_resources() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -197,10 +230,15 @@ public fun almost_sufficient_fee_resources() {
 public fun exact_fee_match_with_wallet() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 1_000_000;
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     let coin_in_wallet = protocol_fee; // Exact match
     let balance_manager_coin = 0; // Nothing in balance manager
@@ -209,6 +247,7 @@ public fun exact_fee_match_with_wallet() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -226,10 +265,15 @@ public fun exact_fee_match_with_wallet() {
 public fun exact_fee_match_with_balance_manager() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 2_000_000;
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     let coin_in_wallet = 0; // Nothing in wallet
     let balance_manager_coin = protocol_fee; // Exact match
@@ -238,6 +282,7 @@ public fun exact_fee_match_with_balance_manager() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -255,10 +300,15 @@ public fun exact_fee_match_with_balance_manager() {
 public fun exact_fee_match_combined() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 3_000_000;
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     // Put half in each source
     let balance_manager_coin = protocol_fee / 2;
@@ -268,6 +318,7 @@ public fun exact_fee_match_combined() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -291,10 +342,15 @@ public fun exact_fee_match_combined() {
 public fun large_order_amount() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 1_000_000_000_000_000; // Very large order amount
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     // Put 75% in BM, 25% in wallet
     let balance_manager_coin = (protocol_fee * 3) / 4;
@@ -304,6 +360,7 @@ public fun large_order_amount() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -325,12 +382,17 @@ public fun large_order_amount() {
 public fun minimal_order_amount() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 1; // Minimal order amount
 
     // Calculate protocol fee
     // For minimal amounts, fee might be 0 due to integer division
     // (e.g., 1 * 0.1% = 0.001 which rounds to 0)
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     // With minimal amount, protocol fee should be 0
     assert_eq!(protocol_fee, 0);
@@ -340,6 +402,7 @@ public fun minimal_order_amount() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         0, // No coins needed since fee is 0
         0, // No coins needed since fee is 0
     );
@@ -357,10 +420,15 @@ public fun minimal_order_amount() {
 public fun wallet_exactly_one_token_short() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 1_000_000;
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     let coin_in_wallet = protocol_fee - 1; // 1 token short
     let balance_manager_coin = 0; // Nothing in balance manager
@@ -369,6 +437,7 @@ public fun wallet_exactly_one_token_short() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -386,10 +455,15 @@ public fun wallet_exactly_one_token_short() {
 public fun balance_manager_exactly_one_token_short_with_empty_wallet() {
     let is_pool_whitelisted = false;
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
     let amount = 2_000_000;
 
     // Calculate protocol fee
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     let coin_in_wallet = 0; // Empty wallet
     let balance_manager_coin = protocol_fee - 1; // 1 token short
@@ -398,6 +472,7 @@ public fun balance_manager_exactly_one_token_short_with_empty_wallet() {
         is_pool_whitelisted,
         taker_fee,
         amount,
+        protocol_fee_multiplier,
         coin_in_wallet,
         balance_manager_coin,
     );
@@ -416,12 +491,13 @@ public fun balance_manager_exactly_one_token_short_with_empty_wallet() {
 #[test]
 public fun fee_scaling_with_amount() {
     let taker_fee = TAKER_FEE_RATE;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Test with increasing amounts
-    let fee_0 = calculate_input_coin_protocol_fee(0, taker_fee);
-    let fee_1m = calculate_input_coin_protocol_fee(1_000_000, taker_fee);
-    let fee_2m = calculate_input_coin_protocol_fee(2_000_000, taker_fee);
-    let fee_3m = calculate_input_coin_protocol_fee(3_000_000, taker_fee);
+    let fee_0 = calculate_input_coin_protocol_fee(protocol_fee_multiplier, 0, taker_fee);
+    let fee_1m = calculate_input_coin_protocol_fee(protocol_fee_multiplier, 1_000_000, taker_fee);
+    let fee_2m = calculate_input_coin_protocol_fee(protocol_fee_multiplier, 2_000_000, taker_fee);
+    let fee_3m = calculate_input_coin_protocol_fee(protocol_fee_multiplier, 3_000_000, taker_fee);
 
     // Verify fee scaling
     assert_eq!(fee_0, 0); // No fee with 0 amount
@@ -440,12 +516,13 @@ public fun fee_scaling_with_amount() {
 #[test]
 public fun fee_scaling_with_taker_fee_rate() {
     let amount = 1_000_000;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Test with increasing taker fee rates
-    let fee_0 = calculate_input_coin_protocol_fee(amount, 0);
-    let fee_1m = calculate_input_coin_protocol_fee(amount, 1_000_000); // 0.1%
-    let fee_2m = calculate_input_coin_protocol_fee(amount, 2_000_000); // 0.2%
-    let fee_3m = calculate_input_coin_protocol_fee(amount, 3_000_000); // 0.3%
+    let fee_0 = calculate_input_coin_protocol_fee(protocol_fee_multiplier, amount, 0);
+    let fee_1m = calculate_input_coin_protocol_fee(protocol_fee_multiplier, amount, 1_000_000); // 0.1%
+    let fee_2m = calculate_input_coin_protocol_fee(protocol_fee_multiplier, amount, 2_000_000); // 0.2%
+    let fee_3m = calculate_input_coin_protocol_fee(protocol_fee_multiplier, amount, 3_000_000); // 0.3%
 
     // Verify fee scaling
     assert_eq!(fee_0, 0); // No fee with 0 rate
