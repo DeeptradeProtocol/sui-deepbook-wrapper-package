@@ -2,6 +2,7 @@ module deepbook_wrapper::wrapper;
 
 use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::current_version;
+use multisig::multisig;
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
@@ -19,6 +20,9 @@ const EVersionNotEnabled: u64 = 5;
 
 /// Error when trying to use shared object in a package whose version is not enabled
 const EPackageVersionNotEnabled: u64 = 6;
+
+/// Error when the sender is not a multisig address
+const ESenderIsNotMultisig: u64 = 3;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
@@ -47,12 +51,35 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
-/// Withdraw collected deep reserves coverage fees for a specific coin type using admin capability
+/// Withdraw deep reserves coverage fees for a specific coin type verifying that the sender is the expected
+/// multi-sig address
+///
+/// Parameters:
+/// - wrapper: Wrapper object
+/// - _admin: Admin capability
+/// - pks: Vector of public keys of the multi-sig signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions
+/// - ctx: Mutable transaction context for coin creation and sender verification
+///
+/// Returns:
+/// - Coin<CoinType>: All coverage fees of the specified type, or zero coin if none exist
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
 public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     wrapper.verify_version();
 
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
@@ -65,12 +92,34 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     }
 }
 
-/// Withdraw collected protocol fees for a specific coin type using admin capability
+/// Withdraw protocol fees for a specific coin type verifying that the sender is the expected multi-sig address
+///
+/// Parameters:
+/// - wrapper: Wrapper object
+/// - _admin: Admin capability
+/// - pks: Vector of public keys of the multi-sig signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions
+/// - ctx: Mutable transaction context for coin creation and sender verification
+///
+/// Returns:
+/// - Coin<CoinType>: All protocol fees of the specified type, or zero coin if none exist
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
 public fun withdraw_protocol_fee<CoinType>(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     wrapper.verify_version();
 
     let key = ChargedFeeKey<CoinType> { dummy_field: false };
@@ -83,25 +132,103 @@ public fun withdraw_protocol_fee<CoinType>(
     }
 }
 
-/// Withdraw DEEP coins from the wrapper's reserves
+/// Withdraw a specified amount of DEEP coins from the wrapper's reserves verifying that the sender is the expected
+/// multi-sig address
+///
+/// Parameters:
+/// - wrapper: Wrapper object
+/// - _admin: Admin capability
+/// - amount: Amount of DEEP tokens to withdraw
+/// - pks: Vector of public keys of the multi-sig signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions
+/// - ctx: Mutable transaction context for coin creation and sender verification
+///
+/// Returns:
+/// - Coin<DEEP>: The requested amount of DEEP tokens withdrawn from reserves
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
 public fun withdraw_deep_reserves(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
     amount: u64,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
     ctx: &mut TxContext,
 ): Coin<DEEP> {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     wrapper.verify_version();
+
     wrapper.deep_reserves.split(amount).into_coin(ctx)
 }
 
-/// Enable the specified package version for the wrapper
-public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
+/// Enable the specified package version for the wrapper verifying that the sender is the expected multi-sig address
+///
+/// Parameters:
+/// - wrapper: Wrapper object
+/// - _admin: Admin capability
+/// - version: Package version to enable
+/// - pks: Vector of public keys of the multi-sig signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions
+/// - ctx: Mutable transaction context for sender verification
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
+/// - With EVersionAlreadyEnabled if the version is already enabled
+public fun enable_version(
+    wrapper: &mut Wrapper,
+    _admin: &AdminCap,
+    version: u16,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
+    ctx: &mut TxContext,
+) {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     assert!(!wrapper.allowed_versions.contains(&version), EVersionAlreadyEnabled);
     wrapper.allowed_versions.insert(version);
 }
 
-/// Disable the specified package version for the wrapper
-public fun disable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
+/// Disable the specified package version for the wrapper verifying that the sender is the expected multi-sig address
+///
+/// Parameters:
+/// - wrapper: Wrapper object
+/// - _admin: Admin capability
+/// - version: Package version to disable
+/// - pks: Vector of public keys of the multi-sig signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions
+/// - ctx: Mutable transaction context for sender verification
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
+/// - With ECannotDisableCurrentVersion if trying to disable the current version
+/// - With EVersionNotEnabled if the version is not currently enabled
+public fun disable_version(
+    wrapper: &mut Wrapper,
+    _admin: &AdminCap,
+    version: u16,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
+    ctx: &mut TxContext,
+) {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     assert!(version != current_version(), ECannotDisableCurrentVersion);
     assert!(wrapper.allowed_versions.contains(&version), EVersionNotEnabled);
     wrapper.allowed_versions.remove(&version);
