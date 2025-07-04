@@ -95,7 +95,7 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 `sui client publish --gas-budget 220000000 --skip-dependency-verification`
 4. Use new `address` of deployed package in Move.toml
 5. Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
-6. Add DEEP coins to reserves by `examples/wrapper/join.ts`
+6. Add DEEP coins to reserves by `examples/wrapper/deposit-into-reserves.ts`
 
 ## Upgrade
 
