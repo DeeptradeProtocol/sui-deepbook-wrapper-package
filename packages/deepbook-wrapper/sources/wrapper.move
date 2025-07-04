@@ -51,7 +51,7 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
-/// Withdraws deep reserves coverage fees for a specific coin type verifying that the sender is the expected
+/// Withdraw deep reserves coverage fees for a specific coin type verifying that the sender is the expected
 /// multi-sig address
 ///
 /// Parameters:
@@ -92,7 +92,7 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     }
 }
 
-/// Withdraws protocol fees for a specific coin type verifying that the sender is the expected multi-sig address
+/// Withdraw protocol fees for a specific coin type verifying that the sender is the expected multi-sig address
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
@@ -132,7 +132,7 @@ public fun withdraw_protocol_fee<CoinType>(
     }
 }
 
-/// Withdraws a specified amount of DEEP coins from the wrapper's reserves verifying that the sender is the expected
+/// Withdraw a specified amount of DEEP coins from the wrapper's reserves verifying that the sender is the expected
 /// multi-sig address
 ///
 /// Parameters:
@@ -168,14 +168,67 @@ public fun withdraw_deep_reserves(
     wrapper.deep_reserves.split(amount).into_coin(ctx)
 }
 
-/// Enable the specified package version for the wrapper
-public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
+/// Enable the specified package version for the wrapper verifying that the sender is the expected multi-sig address
+///
+/// Parameters:
+/// - wrapper: Wrapper object
+/// - _admin: Admin capability
+/// - version: Package version to enable
+/// - pks: Vector of public keys of the multi-sig signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions
+/// - ctx: Mutable transaction context for sender verification
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
+/// - With EVersionAlreadyEnabled if the version is already enabled
+public fun enable_version(
+    wrapper: &mut Wrapper,
+    _admin: &AdminCap,
+    version: u16,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
+    ctx: &mut TxContext,
+) {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     assert!(!wrapper.allowed_versions.contains(&version), EVersionAlreadyEnabled);
     wrapper.allowed_versions.insert(version);
 }
 
-/// Disable the specified package version for the wrapper
-public fun disable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
+/// Disable the specified package version for the wrapper verifying that the sender is the expected multi-sig address
+///
+/// Parameters:
+/// - wrapper: Wrapper object
+/// - _admin: Admin capability
+/// - version: Package version to disable
+/// - pks: Vector of public keys of the multi-sig signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions
+/// - ctx: Mutable transaction context for sender verification
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
+/// - With ECannotDisableCurrentVersion if trying to disable the current version
+/// - With EVersionNotEnabled if the version is not currently enabled
+public fun disable_version(
+    wrapper: &mut Wrapper,
+    _admin: &AdminCap,
+    version: u16,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
+    ctx: &mut TxContext,
+) {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     assert!(version != current_version(), ECannotDisableCurrentVersion);
     assert!(wrapper.allowed_versions.contains(&version), EVersionNotEnabled);
     wrapper.allowed_versions.remove(&version);
