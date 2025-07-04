@@ -4,6 +4,7 @@ use deepbook_wrapper::admin::AdminCap;
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
+use sui::event;
 use token::deep::DEEP;
 
 // === Errors ===
@@ -37,6 +38,12 @@ public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
     dummy_field: bool,
 }
 
+// === Events ===
+public struct DeepReservesDeposited has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
 // === Public-Mutative Functions ===
 /// Create a new fund capability for the wrapper
 public fun create_fund_cap_v2(wrapper: &Wrapper, _admin: &AdminCap, ctx: &mut TxContext): FundCap {
@@ -46,8 +53,13 @@ public fun create_fund_cap_v2(wrapper: &Wrapper, _admin: &AdminCap, ctx: &mut Tx
     }
 }
 
-/// Join DEEP coins into the wrapper's reserves
-public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
+/// Deposit DEEP coins into the wrapper's reserves
+public fun deposit_into_reserves(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
+    event::emit(DeepReservesDeposited {
+        wrapper_id: wrapper.id.to_inner(),
+        amount: deep_coin.value(),
+    });
+
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
