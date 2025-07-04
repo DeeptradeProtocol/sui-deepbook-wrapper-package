@@ -3,7 +3,7 @@ import { keypair, provider, user } from "../common";
 import { ADMIN_CAP_OBJECT_ID, DEEP_DECIMALS, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
 import { getDeepReservesBalance } from "./utils/getDeepReservesBalance";
 
-// yarn ts-node examples/wrapper/withdraw-deep-reserves.ts > withdraw-deep-reserves.log 2>&1
+// yarn ts-node examples/wrapper/withdraw-all-deep-reserves.ts > withdraw-all-deep-reserves.log 2>&1
 (async () => {
   const tx = new Transaction();
 

@@ -5,28 +5,21 @@ export function getWithdrawFeeTx({
   coinType,
   target,
   user,
-  fundCapId,
   adminCapId,
   transaction,
 }: {
   coinType: string;
   target: string;
   user: string;
-  fundCapId?: string;
-  adminCapId?: string;
+  adminCapId: string;
   transaction?: Transaction;
 }): Transaction {
   const tx = transaction ?? new Transaction();
 
-  let cap: string | undefined;
-  if (fundCapId) cap = fundCapId;
-  if (adminCapId) cap = adminCapId;
-  if (!cap) throw new Error("Either fundCapId or adminCapId must be provided");
-
   const withdrawnCoin = tx.moveCall({
     target,
     typeArguments: [coinType],
-    arguments: [tx.object(WRAPPER_OBJECT_ID), tx.object(cap)],
+    arguments: [tx.object(WRAPPER_OBJECT_ID), tx.object(adminCapId)],
   });
 
   tx.transferObjects([withdrawnCoin], tx.pure.address(user));

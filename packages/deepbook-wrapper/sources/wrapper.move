@@ -9,11 +9,8 @@ use sui::vec_set::{Self, VecSet};
 use token::deep::DEEP;
 
 // === Errors ===
-/// Error when trying to use a fund capability with a different wrapper than it was created for
-const EInvalidFundCap: u64 = 1;
-
 /// Error when trying to use deep from reserves but there is not enough available
-const EInsufficientDeepReserves: u64 = 2;
+const EInsufficientDeepReserves: u64 = 1;
 
 /// Allowed versions management errors
 const EVersionAlreadyEnabled: u64 = 3;
@@ -38,55 +35,38 @@ public struct Wrapper has key, store {
     protocol_fees: Bag,
 }
 
-/// Capability for managing funds in the wrapper
-public struct FundCap has key, store {
-    id: UID,
-    wrapper_id: ID,
-}
-
 /// Key struct for storing charged fees by coin type
 public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
     dummy_field: bool,
 }
 
 // === Public-Mutative Functions ===
-/// Create a new fund capability for the wrapper
-public fun create_fund_cap(wrapper: &Wrapper, _admin: &AdminCap, ctx: &mut TxContext): FundCap {
-    FundCap {
-        id: object::new(ctx),
-        wrapper_id: wrapper.id.to_inner(),
-    }
-}
-
 /// Join DEEP coins into the wrapper's reserves
 public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     wrapper.verify_version();
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
-/// Withdraw collected deep reserves coverage fees for a specific coin type using fund capability
-public fun withdraw_deep_reserves_coverage_fee<CoinType>(
-    wrapper: &mut Wrapper,
-    fund_cap: &FundCap,
-    ctx: &mut TxContext,
-): Coin<CoinType> {
-    wrapper.verify_version();
-    assert!(fund_cap.wrapper_id == wrapper.id.to_inner(), EInvalidFundCap);
-    withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
-}
-
 /// Withdraw collected deep reserves coverage fees for a specific coin type using admin capability
-public fun admin_withdraw_deep_reserves_coverage_fee<CoinType>(
+public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
     wrapper.verify_version();
-    withdraw_deep_reserves_coverage_fee_internal(wrapper, ctx)
+
+    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+
+    if (wrapper.deep_reserves_coverage_fees.contains(key)) {
+        let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
+        balance::withdraw_all(balance).into_coin(ctx)
+    } else {
+        coin::zero(ctx)
+    }
 }
 
 /// Withdraw collected protocol fees for a specific coin type using admin capability
-public fun admin_withdraw_protocol_fee<CoinType>(
+public fun withdraw_protocol_fee<CoinType>(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
     ctx: &mut TxContext,
@@ -204,32 +184,6 @@ fun init(ctx: &mut TxContext) {
         protocol_fees: bag::new(ctx),
     };
 
-    // Create a fund capability for the deployer
-    let fund_cap = FundCap {
-        id: object::new(ctx),
-        wrapper_id: wrapper.id.to_inner(),
-    };
-
     // Share the wrapper object
     transfer::share_object(wrapper);
-
-    // Transfer the fund capability to the transaction sender
-    transfer::transfer(fund_cap, ctx.sender());
-}
-
-/// Internal helper function to handle the common withdrawal logic
-fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
-    wrapper: &mut Wrapper,
-    ctx: &mut TxContext,
-): Coin<CoinType> {
-    wrapper.verify_version();
-
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
-
-    if (wrapper.deep_reserves_coverage_fees.contains(key)) {
-        let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
-        balance::withdraw_all(balance).into_coin(ctx)
-    } else {
-        coin::zero(ctx)
-    }
 }

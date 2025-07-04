@@ -94,7 +94,7 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 3. Run command:
 `sui client publish --gas-budget 220000000 --skip-dependency-verification`
 4. Use new `address` of deployed package in Move.toml
-5. Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
+5. Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`.
 6. Add DEEP coins to reserves by `examples/wrapper/join.ts`
 
 ## Upgrade
@@ -107,7 +107,7 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 `sui client upgrade --dry-run --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
 5. Upgrade:
 `sui client upgrade --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
-4. (optional) Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
+4. (optional) Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`.
 5. Set `address` to new `address` of deployed package in `Move.toml`
 6. Build contract with new address: `sui move build`
 
