@@ -10,7 +10,7 @@ const NEW_FEE = 200 * 1_000_000; // 200 DEEP
   const tx = new Transaction();
 
   tx.moveCall({
-    target: `${WRAPPER_PACKAGE_ID}::pool::update_create_pool_protocol_fee_v2`,
+    target: `${WRAPPER_PACKAGE_ID}::pool::update_create_pool_protocol_fee`,
     arguments: [tx.object(POOL_CREATION_CONFIG_OBJECT_ID), tx.object(ADMIN_CAP_OBJECT_ID), tx.pure.u64(NEW_FEE)],
   });
 
