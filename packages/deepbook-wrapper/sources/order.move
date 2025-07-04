@@ -4,6 +4,9 @@ use deepbook::balance_manager::{BalanceManager, TradeProof};
 use deepbook::order_info::OrderInfo;
 use deepbook::pool::Pool;
 use deepbook_wrapper::fee::{
+    TradingFeeConfig,
+    deep_fee_type_rate,
+    input_coin_protocol_fee_multiplier,
     calculate_full_order_fee,
     calculate_input_coin_protocol_fee,
     calculate_input_coin_deepbook_fee
@@ -121,6 +124,7 @@ public struct InputCoinFeePlan has copy, drop {
 ///
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
+/// - trading_fee_config: Trading fee configuration object
 /// - pool: The trading pool where the order will be placed
 /// - reference_pool: Reference pool for price calculation
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
@@ -144,6 +148,7 @@ public struct InputCoinFeePlan has copy, drop {
 /// - clock: System clock for timestamp verification
 public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
+    trading_fee_config: &TradingFeeConfig,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
     deep_usd_price_info: &PriceInfoObject,
@@ -178,6 +183,7 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
     // Prepare order execution
     let proof = prepare_order_execution(
         wrapper,
+        trading_fee_config,
         pool,
         reference_pool,
         deep_usd_price_info,
@@ -229,6 +235,7 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
 ///
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
+/// - trading_fee_config: Trading fee configuration object
 /// - pool: The trading pool where the order will be placed
 /// - reference_pool: Reference pool for price calculation
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
@@ -250,6 +257,7 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
 /// - clock: System clock for timestamp verification
 public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
+    trading_fee_config: &TradingFeeConfig,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
     deep_usd_price_info: &PriceInfoObject,
@@ -283,6 +291,7 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
     // Prepare order execution
     let proof = prepare_order_execution(
         wrapper,
+        trading_fee_config,
         pool,
         reference_pool,
         deep_usd_price_info,
@@ -459,6 +468,7 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
 ///
 /// Parameters:
 /// * `wrapper` - The DeepBook wrapper instance managing the order process
+/// * `trading_fee_config` - Trading fee configuration object
 /// * `pool` - The trading pool where the order will be placed
 /// * `balance_manager` - User's balance manager for managing coin deposits
 /// * `base_coin` - Base token coins from user's wallet
@@ -473,6 +483,7 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
 /// * `clock` - System clock for timestamp verification
 public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
     wrapper: &mut Wrapper,
+    trading_fee_config: &TradingFeeConfig,
     pool: &mut Pool<BaseToken, QuoteToken>,
     balance_manager: &mut BalanceManager,
     base_coin: Coin<BaseToken>,
@@ -498,6 +509,7 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
     // Prepare order execution
     let proof = prepare_input_fee_order_execution(
         wrapper,
+        trading_fee_config,
         pool,
         balance_manager,
         base_coin,
@@ -537,6 +549,7 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
 ///
 /// Parameters:
 /// * `wrapper` - The DeepBook wrapper instance managing the order process
+/// * `trading_fee_config` - Trading fee configuration object
 /// * `pool` - The trading pool where the order will be placed
 /// * `balance_manager` - User's balance manager for managing coin deposits
 /// * `base_coin` - Base token coins from user's wallet
@@ -548,6 +561,7 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
 /// * `clock` - System clock for timestamp verification
 public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     wrapper: &mut Wrapper,
+    trading_fee_config: &TradingFeeConfig,
     pool: &mut Pool<BaseToken, QuoteToken>,
     balance_manager: &mut BalanceManager,
     base_coin: Coin<BaseToken>,
@@ -578,6 +592,7 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     // Prepare order execution
     let proof = prepare_input_fee_order_execution(
         wrapper,
+        trading_fee_config,
         pool,
         balance_manager,
         base_coin,
@@ -618,6 +633,7 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
 /// - wallet_input_coin: Amount of input coins (base/quote) in user's wallet
 /// - wrapper_deep_reserves: Amount of DEEP available in wrapper reserves
 /// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
+/// - protocol_fee_rate: Protocol fee rate in billionths
 /// - sui_per_deep: Current DEEP/SUI price from reference pool
 ///
 /// Returns a tuple with three structured plans:
@@ -635,6 +651,7 @@ public(package) fun create_order_core(
     wallet_input_coin: u64,
     wrapper_deep_reserves: u64,
     order_amount: u64,
+    protocol_fee_rate: u64,
     sui_per_deep: u64,
 ): (DeepPlan, FeePlan, InputCoinDepositPlan) {
     // Step 1: Determine DEEP requirements
@@ -651,6 +668,7 @@ public(package) fun create_order_core(
         deep_plan.use_wrapper_deep_reserves,
         deep_plan.from_deep_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -673,6 +691,7 @@ public(package) fun create_order_core(
 /// Parameters:
 /// * `is_pool_whitelisted` - Whether the pool is whitelisted by DeepBook
 /// * `taker_fee` - DeepBook's taker fee rate in billionths
+/// * `protocol_fee_multiplier` - Protocol fee multiplier in billionths
 /// * `balance_manager_input_coin` - Amount of input coins in user's balance manager
 /// * `wallet_input_coin` - Amount of input coins in user's wallet
 /// * `order_amount` - Order amount in quote tokens (for bids) or base tokens (for asks)
@@ -683,6 +702,7 @@ public(package) fun create_order_core(
 public(package) fun create_input_fee_order_core(
     is_pool_whitelisted: bool,
     taker_fee: u64,
+    protocol_fee_multiplier: u64,
     balance_manager_input_coin: u64,
     wallet_input_coin: u64,
     order_amount: u64,
@@ -692,6 +712,7 @@ public(package) fun create_input_fee_order_core(
         is_pool_whitelisted,
         taker_fee,
         order_amount,
+        protocol_fee_multiplier,
         wallet_input_coin,
         balance_manager_input_coin,
     );
@@ -791,6 +812,7 @@ public(package) fun get_deep_plan(
 /// * `use_wrapper_deep_reserves` - Whether the order requires DEEP from wrapper reserves
 /// * `deep_from_reserves` - Amount of DEEP to be taken from wrapper reserves
 /// * `is_pool_whitelisted` - Whether the pool is whitelisted by DeepBook
+/// * `protocol_fee_rate` - Protocol fee rate in billionths
 /// * `sui_per_deep` - Current DEEP/SUI price from reference pool
 /// * `sui_in_wallet` - Amount of SUI available in user's wallet
 /// * `balance_manager_sui` - Amount of SUI available in user's balance manager
@@ -812,6 +834,7 @@ public(package) fun get_fee_plan(
     use_wrapper_deep_reserves: bool,
     deep_from_reserves: u64,
     is_pool_whitelisted: bool,
+    protocol_fee_rate: u64,
     sui_per_deep: u64,
     sui_in_wallet: u64,
     balance_manager_sui: u64,
@@ -823,6 +846,7 @@ public(package) fun get_fee_plan(
 
     // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
     let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        protocol_fee_rate,
         sui_per_deep,
         deep_from_reserves,
     );
@@ -872,6 +896,7 @@ public(package) fun get_fee_plan(
 /// * `is_pool_whitelisted` - Whether the pool is whitelisted by DeepBook
 /// * `taker_fee` - DeepBook's taker fee rate in billionths
 /// * `amount` - The amount to calculate fee on
+/// * `protocol_fee_multiplier` - Protocol fee multiplier in billionths
 /// * `coin_in_wallet` - Amount of input coins available in user's wallet
 /// * `balance_manager_coin` - Amount of input coins available in user's balance manager
 ///
@@ -890,6 +915,7 @@ public(package) fun get_input_coin_fee_plan(
     is_pool_whitelisted: bool,
     taker_fee: u64,
     amount: u64,
+    protocol_fee_multiplier: u64,
     coin_in_wallet: u64,
     balance_manager_coin: u64,
 ): InputCoinFeePlan {
@@ -899,7 +925,11 @@ public(package) fun get_input_coin_fee_plan(
     };
 
     // Calculate protocol fee based on order amount
-    let protocol_fee = calculate_input_coin_protocol_fee(amount, taker_fee);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        amount,
+        taker_fee,
+    );
 
     // If no fee, return early
     if (protocol_fee == 0) {
@@ -1019,6 +1049,7 @@ public(package) fun plan_fee_collection(
 /// Parameters:
 /// - deep_required: Actual amount of DEEP required for the order
 /// - deep_from_reserves: Amount of DEEP to be taken from wrapper reserves
+/// - protocol_fee_rate: Protocol fee rate in billionths
 /// - sui_per_deep: Current DEEP/SUI price from reference pool
 /// - estimated_deep_required: Estimated DEEP requirement used to calculate maximum allowed one
 /// - estimated_deep_required_slippage: Slippage in billionths applied to estimated DEEP requirement for maximum calculation
@@ -1027,6 +1058,7 @@ public(package) fun plan_fee_collection(
 public(package) fun validate_fees_against_max(
     deep_required: u64,
     deep_from_reserves: u64,
+    protocol_fee_rate: u64,
     sui_per_deep: u64,
     estimated_deep_required: u64,
     estimated_deep_required_slippage: u64,
@@ -1046,6 +1078,7 @@ public(package) fun validate_fees_against_max(
     // Validate SUI fee (only applies when using wrapper DEEP reserves)
     if (deep_from_reserves > 0) {
         let (actual_sui_fee, _, _) = calculate_full_order_fee(
+            protocol_fee_rate,
             sui_per_deep,
             deep_from_reserves,
         );
@@ -1071,6 +1104,7 @@ public(package) fun validate_fees_against_max(
 ///
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
+/// - trading_fee_config: Trading fee configuration object
 /// - pool: The trading pool where the order will be placed
 /// - reference_pool: Reference pool used for fallback DEEP/SUI price calculation
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
@@ -1090,6 +1124,7 @@ public(package) fun validate_fees_against_max(
 /// - clock: System clock for timestamp verification
 fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
+    trading_fee_config: &TradingFeeConfig,
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
     deep_usd_price_info: &PriceInfoObject,
@@ -1126,6 +1161,9 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         clock,
     );
 
+    // Get the protocol fee rate
+    let protocol_fee_rate = deep_fee_type_rate(trading_fee_config);
+
     // Extract all the data we need from DeepBook objects
     let is_pool_whitelisted = pool.whitelisted();
 
@@ -1158,6 +1196,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -1165,6 +1204,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     validate_fees_against_max(
         deep_required,
         deep_plan.from_deep_reserves,
+        protocol_fee_rate,
         sui_per_deep,
         estimated_deep_required,
         estimated_deep_required_slippage,
@@ -1279,6 +1319,7 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
 ///
 /// Parameters:
 /// * `wrapper` - The DeepBook wrapper instance managing the order process
+/// * `trading_fee_config` - Trading fee configuration object
 /// * `pool` - The trading pool where the order will be placed
 /// * `balance_manager` - User's balance manager for managing coin deposits
 /// * `base_coin` - Base token coins from user's wallet
@@ -1288,6 +1329,7 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
 /// * `is_bid` - True for buy orders, false for sell orders
 fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     wrapper: &mut Wrapper,
+    trading_fee_config: &TradingFeeConfig,
     pool: &Pool<BaseToken, QuoteToken>,
     balance_manager: &mut BalanceManager,
     mut base_coin: Coin<BaseToken>,
@@ -1305,6 +1347,9 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     // Get pool whitelisted status
     let is_pool_whitelisted = pool.whitelisted();
 
+    // Get the protocol fee multiplier
+    let protocol_fee_multiplier = input_coin_protocol_fee_multiplier(trading_fee_config);
+
     // Get balances from balance manager
     let balance_manager_base = balance_manager.balance<BaseToken>();
     let balance_manager_quote = balance_manager.balance<QuoteToken>();
@@ -1319,6 +1364,7 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         taker_fee,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
