@@ -33,8 +33,8 @@ export function createTicketTx({ ticketType, adminCapId, pks, weights, threshold
   const ticket = tx.moveCall({
     target: `${WRAPPER_PACKAGE_ID}::wrapper::create_ticket`,
     arguments: [
-      ticketTypeArg,
       tx.object(adminCapId),
+      ticketTypeArg,
       tx.pure.vector("vector<u8>", pks),
       tx.pure.vector("u8", weights),
       tx.pure.u16(threshold),
