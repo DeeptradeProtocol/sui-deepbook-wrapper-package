@@ -44,13 +44,11 @@ const TICKET_DELAY_DURATION: u64 = 86400;
 /// Ticket active duration in seconds (24 hours)
 const TICKET_ACTIVE_DURATION: u64 = 86400;
 
-// === Enums ===
-public enum TicketType has copy, drop, store {
-    WithdrawDeepReserves,
-    WithdrawProtocolFee,
-    WithdrawCoverageFee,
-    UpdatePoolCreationProtocolFee,
-}
+/// Ticket types
+const WITHDRAW_DEEP_RESERVES: u8 = 0;
+const WITHDRAW_PROTOCOL_FEE: u8 = 1;
+const WITHDRAW_COVERAGE_FEE: u8 = 2;
+const UPDATE_POOL_CREATION_PROTOCOL_FEE: u8 = 3;
 
 // === Structs ===
 /// Wrapper struct for DeepBook V3
@@ -72,14 +70,14 @@ public struct AdminTicket has key {
     id: UID,
     owner: address,
     created_at: u64,
-    ticket_type: TicketType,
+    ticket_type: u8,
 }
 
 // === Events ===
 /// Event emitted when an admin ticket is created
 public struct TicketCreated has copy, drop {
     ticket_id: ID,
-    ticket_type: TicketType,
+    ticket_type: u8,
     created_at: u64,
 }
 
@@ -109,7 +107,7 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
 /// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
 ///   derived from the provided pks, weights, and threshold parameters
 public fun create_ticket(
-    ticket_type: TicketType,
+    ticket_type: u8,
     _admin: &AdminCap,
     pks: vector<vector<u8>>,
     weights: vector<u8>,
@@ -181,7 +179,7 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
         ESenderIsNotMultisig,
     );
     wrapper.verify_version();
-    validate_ticket(&ticket, TicketType::WithdrawCoverageFee, clock, ctx);
+    validate_ticket(&ticket, WITHDRAW_COVERAGE_FEE, clock, ctx);
 
     // Consume ticket after successful validation
     destroy_ticket(ticket);
@@ -231,7 +229,7 @@ public fun withdraw_protocol_fee<CoinType>(
         ESenderIsNotMultisig,
     );
     wrapper.verify_version();
-    validate_ticket(&ticket, TicketType::WithdrawProtocolFee, clock, ctx);
+    validate_ticket(&ticket, WITHDRAW_PROTOCOL_FEE, clock, ctx);
 
     // Consume ticket after successful validation
     destroy_ticket(ticket);
@@ -283,7 +281,7 @@ public fun withdraw_deep_reserves(
         ESenderIsNotMultisig,
     );
     wrapper.verify_version();
-    validate_ticket(&ticket, TicketType::WithdrawDeepReserves, clock, ctx);
+    validate_ticket(&ticket, WITHDRAW_DEEP_RESERVES, clock, ctx);
 
     // Consume ticket after successful validation
     destroy_ticket(ticket);
@@ -363,15 +361,13 @@ public fun deep_reserves(wrapper: &Wrapper): u64 {
     wrapper.deep_reserves.value()
 }
 
-public fun withdraw_deep_reserves_ticket_type(): TicketType { TicketType::WithdrawDeepReserves }
+public fun withdraw_deep_reserves_ticket_type(): u8 { WITHDRAW_DEEP_RESERVES }
 
-public fun withdraw_protocol_fee_ticket_type(): TicketType { TicketType::WithdrawProtocolFee }
+public fun withdraw_protocol_fee_ticket_type(): u8 { WITHDRAW_PROTOCOL_FEE }
 
-public fun withdraw_coverage_fee_ticket_type(): TicketType { TicketType::WithdrawCoverageFee }
+public fun withdraw_coverage_fee_ticket_type(): u8 { WITHDRAW_COVERAGE_FEE }
 
-public fun update_pool_creation_protocol_fee_ticket_type(): TicketType {
-    TicketType::UpdatePoolCreationProtocolFee
-}
+public fun update_pool_creation_protocol_fee_ticket_type(): u8 { UPDATE_POOL_CREATION_PROTOCOL_FEE }
 
 // === Public-Package Functions ===
 /// Add collected deep reserves coverage fees to the wrapper's fee storage
@@ -436,7 +432,7 @@ public(package) fun verify_version(wrapper: &Wrapper) {
 /// Validate ticket for execution
 public(package) fun validate_ticket(
     ticket: &AdminTicket,
-    expected_type: TicketType,
+    expected_type: u8,
     clock: &Clock,
     ctx: &TxContext,
 ) {
