@@ -49,6 +49,8 @@ const WITHDRAW_DEEP_RESERVES: u8 = 0;
 const WITHDRAW_PROTOCOL_FEE: u8 = 1;
 const WITHDRAW_COVERAGE_FEE: u8 = 2;
 const UPDATE_POOL_CREATION_PROTOCOL_FEE: u8 = 3;
+const UPDATE_DEEP_FEE_TYPE_RATE: u8 = 4;
+const UPDATE_INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u8 = 5;
 
 // === Structs ===
 /// Wrapper struct for DeepBook V3
@@ -368,6 +370,12 @@ public fun withdraw_protocol_fee_ticket_type(): u8 { WITHDRAW_PROTOCOL_FEE }
 public fun withdraw_coverage_fee_ticket_type(): u8 { WITHDRAW_COVERAGE_FEE }
 
 public fun update_pool_creation_protocol_fee_ticket_type(): u8 { UPDATE_POOL_CREATION_PROTOCOL_FEE }
+
+public fun update_deep_fee_type_rate_ticket_type(): u8 { UPDATE_DEEP_FEE_TYPE_RATE }
+
+public fun update_input_coin_protocol_fee_multiplier_ticket_type(): u8 {
+    UPDATE_INPUT_COIN_PROTOCOL_FEE_MULTIPLIER
+}
 
 // === Public-Package Functions ===
 /// Add collected deep reserves coverage fees to the wrapper's fee storage
