@@ -94,8 +94,8 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
 /// Verifies sender matches the multi-sig address, then creates a ticket for future execution
 ///
 /// Parameters:
-/// - ticket_type: Type of operation this ticket authorizes
 /// - _admin: Admin capability
+/// - ticket_type: Type of operation this ticket authorizes
 /// - pks: Vector of public keys of the multi-sig signers
 /// - weights: Vector of weights for each corresponding signer (must match pks length)
 /// - threshold: Minimum sum of weights required to authorize transactions (must be > 0 and <= sum of weights)
@@ -109,8 +109,8 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
 /// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
 ///   derived from the provided pks, weights, and threshold parameters
 public fun create_ticket(
-    ticket_type: u8,
     _admin: &AdminCap,
+    ticket_type: u8,
     pks: vector<vector<u8>>,
     weights: vector<u8>,
     threshold: u16,
