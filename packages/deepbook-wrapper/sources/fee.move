@@ -9,6 +9,12 @@ use deepbook_wrapper::helper::{
     calculate_market_order_params
 };
 use deepbook_wrapper::math;
+use deepbook_wrapper::wrapper::{
+    AdminTicket,
+    destroy_ticket,
+    update_deep_fee_type_rate_ticket_type,
+    update_input_coin_protocol_fee_multiplier_ticket_type
+};
 use multisig::multisig;
 use pyth::price_info::PriceInfoObject;
 use sui::balance::Balance;
@@ -40,65 +46,84 @@ public struct TradingFeeConfig has key {
 }
 
 // === Public-Mutative Functions ===
-/// Update the deep fee type rate while verifying that the sender is the expected multi-sig address
+/// Update the deep fee type rate while verifying that the sender is the expected multi-sig address.
+/// Performs timelock validation using an admin ticket.
 ///
 /// Parameters:
 /// - config: Trading fee configuration object
+/// - ticket: Admin ticket for timelock validation (consumed on execution)
 /// - _admin: Admin capability
 /// - new_rate: New DEEP fee type rate in billionths
 /// - pks: Vector of public keys of the multi-sig signers
 /// - weights: Vector of weights for each corresponding signer (must match pks length)
 /// - threshold: Minimum sum of weights required to authorize transactions
+/// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for coin creation and sender verification
 ///
 /// Aborts:
 /// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
 ///   derived from the provided pks, weights, and threshold parameters
+/// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
 public fun update_deep_fee_type_rate(
     config: &mut TradingFeeConfig,
+    ticket: AdminTicket,
     _admin: &AdminCap,
     new_rate: u64,
     pks: vector<vector<u8>>,
     weights: vector<u8>,
     threshold: u16,
+    clock: &Clock,
     ctx: &mut TxContext,
 ) {
     assert!(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
     );
+    validate_ticket(&ticket, update_deep_fee_type_rate_ticket_type(), clock, ctx);
+
+    // Consume ticket after successful validation
+    destroy_ticket(ticket);
 
     config.deep_fee_type_rate = new_rate;
 }
 
 /// Update the input coin protocol fee multiplier while verifying that the sender is the expected
-/// multi-sig address
+/// multi-sig address. Performs timelock validation using an admin ticket.
 ///
 /// Parameters:
 /// - config: Trading fee configuration object
+/// - ticket: Admin ticket for timelock validation (consumed on execution)
 /// - _admin: Admin capability
 /// - new_multiplier: New input coin protocol fee multiplier in billionths
 /// - pks: Vector of public keys of the multi-sig signers
 /// - weights: Vector of weights for each corresponding signer (must match pks length)
 /// - threshold: Minimum sum of weights required to authorize transactions
+/// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for coin creation and sender verification
 ///
 /// Aborts:
 /// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
 ///   derived from the provided pks, weights, and threshold parameters
+/// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
 public fun update_input_coin_protocol_fee_multiplier(
     config: &mut TradingFeeConfig,
+    ticket: AdminTicket,
     _admin: &AdminCap,
     new_multiplier: u64,
     pks: vector<vector<u8>>,
     weights: vector<u8>,
     threshold: u16,
+    clock: &Clock,
     ctx: &mut TxContext,
 ) {
     assert!(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
     );
+    validate_ticket(&ticket, update_input_coin_protocol_fee_multiplier_ticket_type(), clock, ctx);
+
+    // Consume ticket after successful validation
+    destroy_ticket(ticket);
 
     config.input_coin_protocol_fee_multiplier = new_multiplier;
 }
