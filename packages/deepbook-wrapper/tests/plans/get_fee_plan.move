@@ -9,6 +9,9 @@ use std::unit_test::assert_eq;
 // SUI per DEEP
 const SUI_PER_DEEP: u64 = 37_815_000_000;
 
+// Protocol fee rate
+const PROTOCOL_FEE_RATE: u64 = 10_000_000; // 1% in billionths
+
 // ===== No Fee Required Tests =====
 
 #[test]
@@ -19,11 +22,13 @@ public fun whitelisted_pool_requires_no_fee() {
     let sui_per_deep = SUI_PER_DEEP;
     let sui_in_wallet = 1000;
     let balance_manager_sui = 1000;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -48,11 +53,13 @@ public fun not_using_wrapper_deep_requires_no_fee() {
     let sui_per_deep = SUI_PER_DEEP;
     let sui_in_wallet = 1000;
     let balance_manager_sui = 1000;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     let plan = get_fee_plan(
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -77,13 +84,18 @@ public fun fee_from_wallet_only() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 25_000;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = total_fee * 2; // Plenty in wallet
@@ -93,6 +105,7 @@ public fun fee_from_wallet_only() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -115,13 +128,18 @@ public fun fee_from_balance_manager_only() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 75_000;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = 0; // Nothing in wallet
@@ -131,6 +149,7 @@ public fun fee_from_balance_manager_only() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -153,13 +172,18 @@ public fun fee_split_between_wallet_and_balance_manager() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 40_000;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     // Put 2/3 in BM, 1/3 in wallet
@@ -170,6 +194,7 @@ public fun fee_split_between_wallet_and_balance_manager() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -211,13 +236,18 @@ public fun insufficient_fee_resources() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 60_000;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     // Total available is 50% of required fee
@@ -228,6 +258,7 @@ public fun insufficient_fee_resources() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -250,13 +281,18 @@ public fun almost_sufficient_fee_resources() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 35_000;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     // Total available is 1 less than required fee
@@ -267,6 +303,7 @@ public fun almost_sufficient_fee_resources() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -291,13 +328,18 @@ public fun exact_fee_match_with_wallet() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 50_000;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = total_fee; // Exact match
@@ -307,6 +349,7 @@ public fun exact_fee_match_with_wallet() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -329,13 +372,18 @@ public fun exact_fee_match_with_balance_manager() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 20_000;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = 0; // Nothing in wallet
@@ -345,6 +393,7 @@ public fun exact_fee_match_with_balance_manager() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -367,13 +416,18 @@ public fun exact_fee_match_combined() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 80_000;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     // Put half in each source
@@ -384,6 +438,7 @@ public fun exact_fee_match_combined() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -425,13 +480,18 @@ public fun large_deep_reserves_fee() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 1_000_000_000; // Large amount of DEEP
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     // Put 75% in BM, 25% in wallet
@@ -442,6 +502,7 @@ public fun large_deep_reserves_fee() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -481,13 +542,18 @@ public fun minimal_deep_reserves_fee() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 1; // Minimal amount of DEEP
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     // Ensure we have enough balance to cover even minimal fee
@@ -498,6 +564,7 @@ public fun minimal_deep_reserves_fee() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -523,13 +590,18 @@ public fun wallet_exactly_one_token_short() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 15_000;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = total_fee - 1; // 1 SUI short
@@ -539,6 +611,7 @@ public fun wallet_exactly_one_token_short() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -561,13 +634,18 @@ public fun balance_manager_exactly_one_token_short_with_empty_wallet() {
     let use_wrapper_deep_reserves = true;
     let deep_from_reserves = 45_000;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Calculate both fees in SUI
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-    let protocol_fee = calculate_protocol_fee(sui_per_deep, deep_from_reserves);
+    let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
     let total_fee = coverage_fee + protocol_fee;
 
     let sui_in_wallet = 0; // Empty wallet
@@ -577,6 +655,7 @@ public fun balance_manager_exactly_one_token_short_with_empty_wallet() {
         use_wrapper_deep_reserves,
         deep_from_reserves,
         is_pool_whitelisted,
+        protocol_fee_rate,
         sui_per_deep,
         sui_in_wallet,
         balance_manager_sui,
@@ -598,23 +677,24 @@ public fun balance_manager_exactly_one_token_short_with_empty_wallet() {
 #[test]
 public fun fee_scaling_with_deep_amount() {
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Test with increasing amounts of DEEP from reserves
     let fee_0 =
         calculate_deep_reserves_coverage_order_fee(sui_per_deep, 0) + 
-                    calculate_protocol_fee(sui_per_deep, 0);
+        calculate_protocol_fee(protocol_fee_rate, sui_per_deep, 0);
 
     let fee_25k =
         calculate_deep_reserves_coverage_order_fee(sui_per_deep, 25_000) + 
-                      calculate_protocol_fee(sui_per_deep, 25_000);
+        calculate_protocol_fee(protocol_fee_rate, sui_per_deep, 25_000);
 
     let fee_50k =
         calculate_deep_reserves_coverage_order_fee(sui_per_deep, 50_000) + 
-                      calculate_protocol_fee(sui_per_deep, 50_000);
+        calculate_protocol_fee(protocol_fee_rate, sui_per_deep, 50_000);
 
     let fee_75k =
         calculate_deep_reserves_coverage_order_fee(sui_per_deep, 75_000) + 
-                      calculate_protocol_fee(sui_per_deep, 75_000);
+        calculate_protocol_fee(protocol_fee_rate, sui_per_deep, 75_000);
 
     // Verify fee scaling
     assert_eq!(fee_0, 0); // No fee with 0 DEEP

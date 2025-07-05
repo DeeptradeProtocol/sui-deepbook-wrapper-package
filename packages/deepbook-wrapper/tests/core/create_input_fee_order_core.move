@@ -23,6 +23,7 @@ const QUANTITY_LARGE: u64 = 10_000_000_000; // 10 tokens
 
 // DeepBook fee rate in billionths
 const DEEPBOOK_FEE_RATE: u64 = 1_000_000; // 0.1% DeepBook fee
+const PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000; // 75% in billionths
 
 // ===== Helper Function for Testing =====
 
@@ -67,11 +68,16 @@ public fun all_from_balance_manager() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balance manager with enough for everything
@@ -81,6 +87,7 @@ public fun all_from_balance_manager() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -109,11 +116,16 @@ public fun split_between_sources() {
     let quantity = QUANTITY_LARGE;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balances where both sources are needed
@@ -123,6 +135,7 @@ public fun split_between_sources() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -157,11 +170,16 @@ public fun insufficient_after_protocol_fee() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balances: enough for protocol fee but not for order
@@ -171,6 +189,7 @@ public fun insufficient_after_protocol_fee() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -200,6 +219,7 @@ public fun whitelisted_pool_no_fees() {
     let quantity = QUANTITY_SMALL;
     let price = PRICE_SMALL;
     let is_pool_whitelisted = true;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // For whitelisted pools, fee rate is 0
     let whitelisted_fee_rate = 0;
@@ -215,6 +235,7 @@ public fun whitelisted_pool_no_fees() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         whitelisted_fee_rate,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -244,11 +265,16 @@ public fun insufficient_protocol_fee() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balances: not enough even for protocol fee
@@ -258,6 +284,7 @@ public fun insufficient_protocol_fee() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -287,11 +314,16 @@ public fun minimum_amounts() {
     let quantity = 10_000;
     let price = 345_000_000;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balances with exact amounts needed
@@ -303,6 +335,7 @@ public fun minimum_amounts() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -332,11 +365,16 @@ public fun bm_only_protocol_fee() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balances:
@@ -349,6 +387,7 @@ public fun bm_only_protocol_fee() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -382,11 +421,16 @@ public fun exact_protocol_fee_balance() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balances:
@@ -398,6 +442,7 @@ public fun exact_protocol_fee_balance() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -426,11 +471,16 @@ public fun maximum_values() {
     let quantity = QUANTITY_LARGE * 1000;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balances with large amounts split between BM and wallet
@@ -440,6 +490,7 @@ public fun maximum_values() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -473,11 +524,16 @@ public fun fee_rounding() {
     let quantity = 17_777;
     let price = 13_131_000_000;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Split available funds to test rounding in both sources
@@ -487,6 +543,7 @@ public fun fee_rounding() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -519,11 +576,16 @@ public fun zero_balance_manager() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balances with zero in BM
@@ -533,6 +595,7 @@ public fun zero_balance_manager() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -561,11 +624,16 @@ public fun zero_wallet() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balances with zero in wallet
@@ -575,6 +643,7 @@ public fun zero_wallet() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -603,11 +672,16 @@ public fun boundary_conditions() {
     let quantity = QUANTITY_MEDIUM;
     let price = PRICE_MEDIUM;
     let is_pool_whitelisted = false;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements
     let order_amount = calculate_order_amount(quantity, price, true);
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, DEEPBOOK_FEE_RATE);
-    let protocol_fee = calculate_input_coin_protocol_fee(order_amount, DEEPBOOK_FEE_RATE);
+    let protocol_fee = calculate_input_coin_protocol_fee(
+        protocol_fee_multiplier,
+        order_amount,
+        DEEPBOOK_FEE_RATE,
+    );
     let total_required_in_bm = order_amount + deepbook_fee;
 
     // Set up balances:
@@ -619,6 +693,7 @@ public fun boundary_conditions() {
     let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
         is_pool_whitelisted,
         DEEPBOOK_FEE_RATE,
+        protocol_fee_multiplier,
         balance_manager_input_coin,
         wallet_input_coin,
         order_amount,
@@ -647,6 +722,7 @@ public fun whitelisted_zero_balance() {
     let quantity = QUANTITY_LARGE;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = true;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements - no fees for whitelisted pool
     let order_amount = calculate_order_amount(quantity, price, true);
@@ -675,6 +751,7 @@ public fun whitelisted_zero_balance() {
         let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
             is_pool_whitelisted,
             0, // whitelisted fee rate
+            protocol_fee_multiplier,
             bm_balance,
             wallet_balance,
             order_amount,
@@ -707,6 +784,7 @@ public fun whitelisted_maximum_values() {
     let quantity = QUANTITY_LARGE * 1000;
     let price = PRICE_LARGE;
     let is_pool_whitelisted = true;
+    let protocol_fee_multiplier = PROTOCOL_FEE_MULTIPLIER;
 
     // Calculate order requirements - no fees for whitelisted pool
     let order_amount = calculate_order_amount(quantity, price, true);
@@ -736,6 +814,7 @@ public fun whitelisted_maximum_values() {
         let (fee_plan, input_coin_deposit_plan) = create_input_fee_order_core(
             is_pool_whitelisted,
             0, // whitelisted fee rate
+            protocol_fee_multiplier,
             bm_balance,
             wallet_balance,
             order_amount,

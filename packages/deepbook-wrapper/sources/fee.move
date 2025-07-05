@@ -2,18 +2,29 @@ module deepbook_wrapper::fee;
 
 use deepbook::constants::fee_penalty_multiplier;
 use deepbook::pool::Pool;
+use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::{
     calculate_deep_required,
     get_sui_per_deep,
     calculate_market_order_params
 };
 use deepbook_wrapper::math;
+use deepbook_wrapper::wrapper::{
+    AdminTicket,
+    destroy_ticket,
+    update_deep_fee_type_rate_ticket_type,
+    update_input_coin_protocol_fee_multiplier_ticket_type
+};
+use multisig::multisig;
 use pyth::price_info::PriceInfoObject;
 use sui::balance::Balance;
 use sui::clock::Clock;
 use sui::coin::Coin;
 
 // === Errors ===
+/// Error when the sender is not a multisig address
+const ESenderIsNotMultisig: u64 = 1;
+
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
 #[allow(unused_const)]
@@ -26,6 +37,97 @@ const PROTOCOL_FEE_BPS: u64 = 10_000_000;
 /// Protocol fee multiplier when fee is paid in input coins (75% of taker fee)
 const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
 
+// === Structs ===
+/// Configuration object containing trading fee rates and multipliers
+public struct TradingFeeConfig has key {
+    id: UID,
+    deep_fee_type_rate: u64,
+    input_coin_protocol_fee_multiplier: u64,
+}
+
+// === Public-Mutative Functions ===
+/// Update the deep fee type rate while verifying that the sender is the expected multi-sig address.
+/// Performs timelock validation using an admin ticket.
+///
+/// Parameters:
+/// - config: Trading fee configuration object
+/// - ticket: Admin ticket for timelock validation (consumed on execution)
+/// - _admin: Admin capability
+/// - new_rate: New DEEP fee type rate in billionths
+/// - pks: Vector of public keys of the multi-sig signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions
+/// - clock: Clock for timestamp validation
+/// - ctx: Mutable transaction context for coin creation and sender verification
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
+/// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
+public fun update_deep_fee_type_rate(
+    config: &mut TradingFeeConfig,
+    ticket: AdminTicket,
+    _admin: &AdminCap,
+    new_rate: u64,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
+    validate_ticket(&ticket, update_deep_fee_type_rate_ticket_type(), clock, ctx);
+
+    // Consume ticket after successful validation
+    destroy_ticket(ticket);
+
+    config.deep_fee_type_rate = new_rate;
+}
+
+/// Update the input coin protocol fee multiplier while verifying that the sender is the expected
+/// multi-sig address. Performs timelock validation using an admin ticket.
+///
+/// Parameters:
+/// - config: Trading fee configuration object
+/// - ticket: Admin ticket for timelock validation (consumed on execution)
+/// - _admin: Admin capability
+/// - new_multiplier: New input coin protocol fee multiplier in billionths
+/// - pks: Vector of public keys of the multi-sig signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions
+/// - clock: Clock for timestamp validation
+/// - ctx: Mutable transaction context for coin creation and sender verification
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
+/// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
+public fun update_input_coin_protocol_fee_multiplier(
+    config: &mut TradingFeeConfig,
+    ticket: AdminTicket,
+    _admin: &AdminCap,
+    new_multiplier: u64,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
+    validate_ticket(&ticket, update_input_coin_protocol_fee_multiplier_ticket_type(), clock, ctx);
+
+    // Consume ticket after successful validation
+    destroy_ticket(ticket);
+
+    config.input_coin_protocol_fee_multiplier = new_multiplier;
+}
+
 // === Public-View Functions ===
 /// Calculates the total fee estimate for a limit order in SUI coins
 /// Uses oracle price feeds and reference pool to calculate the best DEEP/SUI price.
@@ -36,6 +138,7 @@ const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
 /// - reference_pool: Reference pool for price calculation
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
+/// - trading_fee_config: Trading fee configuration object
 /// - deep_in_balance_manager: Amount of DEEP available in user's balance manager
 /// - deep_in_wallet: Amount of DEEP in user's wallet
 /// - quantity: Order quantity in base tokens
@@ -53,6 +156,7 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
+    trading_fee_config: &TradingFeeConfig,
     deep_in_balance_manager: u64,
     deep_in_wallet: u64,
     quantity: u64,
@@ -70,11 +174,15 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
         clock,
     );
 
+    // Get the protocol fee rate
+    let protocol_fee_rate = trading_fee_config.deep_fee_type_rate;
+
     // Get DEEP required for the order
     let deep_required = calculate_deep_required(pool, quantity, price);
 
     // Call the core logic function to get fee components
     let (total_fee, deep_reserves_coverage_fee, protocol_fee) = estimate_full_order_fee_core(
+        protocol_fee_rate,
         is_pool_whitelisted,
         deep_in_balance_manager,
         deep_in_wallet,
@@ -94,6 +202,7 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
 /// - reference_pool: Reference pool for price calculation
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
+/// - trading_fee_config: Trading fee configuration object
 /// - deep_in_balance_manager: Amount of DEEP available in user's balance manager
 /// - deep_in_wallet: Amount of DEEP in user's wallet
 /// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
@@ -111,6 +220,7 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
     deep_usd_price_info: &PriceInfoObject,
     sui_usd_price_info: &PriceInfoObject,
+    trading_fee_config: &TradingFeeConfig,
     deep_in_balance_manager: u64,
     deep_in_wallet: u64,
     order_amount: u64,
@@ -128,6 +238,9 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
         clock,
     );
 
+    // Get the protocol fee rate
+    let protocol_fee_rate = trading_fee_config.deep_fee_type_rate;
+
     // Get DEEP required for the order
     let (_, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
@@ -138,6 +251,7 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
 
     // Call the core logic function to get fee components
     let (total_fee, deep_reserves_coverage_fee, protocol_fee) = estimate_full_order_fee_core(
+        protocol_fee_rate,
         is_pool_whitelisted,
         deep_in_balance_manager,
         deep_in_wallet,
@@ -148,12 +262,21 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
 }
 
+public fun deep_fee_type_rate(config: &TradingFeeConfig): u64 {
+    config.deep_fee_type_rate
+}
+
+public fun input_coin_protocol_fee_multiplier(config: &TradingFeeConfig): u64 {
+    config.input_coin_protocol_fee_multiplier
+}
+
 // === Public-Package Functions ===
 /// Core logic for calculating the total fee for an order in SUI coins
 /// Determines if user needs to use wrapper DEEP reserves and calculates
 /// the appropriate fee based on the DEEP/SUI price
 ///
 /// Parameters:
+/// - protocol_fee_rate: Protocol fee rate in billionths
 /// - is_pool_whitelisted: Whether the pool is whitelisted by DeepBook
 /// - balance_manager_deep: Amount of DEEP in user's balance manager
 /// - deep_in_wallet: Amount of DEEP in user's wallet
@@ -168,8 +291,9 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
 ///
 /// Fee consists of two components when using wrapper DEEP reserves:
 /// 1. Deep reserves coverage fee: Cost of DEEP being borrowed
-/// 2. Protocol fee: Additional fee based on PROTOCOL_FEE_BPS
+/// 2. Protocol fee: Additional fee based on protocol_fee_rate
 public(package) fun estimate_full_order_fee_core(
+    protocol_fee_rate: u64,
     is_pool_whitelisted: bool,
     balance_manager_deep: u64,
     deep_in_wallet: u64,
@@ -186,7 +310,7 @@ public(package) fun estimate_full_order_fee_core(
         let deep_from_reserves = deep_required - balance_manager_deep - deep_in_wallet;
 
         // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
-        calculate_full_order_fee(sui_per_deep, deep_from_reserves)
+        calculate_full_order_fee(protocol_fee_rate, sui_per_deep, deep_from_reserves)
     }
 }
 
@@ -194,6 +318,7 @@ public(package) fun estimate_full_order_fee_core(
 /// Combines both the deep reserves coverage fee and protocol fee
 ///
 /// Parameters:
+/// - protocol_fee_rate: Protocol fee rate in billionths
 /// - sui_per_deep: Current DEEP/SUI price from reference pool
 /// - deep_from_reserves: Amount of DEEP taken from wrapper reserves
 ///
@@ -206,6 +331,7 @@ public(package) fun estimate_full_order_fee_core(
 /// 1. Deep reserves coverage fee: SUI equivalent of borrowed DEEP
 /// 2. Protocol fee: Additional fee calculated as percentage of borrowed DEEP
 public(package) fun calculate_full_order_fee(
+    protocol_fee_rate: u64,
     sui_per_deep: u64,
     deep_from_reserves: u64,
 ): (u64, u64, u64) {
@@ -217,6 +343,7 @@ public(package) fun calculate_full_order_fee(
 
     // Calculate the protocol fee
     let protocol_fee = calculate_protocol_fee(
+        protocol_fee_rate,
         sui_per_deep,
         deep_from_reserves,
     );
@@ -243,9 +370,10 @@ public(package) fun calculate_deep_reserves_coverage_order_fee(
 }
 
 /// Calculates the protocol fee for using DEEP from wrapper reserves
-/// Fee is calculated as a percentage (PROTOCOL_FEE_BPS) of the borrowed DEEP value in SUI
+/// Fee is calculated as a percentage (protocol_fee_rate) of the borrowed DEEP value in SUI
 ///
 /// Parameters:
+/// - protocol_fee_rate: Protocol fee rate in billionths
 /// - sui_per_deep: Current DEEP/SUI price from reference pool
 /// - deep_from_reserves: Amount of DEEP taken from wrapper reserves
 ///
@@ -253,27 +381,36 @@ public(package) fun calculate_deep_reserves_coverage_order_fee(
 /// - u64: Protocol fee amount in SUI coins
 ///
 /// The calculation is done in two steps:
-/// 1. Calculate fee amount in DEEP using PROTOCOL_FEE_BPS
+/// 1. Calculate fee amount in DEEP using protocol_fee_rate
 /// 2. Convert DEEP fee to SUI using current price
-public(package) fun calculate_protocol_fee(sui_per_deep: u64, deep_from_reserves: u64): u64 {
-    let protocol_fee_in_deep = math::mul(deep_from_reserves, PROTOCOL_FEE_BPS);
+public(package) fun calculate_protocol_fee(
+    protocol_fee_rate: u64,
+    sui_per_deep: u64,
+    deep_from_reserves: u64,
+): u64 {
+    let protocol_fee_in_deep = math::mul(deep_from_reserves, protocol_fee_rate);
     let protocol_fee_in_sui = math::mul(protocol_fee_in_deep, sui_per_deep);
 
     protocol_fee_in_sui
 }
 
 /// Calculates protocol fee based on DeepBook's taker fee when paid in input coins
-/// Protocol fee is calculated as INPUT_COIN_PROTOCOL_FEE_MULTIPLIER of the DeepBook fee
+/// Protocol fee is calculated as protocol_fee_multiplier of the DeepBook fee
 ///
 /// # Parameters
+/// * `protocol_fee_multiplier` - Protocol fee multiplier in billionths
 /// * `amount` - The amount to calculate fee on
 /// * `taker_fee` - DeepBook's taker fee rate in billionths
 ///
 /// # Returns
 /// * `u64` - The calculated protocol fee amount
-public(package) fun calculate_input_coin_protocol_fee(amount: u64, taker_fee: u64): u64 {
+public(package) fun calculate_input_coin_protocol_fee(
+    protocol_fee_multiplier: u64,
+    amount: u64,
+    taker_fee: u64,
+): u64 {
     let deepbook_fee = calculate_fee_by_rate(amount, taker_fee);
-    let protocol_fee = math::mul(deepbook_fee, INPUT_COIN_PROTOCOL_FEE_MULTIPLIER);
+    let protocol_fee = math::mul(deepbook_fee, protocol_fee_multiplier);
 
     protocol_fee
 }
@@ -324,4 +461,16 @@ public(package) fun charge_swap_fee<CoinType>(
     let coin_balance = coin.balance_mut();
     let value = coin_balance.value();
     coin_balance.split(calculate_fee_by_rate(value, fee_bps))
+}
+
+// === Private Functions ===
+fun init(ctx: &mut TxContext) {
+    let trading_fee_config = TradingFeeConfig {
+        id: object::new(ctx),
+        deep_fee_type_rate: PROTOCOL_FEE_BPS,
+        input_coin_protocol_fee_multiplier: INPUT_COIN_PROTOCOL_FEE_MULTIPLIER,
+    };
+
+    // Share the trading fee config object
+    transfer::share_object(trading_fee_config);
 }
