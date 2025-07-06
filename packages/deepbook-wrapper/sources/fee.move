@@ -11,15 +11,18 @@ use deepbook_wrapper::helper::{
 use deepbook_wrapper::math;
 use deepbook_wrapper::wrapper::{
     AdminTicket,
+    validate_ticket,
     destroy_ticket,
-    update_deep_fee_type_rate_ticket_type,
-    update_input_coin_protocol_fee_multiplier_ticket_type
+    update_default_fees_ticket_type,
+    update_pool_specific_fees_ticket_type
 };
 use multisig::multisig;
 use pyth::price_info::PriceInfoObject;
 use sui::balance::Balance;
 use sui::clock::Clock;
 use sui::coin::Coin;
+use sui::event;
+use sui::table::{Self, Table};
 
 // === Errors ===
 /// Error when the sender is not a multisig address
@@ -34,41 +37,41 @@ const EFunctionDeprecated: u64 = 1000;
 /// Fee rate for protocol fee in billionths (1%)
 const PROTOCOL_FEE_BPS: u64 = 10_000_000;
 
-/// Protocol fee multiplier when fee is paid in input coins (75% of taker fee)
-const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
-
 // === Structs ===
-/// Configuration object containing trading fee rates and multipliers
+/// Configuration object containing trading fee rates
 public struct TradingFeeConfig has key {
     id: UID,
-    deep_fee_type_rate: u64,
-    input_coin_protocol_fee_multiplier: u64,
+    default_fees: PoolFeeConfig,
+    pool_specific_fees: Table<ID, PoolFeeConfig>,
+}
+
+/// Struct to hold a complete fee configuration
+public struct PoolFeeConfig has copy, drop, store {
+    deep_fee_type_taker_rate: u64,
+    deep_fee_type_maker_rate: u64,
+    input_coin_fee_type_taker_rate: u64,
+    input_coin_fee_type_maker_rate: u64,
+}
+
+// === Events ===
+/// Event for when default fees are updated
+public struct DefaultFeesUpdated has copy, drop {
+    new_fees: PoolFeeConfig,
+}
+
+/// Event for when a pool-specific fee config is updated
+public struct PoolFeesUpdated has copy, drop {
+    pool_id: ID,
+    new_fees: PoolFeeConfig,
 }
 
 // === Public-Mutative Functions ===
-/// Update the deep fee type rate while verifying that the sender is the expected multi-sig address.
-/// Performs timelock validation using an admin ticket.
-///
-/// Parameters:
-/// - config: Trading fee configuration object
-/// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
-/// - new_rate: New DEEP fee type rate in billionths
-/// - pks: Vector of public keys of the multi-sig signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
-/// - clock: Clock for timestamp validation
-/// - ctx: Mutable transaction context for coin creation and sender verification
-///
-/// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
-/// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
-public fun update_deep_fee_type_rate(
+/// Updates the default fee rates.
+public fun update_default_fees(
     config: &mut TradingFeeConfig,
     ticket: AdminTicket,
+    new_fees: PoolFeeConfig,
     _admin: &AdminCap,
-    new_rate: u64,
     pks: vector<vector<u8>>,
     weights: vector<u8>,
     threshold: u16,
@@ -79,37 +82,21 @@ public fun update_deep_fee_type_rate(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
     );
-    validate_ticket(&ticket, update_deep_fee_type_rate_ticket_type(), clock, ctx);
-
-    // Consume ticket after successful validation
+    validate_ticket(&ticket, update_default_fees_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
-    config.deep_fee_type_rate = new_rate;
+    config.default_fees = new_fees;
+
+    event::emit(DefaultFeesUpdated { new_fees });
 }
 
-/// Update the input coin protocol fee multiplier while verifying that the sender is the expected
-/// multi-sig address. Performs timelock validation using an admin ticket.
-///
-/// Parameters:
-/// - config: Trading fee configuration object
-/// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
-/// - new_multiplier: New input coin protocol fee multiplier in billionths
-/// - pks: Vector of public keys of the multi-sig signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
-/// - clock: Clock for timestamp validation
-/// - ctx: Mutable transaction context for coin creation and sender verification
-///
-/// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
-/// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
-public fun update_input_coin_protocol_fee_multiplier(
+/// Updates or creates a pool-specific fee configuration.
+public fun update_pool_specific_fees<BaseToken, QuoteToken>(
     config: &mut TradingFeeConfig,
     ticket: AdminTicket,
+    pool: &Pool<BaseToken, QuoteToken>,
+    new_fees: PoolFeeConfig,
     _admin: &AdminCap,
-    new_multiplier: u64,
     pks: vector<vector<u8>>,
     weights: vector<u8>,
     threshold: u16,
@@ -120,15 +107,34 @@ public fun update_input_coin_protocol_fee_multiplier(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
     );
-    validate_ticket(&ticket, update_input_coin_protocol_fee_multiplier_ticket_type(), clock, ctx);
-
-    // Consume ticket after successful validation
+    validate_ticket(&ticket, update_pool_specific_fees_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
-    config.input_coin_protocol_fee_multiplier = new_multiplier;
+    let pool_id = object::id(pool);
+
+    if (table::contains(&config.pool_specific_fees, pool_id)) {
+        table::remove(&mut config.pool_specific_fees, pool_id);
+    };
+    table::add(&mut config.pool_specific_fees, pool_id, new_fees);
+
+    event::emit(PoolFeesUpdated { pool_id, new_fees });
 }
 
 // === Public-View Functions ===
+/// Get the fee rates for a specific pool.
+public fun get_fee_rates<BaseToken, QuoteToken>(
+    config: &TradingFeeConfig,
+    pool: &Pool<BaseToken, QuoteToken>,
+): PoolFeeConfig {
+    let pool_id = object::id(pool);
+
+    if (table::contains(&config.pool_specific_fees, pool_id)) {
+        *table::borrow(&config.pool_specific_fees, pool_id)
+    } else {
+        config.default_fees
+    }
+}
+
 /// Calculates the total fee estimate for a limit order in SUI coins
 /// Uses oracle price feeds and reference pool to calculate the best DEEP/SUI price.
 /// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
@@ -260,14 +266,6 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     );
 
     (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
-}
-
-public fun deep_fee_type_rate(config: &TradingFeeConfig): u64 {
-    config.deep_fee_type_rate
-}
-
-public fun input_coin_protocol_fee_multiplier(config: &TradingFeeConfig): u64 {
-    config.input_coin_protocol_fee_multiplier
 }
 
 // === Public-Package Functions ===
@@ -467,8 +465,13 @@ public(package) fun charge_swap_fee<CoinType>(
 fun init(ctx: &mut TxContext) {
     let trading_fee_config = TradingFeeConfig {
         id: object::new(ctx),
-        deep_fee_type_rate: PROTOCOL_FEE_BPS,
-        input_coin_protocol_fee_multiplier: INPUT_COIN_PROTOCOL_FEE_MULTIPLIER,
+        default_fees: PoolFeeConfig {
+            deep_fee_type_taker_rate: PROTOCOL_FEE_BPS,
+            deep_fee_type_maker_rate: PROTOCOL_FEE_BPS,
+            input_coin_fee_type_taker_rate: PROTOCOL_FEE_BPS,
+            input_coin_fee_type_maker_rate: PROTOCOL_FEE_BPS,
+        },
+        pool_specific_fees: table::new(ctx),
     };
 
     // Share the trading fee config object
