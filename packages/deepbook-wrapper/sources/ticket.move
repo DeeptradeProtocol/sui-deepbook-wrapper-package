@@ -46,6 +46,12 @@ public struct TicketCreated has copy, drop {
     created_at: u64,
 }
 
+/// Event for when a ticket is destroyed (consumed)
+public struct TicketDestroyed has copy, drop {
+    ticket_id: ID,
+    ticket_type: u8,
+}
+
 // === Public Functions ===
 /// Create an admin ticket for timelock mechanism with multi-signature verification
 /// Verifies sender matches the multi-sig address, then creates a ticket for future execution
@@ -116,6 +122,11 @@ public fun update_pool_specific_fees_ticket_type(): u8 { UPDATE_POOL_SPECIFIC_FE
 public(package) fun destroy_ticket(ticket: AdminTicket) {
     let AdminTicket { id, .. } = ticket;
     id.delete();
+
+    event::emit(TicketDestroyed {
+        ticket_id: ticket.id.to_inner(),
+        ticket_type: ticket.ticket_type,
+    });
 }
 
 /// Validate ticket for execution
