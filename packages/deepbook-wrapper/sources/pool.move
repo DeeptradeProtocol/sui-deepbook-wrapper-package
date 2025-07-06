@@ -5,13 +5,13 @@ use deepbook::pool;
 use deepbook::registry::Registry;
 use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::transfer_if_nonzero;
-use deepbook_wrapper::wrapper::{
-    Self,
-    Wrapper,
+use deepbook_wrapper::ticket::{
     AdminTicket,
     update_pool_creation_protocol_fee_ticket_type,
-    join_protocol_fee
+    validate_ticket,
+    destroy_ticket
 };
+use deepbook_wrapper::wrapper::{Wrapper, join_protocol_fee};
 use multisig::multisig;
 use sui::clock::Clock;
 use sui::coin::Coin;
@@ -158,10 +158,10 @@ public fun update_pool_creation_protocol_fee(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
     );
-    wrapper::validate_ticket(&ticket, update_pool_creation_protocol_fee_ticket_type(), clock, ctx);
+    validate_ticket(&ticket, update_pool_creation_protocol_fee_ticket_type(), clock, ctx);
 
     // Consume ticket after successful validation
-    wrapper::destroy_ticket(ticket);
+    destroy_ticket(ticket);
 
     config.protocol_fee = new_fee;
 }

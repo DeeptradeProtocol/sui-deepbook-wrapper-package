@@ -9,7 +9,7 @@ use deepbook_wrapper::helper::{
     calculate_market_order_params
 };
 use deepbook_wrapper::math;
-use deepbook_wrapper::wrapper::{
+use deepbook_wrapper::ticket::{
     AdminTicket,
     validate_ticket,
     destroy_ticket,
