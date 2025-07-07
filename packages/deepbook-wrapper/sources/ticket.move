@@ -120,13 +120,14 @@ public fun update_pool_specific_fees_ticket_type(): u8 { UPDATE_POOL_SPECIFIC_FE
 // === Package Functions ===
 /// Consumes the ticket, should be called after validation.
 public(package) fun destroy_ticket(ticket: AdminTicket) {
-    let AdminTicket { id, .. } = ticket;
-    id.delete();
+    let AdminTicket { id, ticket_type, .. } = ticket;
 
     event::emit(TicketDestroyed {
-        ticket_id: ticket.id.to_inner(),
-        ticket_type: ticket.ticket_type,
+        ticket_id: id.to_inner(),
+        ticket_type,
     });
+
+    id.delete();
 }
 
 /// Validate ticket for execution
