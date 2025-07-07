@@ -92,6 +92,23 @@ public(package) fun calculate_order_amount(quantity: u64, price: u64, is_bid: bo
     }
 }
 
+/// Floors a quantity to the nearest lot size boundary
+/// This ensures the quantity is compatible with the pool's minimum trading unit
+///
+/// Parameters:
+/// - pool: The trading pool to get lot size from
+/// - quantity: The quantity to floor
+///
+/// Returns:
+/// - u64: The floored quantity that is a multiple of the lot size
+public(package) fun floor_to_lot_size<BaseToken, QuoteToken>(
+    pool: &Pool<BaseToken, QuoteToken>,
+    quantity: u64,
+): u64 {
+    let (_, lot_size, _) = pool.pool_book_params();
+    quantity - quantity % lot_size
+}
+
 /// Gets the order deep price parameters for given pool
 public(package) fun get_order_deep_price_params<BaseToken, QuoteToken>(
     pool: &Pool<BaseToken, QuoteToken>,
@@ -313,12 +330,41 @@ public(package) fun calculate_market_order_params<BaseToken, QuoteToken>(
     //             order book same way as actual order placement, we can use its `deep_req` value
     if (is_bid) {
         let (base_out, _, deep_req) = pool.get_quantity_out(0, order_amount, clock);
-        let (_, lot_size, _) = pool.pool_book_params();
-        let floored_base_out = base_out - base_out % lot_size;
+        let floored_base_out = floor_to_lot_size(pool, base_out);
         (floored_base_out, deep_req)
     } else {
         let (_, _, deep_req) = pool.get_quantity_out(order_amount, 0, clock);
         (order_amount, deep_req)
+    }
+}
+
+/// Calculates the base quantity for a market order using the input fee
+/// For bids, converts quote quantity into base quantity and floors to lot size
+/// For asks, uses order_amount directly as base quantity
+///
+/// Parameters:
+/// - pool: The trading pool where the order will be placed
+/// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
+/// - is_bid: True for buy orders, false for sell orders
+/// - clock: System clock for timestamp verification
+///
+/// Returns:
+/// - u64: Base quantity to use in place_market_order
+public(package) fun calculate_market_order_base_quantity_input_fee<BaseToken, QuoteToken>(
+    pool: &Pool<BaseToken, QuoteToken>,
+    order_amount: u64,
+    is_bid: bool,
+    clock: &Clock,
+): u64 {
+    // Calculate base quantity:
+    // - For bids: Convert quote quantity to base quantity via `get_quantity_out_input_fee`, floor to lot size.
+    // - For asks: Use order_amount directly as base quantity.
+    if (is_bid) {
+        let (base_out, _, _) = pool.get_quantity_out_input_fee(0, order_amount, clock);
+        let floored_base_out = floor_to_lot_size(pool, base_out);
+        floored_base_out
+    } else {
+        order_amount
     }
 }
 
