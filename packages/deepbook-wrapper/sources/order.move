@@ -14,6 +14,7 @@ use deepbook_wrapper::helper::{
     calculate_order_amount,
     get_sui_per_deep,
     calculate_market_order_params,
+    calculate_market_order_base_quantity_input_fee,
     validate_slippage,
     apply_slippage
 };
@@ -554,10 +555,11 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
 ): (OrderInfo) {
     // Calculate base quantity for market order
 
-    // We use calculate_market_order_params to get base quantity, which uses `get_quantity_out` under the hood,
-    // since `get_quantity_out` returns `base_quantity` without applying fees to it.
+    // We use calculate_market_order_base_quantity_input_fee to get base quantity, which uses
+    // `get_quantity_out_input_fee` under the hood, since `get_quantity_out_input_fee` returns
+    // `base_quantity` without applying fees to it.
     // We do need that, since we have to apply our protocol fee & deepbook fee on top of the order amount.
-    let (base_quantity, _) = calculate_market_order_params<BaseToken, QuoteToken>(
+    let base_quantity = calculate_market_order_base_quantity_input_fee<BaseToken, QuoteToken>(
         pool,
         order_amount,
         is_bid,
