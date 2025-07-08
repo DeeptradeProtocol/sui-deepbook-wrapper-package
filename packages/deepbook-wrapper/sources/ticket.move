@@ -96,7 +96,7 @@ public fun create_ticket(
     };
 
     event::emit(TicketCreated {
-        ticket_id: ticket_id.to_inner(),
+        ticket_id: ticket.id.to_inner(),
         ticket_type,
         created_at,
     });
