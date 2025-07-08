@@ -38,7 +38,7 @@ public struct PoolCreationConfig has key, store {
 }
 
 /// Pool created event emitted when a pool is created with help of the wrapper
-public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop, store {
+public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop {
     pool_id: ID,
     tick_size: u64,
     lot_size: u64,
