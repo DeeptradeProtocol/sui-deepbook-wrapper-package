@@ -28,11 +28,6 @@ use sui::table::{Self, Table};
 /// Error when the sender is not a multisig address
 const ESenderIsNotMultisig: u64 = 1;
 
-/// A generic error code for any function that is no longer supported.
-/// The value 1000 is used by convention across modules for this purpose.
-#[allow(unused_const)]
-const EFunctionDeprecated: u64 = 1000;
-
 // === Constants ===
 /// Fee rate for protocol fee in billionths (1%)
 const PROTOCOL_FEE_BPS: u64 = 10_000_000;
