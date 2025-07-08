@@ -46,7 +46,7 @@ public struct TicketCreated has copy, drop {
     created_at: u64,
 }
 
-/// Event for when a ticket is destroyed (consumed)
+/// Event emitted when a ticket is destroyed (consumed)
 public struct TicketDestroyed has copy, drop {
     ticket_id: ID,
     ticket_type: u8,
@@ -96,7 +96,7 @@ public fun create_ticket(
     };
 
     event::emit(TicketCreated {
-        ticket_id: ticket.id.to_inner(),
+        ticket_id: ticket_id.to_inner(),
         ticket_type,
         created_at,
     });
@@ -104,7 +104,7 @@ public fun create_ticket(
     ticket
 }
 
-// === View Functions ===
+// === Public-View Functions ===
 public fun withdraw_deep_reserves_ticket_type(): u8 { WITHDRAW_DEEP_RESERVES }
 
 public fun withdraw_protocol_fee_ticket_type(): u8 { WITHDRAW_PROTOCOL_FEE }
