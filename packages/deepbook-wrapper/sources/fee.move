@@ -112,27 +112,43 @@ public fun update_pool_specific_fees<BaseToken, QuoteToken>(
 
     let pool_id = object::id(pool);
 
-    if (table::contains(&config.pool_specific_fees, pool_id)) {
-        table::remove(&mut config.pool_specific_fees, pool_id);
+    if (config.pool_specific_fees.contains(pool_id)) {
+        config.pool_specific_fees.remove(pool_id);
     };
-    table::add(&mut config.pool_specific_fees, pool_id, new_fees);
+    config.pool_specific_fees.add(pool_id, new_fees);
 
     event::emit(PoolFeesUpdated { pool_id, new_fees });
 }
 
 // === Public-View Functions ===
-/// Get the fee rates for a specific pool.
+/// Get pool-specific fee rates if configured, otherwise default fee rates.
+/// Returns (taker_fee_rate, maker_fee_rate) in billionths.
 public fun get_fee_rates<BaseToken, QuoteToken>(
     config: &TradingFeeConfig,
     pool: &Pool<BaseToken, QuoteToken>,
 ): PoolFeeConfig {
     let pool_id = object::id(pool);
 
-    if (table::contains(&config.pool_specific_fees, pool_id)) {
-        *table::borrow(&config.pool_specific_fees, pool_id)
+    if (config.pool_specific_fees.contains(pool_id)) {
+        *config.pool_specific_fees.borrow(pool_id)
     } else {
         config.default_fees
     }
+}
+
+/// Get the deep fee type rates from a pool fee config.
+/// Returns (taker_fee_rate, maker_fee_rate) in billionths.
+public fun deep_fee_type_rates(config: PoolFeeConfig): (u64, u64) {
+    let PoolFeeConfig { deep_fee_type_taker_rate, deep_fee_type_maker_rate, .. } = config;
+    (deep_fee_type_taker_rate, deep_fee_type_maker_rate)
+}
+
+/// Get the input coin fee type rates from a pool fee config.
+/// Returns (taker_fee_rate, maker_fee_rate) in billionths.
+public fun input_coin_fee_type_rates(config: PoolFeeConfig): (u64, u64) {
+    let PoolFeeConfig { input_coin_fee_type_taker_rate, input_coin_fee_type_maker_rate, .. } =
+        config;
+    (input_coin_fee_type_taker_rate, input_coin_fee_type_maker_rate)
 }
 
 /// Calculates the total fee estimate for a limit order in SUI coins
