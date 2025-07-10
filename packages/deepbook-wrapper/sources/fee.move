@@ -30,8 +30,7 @@ const EInvalidDiscountPrecision: u64 = 4;
 const EDiscountOutOfRange: u64 = 5;
 
 // === Constants ===
-/// The multiple that fee rates must adhere to. Aligned with DeepBook's
-/// precision of 0.01 bps (0.0001%).
+/// The multiple that fee rates must adhere to, aligned with DeepBook (0.01 bps = 0.0001%)
 const FEE_PRECISION_MULTIPLE: u64 = 1000;
 /// The minimum allowed fee rate (0 bps)
 const MIN_FEE_RATE: u64 = 0;
@@ -42,7 +41,7 @@ const MAX_MAKER_FEE_RATE: u64 = 1_000_000;
 /// The minimum allowed discount rate (0%)
 const MIN_DISCOUNT_RATE: u64 = 0;
 /// The maximum allowed discount rate (100%)
-const MAX_DISCOUNT_RATE: u64 = 1_000_000_000; // 100%
+const MAX_DISCOUNT_RATE: u64 = 1_000_000_000;
 
 // Default fee rates for initialization
 const DEFAULT_DEEP_TAKER_FEE_BPS: u64 = 600_000; // 6 bps
