@@ -92,7 +92,7 @@ public struct UnsettledFee<phantom CoinType> has store {
 }
 
 /// A temporary receipt for aggregating batch fee settlement results
-public struct FeeSettlementReceipt<phantom FeeCoinType> has store {
+public struct FeeSettlementReceipt<phantom FeeCoinType> {
     orders_count: u64,
     total_fees_settled: u64,
 }
