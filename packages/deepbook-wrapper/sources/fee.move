@@ -2,7 +2,6 @@ module deepbook_wrapper::fee;
 
 use deepbook::constants::fee_penalty_multiplier;
 use deepbook::pool::Pool;
-use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::{
     calculate_deep_required,
     get_sui_per_deep,
@@ -16,17 +15,12 @@ use deepbook_wrapper::ticket::{
     update_default_fees_ticket_type,
     update_pool_specific_fees_ticket_type
 };
-use multisig::multisig;
 use pyth::price_info::PriceInfoObject;
 use sui::balance::Balance;
 use sui::clock::Clock;
 use sui::coin::Coin;
 use sui::event;
 use sui::table::{Self, Table};
-
-// === Errors ===
-/// Error when the sender is not a multisig address
-const ESenderIsNotMultisig: u64 = 1;
 
 // === Constants ===
 /// Fee rate for protocol fee in billionths (1%)
@@ -66,17 +60,9 @@ public fun update_default_fees(
     config: &mut TradingFeeConfig,
     ticket: AdminTicket,
     new_fees: PoolFeeConfig,
-    _admin: &AdminCap,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
     validate_ticket(&ticket, update_default_fees_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
@@ -91,17 +77,9 @@ public fun update_pool_specific_fees<BaseToken, QuoteToken>(
     ticket: AdminTicket,
     pool: &Pool<BaseToken, QuoteToken>,
     new_fees: PoolFeeConfig,
-    _admin: &AdminCap,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
     validate_ticket(&ticket, update_pool_specific_fees_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
