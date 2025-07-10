@@ -5,12 +5,12 @@ import { ADMIN_CAP_OBJECT_ID, POOL_CREATION_CONFIG_OBJECT_ID, WRAPPER_PACKAGE_ID
 // Set this value to the amount you want to set the new fee to
 const NEW_FEE = 200 * 1_000_000; // 200 DEEP
 
-// yarn ts-node examples/pool/update-create-pool-protocol-fee.ts
+// yarn ts-node examples/pool/update-pool-creation-protocol-fee.ts
 (async () => {
   const tx = new Transaction();
 
   tx.moveCall({
-    target: `${WRAPPER_PACKAGE_ID}::pool::update_create_pool_protocol_fee`,
+    target: `${WRAPPER_PACKAGE_ID}::pool::update_pool_creation_protocol_fee`,
     arguments: [tx.object(POOL_CREATION_CONFIG_OBJECT_ID), tx.object(ADMIN_CAP_OBJECT_ID), tx.pure.u64(NEW_FEE)],
   });
 
