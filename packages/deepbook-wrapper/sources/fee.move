@@ -26,22 +26,30 @@ use sui::table::{Self, Table};
 const EInvalidFeePrecision: u64 = 1;
 const EFeeOutOfRange: u64 = 2;
 const EInvalidFeeHierarchy: u64 = 3;
+const EInvalidDiscountPrecision: u64 = 4;
+const EDiscountOutOfRange: u64 = 5;
 
 // === Constants ===
-/// The multiple that fee rates must adhere to (e.g., 10,000 = 0.001% precision)
-const FEE_PRECISION_MULTIPLE: u64 = 10_000;
+/// The multiple that fee rates must adhere to. Aligned with DeepBook's
+/// precision of 0.01 bps (0.0001%).
+const FEE_PRECISION_MULTIPLE: u64 = 1000;
 /// The minimum allowed fee rate (0 bps)
 const MIN_FEE_RATE: u64 = 0;
 /// The maximum allowed taker fee rate (20 bps = 0.20%)
 const MAX_TAKER_FEE_RATE: u64 = 2_000_000;
 /// The maximum allowed maker fee rate (10 bps = 0.10%)
 const MAX_MAKER_FEE_RATE: u64 = 1_000_000;
+/// The minimum allowed discount rate (0%)
+const MIN_DISCOUNT_RATE: u64 = 0;
+/// The maximum allowed discount rate (100%)
+const MAX_DISCOUNT_RATE: u64 = 1_000_000_000; // 100%
 
 // Default fee rates for initialization
 const DEFAULT_DEEP_TAKER_FEE_BPS: u64 = 600_000; // 6 bps
 const DEFAULT_DEEP_MAKER_FEE_BPS: u64 = 300_000; // 3 bps
 const DEFAULT_INPUT_COIN_TAKER_FEE_BPS: u64 = 500_000; // 5 bps
 const DEFAULT_INPUT_COIN_MAKER_FEE_BPS: u64 = 200_000; // 2 bps
+const DEFAULT_DEEP_FEE_DISCOUNT_RATE: u64 = 250_000_000; // 2500 bps (25%)
 
 // === Structs ===
 /// Configuration object containing trading fee rates
@@ -57,6 +65,7 @@ public struct PoolFeeConfig has copy, drop, store {
     deep_fee_type_maker_rate: u64,
     input_coin_fee_type_taker_rate: u64,
     input_coin_fee_type_maker_rate: u64,
+    max_deep_fee_discount_rate: u64,
 }
 
 // === Events ===
@@ -482,6 +491,7 @@ fun validate_pool_fee_config(fees: &PoolFeeConfig) {
         fees.input_coin_fee_type_taker_rate,
         fees.input_coin_fee_type_maker_rate,
     );
+    validate_discount_rate(fees.max_deep_fee_discount_rate);
 }
 
 /// Validates a single taker/maker fee pair against precision, range, and consistency rules.
@@ -498,6 +508,17 @@ fun validate_fee_pair(taker_rate: u64, maker_rate: u64) {
     assert!(maker_rate <= taker_rate, EInvalidFeeHierarchy);
 }
 
+/// Validates the discount rate against precision and range rules.
+fun validate_discount_rate(discount_rate: u64) {
+    // --- Precision Check ---
+    assert!(discount_rate % FEE_PRECISION_MULTIPLE == 0, EInvalidDiscountPrecision);
+    // --- Range Check ---
+    assert!(
+        discount_rate >= MIN_DISCOUNT_RATE && discount_rate <= MAX_DISCOUNT_RATE,
+        EDiscountOutOfRange,
+    );
+}
+
 fun init(ctx: &mut TxContext) {
     let trading_fee_config = TradingFeeConfig {
         id: object::new(ctx),
@@ -506,6 +527,7 @@ fun init(ctx: &mut TxContext) {
             deep_fee_type_maker_rate: DEFAULT_DEEP_MAKER_FEE_BPS,
             input_coin_fee_type_taker_rate: DEFAULT_INPUT_COIN_TAKER_FEE_BPS,
             input_coin_fee_type_maker_rate: DEFAULT_INPUT_COIN_MAKER_FEE_BPS,
+            max_deep_fee_discount_rate: DEFAULT_DEEP_FEE_DISCOUNT_RATE,
         },
         pool_specific_fees: table::new(ctx),
     };
