@@ -91,6 +91,12 @@ public struct UnsettledFee<phantom CoinType> has store {
     maker_quantity: u64,
 }
 
+/// A temporary receipt for aggregating batch fee settlement results
+public struct FeeSettlementReceipt<phantom FeeCoinType> has store {
+    orders_count: u64,
+    total_fees_settled: u64,
+}
+
 /// Key struct for storing charged fees by coin type
 public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
     dummy_field: bool,
@@ -110,6 +116,12 @@ public struct UserFeesSettled has copy, drop {
     order_quantity: u64,
     maker_quantity: u64,
     filled_quantity: u64,
+}
+
+/// Emitted when a batch of protocol fees is settled
+public struct ProtocolFeesSettled<phantom FeeCoinType> has copy, drop {
+    orders_count: u64,
+    total_fees_settled: u64,
 }
 
 /// Initialize the wrapper module
@@ -279,17 +291,24 @@ public fun withdraw_deep_reserves(
     wrapper.deep_reserves.split(amount).into_coin(ctx)
 }
 
-/// Settle remaining unsettled fees to the protocol for orders that are no longer live
+/// Start the protocol fee settlement process for a specific coin by creating a FeeSettlementReceipt
+public fun start_protocol_fee_settlement<FeeCoinType>(): FeeSettlementReceipt<FeeCoinType> {
+    FeeSettlementReceipt {
+        orders_count: 0,
+        total_fees_settled: 0,
+    }
+}
+
+/// Settles remaining unsettled fees to the protocol for orders that are no longer live
+/// (i.e., cancelled or filled) and records the result in a `FeeSettlementReceipt`.
+/// See `docs/unsettled-fees.md` for a detailed explanation of the unsettled fees system.
 ///
-/// This method transfers any remaining unsettled fees to the protocol when an order becomes
-/// ineligible for user fee settlement. See `docs/unsettled-fees.md` for detailed explanation
-/// of the unsettled fees system.
-///
-/// The method silently returns if:
-/// - The order is still live (in open orders)
-/// - No unsettled fees exist for the order
-public fun settle_protocol_fees<BaseToken, QuoteToken, FeeCoinType>(
+/// The function silently returns if:
+/// - The order is still live (i.e., present in the account's open orders).
+/// - No unsettled fees exist for the order.
+public fun settle_protocol_fee_and_record<BaseToken, QuoteToken, FeeCoinType>(
     wrapper: &mut Wrapper,
+    receipt: &mut FeeSettlementReceipt<FeeCoinType>,
     pool: &Pool<BaseToken, QuoteToken>,
     balance_manager: &BalanceManager,
     order_id: u128,
@@ -312,8 +331,29 @@ public fun settle_protocol_fees<BaseToken, QuoteToken, FeeCoinType>(
         .unsettled_fees
         .remove(unsettled_fee_key);
     let unsettled_fee_balance = unsettled_fee.balance.withdraw_all();
+
+    // Update receipt with settled fee details
+    let settled_amount = unsettled_fee_balance.value();
+    if (settled_amount > 0) {
+        receipt.orders_count = receipt.orders_count + 1;
+        receipt.total_fees_settled = receipt.total_fees_settled + settled_amount;
+    };
+
     join_protocol_fee(wrapper, unsettled_fee_balance);
     unsettled_fee.destroy_empty();
+}
+
+/// Finalize the protocol fee settlement process, emitting an event with the total settled amount
+public fun finish_protocol_fee_settlement<FeeCoinType>(receipt: FeeSettlementReceipt<FeeCoinType>) {
+    if (receipt.total_fees_settled > 0) {
+        event::emit(ProtocolFeesSettled<FeeCoinType> {
+            orders_count: receipt.orders_count,
+            total_fees_settled: receipt.total_fees_settled,
+        });
+    };
+
+    // Destroy the receipt object
+    let FeeSettlementReceipt { .. } = receipt;
 }
 
 /// Enable the specified package version for the wrapper verifying that the sender is the expected multi-sig address
