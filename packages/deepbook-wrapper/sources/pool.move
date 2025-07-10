@@ -3,16 +3,14 @@ module deepbook_wrapper::pool;
 use deepbook::constants;
 use deepbook::pool;
 use deepbook::registry::Registry;
-use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::transfer_if_nonzero;
-use deepbook_wrapper::wrapper::{
-    Self,
-    Wrapper,
+use deepbook_wrapper::ticket::{
     AdminTicket,
     update_pool_creation_protocol_fee_ticket_type,
-    join_protocol_fee
+    validate_ticket,
+    destroy_ticket
 };
-use multisig::multisig;
+use deepbook_wrapper::wrapper::{Wrapper, join_protocol_fee};
 use sui::clock::Clock;
 use sui::coin::Coin;
 use sui::event;
@@ -21,14 +19,6 @@ use token::deep::DEEP;
 // === Errors ===
 /// Error when the user has not enough DEEP to cover the deepbook and protocol fees
 const ENotEnoughFee: u64 = 1;
-
-/// Error when the sender is not a multisig address
-const ESenderIsNotMultisig: u64 = 2;
-
-/// A generic error code for any function that is no longer supported.
-/// The value 1000 is used by convention across modules for this purpose.
-#[allow(unused_const)]
-const EFunctionDeprecated: u64 = 1000;
 
 // === Constants ===
 // Default protocol fee for creating a pool
@@ -125,45 +115,30 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     pool_id
 }
 
-/// Update the protocol fee for creating a pool while verifying that the sender is the expected multi-sig address.
-/// Performs timelock validation using an admin ticket.
+/// Update the protocol fee for the pool creation config. Performs timelock validation using an admin ticket.
 ///
 /// Parameters:
 /// - config: Pool creation configuration object
 /// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
-/// - new_fee: New protocol fee amount in DEEP tokens
-/// - pks: Vector of public keys of the multi-sig signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
+/// - protocol_fee: The new protocol fee
 /// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for sender verification
 ///
 /// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
 /// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
 public fun update_pool_creation_protocol_fee(
     config: &mut PoolCreationConfig,
     ticket: AdminTicket,
-    _admin: &AdminCap,
-    new_fee: u64,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
+    protocol_fee: u64,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
-    wrapper::validate_ticket(&ticket, update_pool_creation_protocol_fee_ticket_type(), clock, ctx);
+    validate_ticket(&ticket, update_pool_creation_protocol_fee_ticket_type(), clock, ctx);
 
     // Consume ticket after successful validation
-    wrapper::destroy_ticket(ticket);
+    destroy_ticket(ticket);
 
-    config.protocol_fee = new_fee;
+    config.protocol_fee = protocol_fee;
 }
 
 // === Public-View Functions ===

@@ -2,12 +2,19 @@ module deepbook_wrapper::wrapper;
 
 use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::current_version;
+use deepbook_wrapper::ticket::{
+    AdminTicket,
+    validate_ticket,
+    destroy_ticket,
+    withdraw_coverage_fee_ticket_type,
+    withdraw_protocol_fee_ticket_type,
+    withdraw_deep_reserves_ticket_type
+};
 use multisig::multisig;
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
-use sui::event;
 use sui::vec_set::{Self, VecSet};
 use token::deep::DEEP;
 
@@ -16,41 +23,15 @@ use token::deep::DEEP;
 const EInsufficientDeepReserves: u64 = 1;
 
 /// Allowed versions management errors
-const EVersionAlreadyEnabled: u64 = 3;
-const ECannotDisableCurrentVersion: u64 = 4;
-const EVersionNotEnabled: u64 = 5;
+const EVersionAlreadyEnabled: u64 = 2;
+const ECannotDisableCurrentVersion: u64 = 3;
+const EVersionNotEnabled: u64 = 4;
 
 /// Error when trying to use shared object in a package whose version is not enabled
-const EPackageVersionNotEnabled: u64 = 6;
+const EPackageVersionNotEnabled: u64 = 5;
 
 /// Error when the sender is not a multisig address
-const ESenderIsNotMultisig: u64 = 3;
-
-/// Ticket-related errors
-const ETicketNotReady: u64 = 7;
-const ETicketExpired: u64 = 8;
-const ETicketTypeMismatch: u64 = 9;
-const ETicketOwnerMismatch: u64 = 10;
-
-/// A generic error code for any function that is no longer supported.
-/// The value 1000 is used by convention across modules for this purpose.
-#[allow(unused_const)]
-const EFunctionDeprecated: u64 = 1000;
-
-// === Constants ===
-/// Ticket delay duration in seconds (24 hours)
-const TICKET_DELAY_DURATION: u64 = 86400;
-
-/// Ticket active duration in seconds (24 hours)
-const TICKET_ACTIVE_DURATION: u64 = 86400;
-
-/// Ticket types
-const WITHDRAW_DEEP_RESERVES: u8 = 0;
-const WITHDRAW_PROTOCOL_FEE: u8 = 1;
-const WITHDRAW_COVERAGE_FEE: u8 = 2;
-const UPDATE_POOL_CREATION_PROTOCOL_FEE: u8 = 3;
-const UPDATE_DEFAULT_FEES: u8 = 4;
-const UPDATE_POOL_SPECIFIC_FEES: u8 = 5;
+const ESenderIsNotMultisig: u64 = 6;
 
 // === Structs ===
 /// Wrapper struct for DeepBook V3
@@ -67,22 +48,6 @@ public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
     dummy_field: bool,
 }
 
-/// Admin ticket for timelock mechanism
-public struct AdminTicket has key {
-    id: UID,
-    owner: address,
-    created_at: u64,
-    ticket_type: u8,
-}
-
-// === Events ===
-/// Event emitted when an admin ticket is created
-public struct TicketCreated has copy, drop {
-    ticket_id: ID,
-    ticket_type: u8,
-    created_at: u64,
-}
-
 // === Public-Mutative Functions ===
 /// Join DEEP coins into the wrapper's reserves
 public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
@@ -90,72 +55,11 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
-/// Create an admin ticket for timelock mechanism with multi-signature verification
-/// Verifies sender matches the multi-sig address, then creates a ticket for future execution
-///
-/// Parameters:
-/// - _admin: Admin capability
-/// - ticket_type: Type of operation this ticket authorizes
-/// - pks: Vector of public keys of the multi-sig signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions (must be > 0 and <= sum of weights)
-/// - clock: Clock for timestamp recording
-/// - ctx: Mutable transaction context for ticket creation and sender verification
-///
-/// Returns:
-/// - AdminTicket: The created ticket bound to the sender address
-///
-/// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
-public fun create_ticket(
-    _admin: &AdminCap,
-    ticket_type: u8,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
-    clock: &Clock,
-    ctx: &mut TxContext,
-): AdminTicket {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
-
-    let ticket_id = object::new(ctx);
-    let created_at = clock.timestamp_ms() / 1000;
-
-    let ticket = AdminTicket {
-        id: ticket_id,
-        owner: ctx.sender(),
-        created_at,
-        ticket_type,
-    };
-
-    event::emit(TicketCreated {
-        ticket_id: ticket.id.to_inner(),
-        ticket_type,
-        created_at,
-    });
-
-    ticket
-}
-
-public fun destroy_ticket(ticket: AdminTicket) {
-    let AdminTicket { id, .. } = ticket;
-    id.delete();
-}
-
-/// Withdraw deep reserves coverage fees for a specific coin type while verifying that the sender is the expected
-/// multi-sig address. Performs timelock validation using an admin ticket.
+/// Withdraw deep reserves coverage fees for a specific coin type. Performs timelock validation using an admin ticket.
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
 /// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
-/// - pks: Vector of public keys of the signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
 /// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for coin creation and sender verification
 ///
@@ -163,25 +67,15 @@ public fun destroy_ticket(ticket: AdminTicket) {
 /// - Coin<CoinType>: All coverage fees of the specified type, or zero coin if none exist
 ///
 /// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
 /// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
 public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     wrapper: &mut Wrapper,
     ticket: AdminTicket,
-    _admin: &AdminCap,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
     wrapper.verify_version();
-    validate_ticket(&ticket, WITHDRAW_COVERAGE_FEE, clock, ctx);
+    validate_ticket(&ticket, withdraw_coverage_fee_ticket_type(), clock, ctx);
 
     // Consume ticket after successful validation
     destroy_ticket(ticket);
@@ -196,16 +90,11 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     }
 }
 
-/// Withdraw protocol fees for a specific coin type while verifying that the sender is the expected
-/// multi-sig address. Performs timelock validation using an admin ticket.
+/// Withdraw protocol fees for a specific coin type. Performs timelock validation using an admin ticket.
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
 /// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
-/// - pks: Vector of public keys of the multi-sig signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
 /// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for coin creation and sender verification
 ///
@@ -213,25 +102,15 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
 /// - Coin<CoinType>: All protocol fees of the specified type, or zero coin if none exist
 ///
 /// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
 /// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
 public fun withdraw_protocol_fee<CoinType>(
     wrapper: &mut Wrapper,
     ticket: AdminTicket,
-    _admin: &AdminCap,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
     wrapper.verify_version();
-    validate_ticket(&ticket, WITHDRAW_PROTOCOL_FEE, clock, ctx);
+    validate_ticket(&ticket, withdraw_protocol_fee_ticket_type(), clock, ctx);
 
     // Consume ticket after successful validation
     destroy_ticket(ticket);
@@ -246,17 +125,13 @@ public fun withdraw_protocol_fee<CoinType>(
     }
 }
 
-/// Withdraw a specified amount of DEEP coins from the wrapper's reserves while verifying that the sender
-/// is the expected multi-sig address. Performs timelock validation using an admin ticket
+/// Withdraw a specified amount of DEEP coins from the wrapper's reserves.
+/// Performs timelock validation using an admin ticket
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
 /// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
 /// - amount: Amount of DEEP tokens to withdraw
-/// - pks: Vector of public keys of the multi-sig signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
 /// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for coin creation and sender verification
 ///
@@ -264,26 +139,16 @@ public fun withdraw_protocol_fee<CoinType>(
 /// - Coin<DEEP>: The requested amount of DEEP tokens withdrawn from reserves
 ///
 /// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
 /// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
 public fun withdraw_deep_reserves(
     wrapper: &mut Wrapper,
     ticket: AdminTicket,
-    _admin: &AdminCap,
     amount: u64,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<DEEP> {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
     wrapper.verify_version();
-    validate_ticket(&ticket, WITHDRAW_DEEP_RESERVES, clock, ctx);
+    validate_ticket(&ticket, withdraw_deep_reserves_ticket_type(), clock, ctx);
 
     // Consume ticket after successful validation
     destroy_ticket(ticket);
@@ -363,18 +228,6 @@ public fun deep_reserves(wrapper: &Wrapper): u64 {
     wrapper.deep_reserves.value()
 }
 
-public fun withdraw_deep_reserves_ticket_type(): u8 { WITHDRAW_DEEP_RESERVES }
-
-public fun withdraw_protocol_fee_ticket_type(): u8 { WITHDRAW_PROTOCOL_FEE }
-
-public fun withdraw_coverage_fee_ticket_type(): u8 { WITHDRAW_COVERAGE_FEE }
-
-public fun update_pool_creation_protocol_fee_ticket_type(): u8 { UPDATE_POOL_CREATION_PROTOCOL_FEE }
-
-public fun update_default_fees_ticket_type(): u8 { UPDATE_DEFAULT_FEES }
-
-public fun update_pool_specific_fees_ticket_type(): u8 { UPDATE_POOL_SPECIFIC_FEES }
-
 // === Public-Package Functions ===
 /// Add collected deep reserves coverage fees to the wrapper's fee storage
 public(package) fun join_deep_reserves_coverage_fee<CoinType>(
@@ -435,26 +288,6 @@ public(package) fun verify_version(wrapper: &Wrapper) {
     assert!(wrapper.allowed_versions.contains(&package_version), EPackageVersionNotEnabled);
 }
 
-/// Validate ticket for execution
-public(package) fun validate_ticket(
-    ticket: &AdminTicket,
-    expected_type: u8,
-    clock: &Clock,
-    ctx: &TxContext,
-) {
-    // Check ownership
-    assert!(ticket.owner == ctx.sender(), ETicketOwnerMismatch);
-
-    // Check type
-    assert!(ticket.ticket_type == expected_type, ETicketTypeMismatch);
-
-    // Check if expired
-    assert!(!is_ticket_expired(ticket, clock), ETicketExpired);
-
-    // Check if ready
-    assert!(is_ticket_ready(ticket, clock), ETicketNotReady);
-}
-
 // === Private Functions ===
 /// Initialize the wrapper module
 fun init(ctx: &mut TxContext) {
@@ -468,16 +301,4 @@ fun init(ctx: &mut TxContext) {
 
     // Share the wrapper object
     transfer::share_object(wrapper);
-}
-
-/// Check if ticket is ready for execution (past delay period)
-fun is_ticket_ready(ticket: &AdminTicket, clock: &Clock): bool {
-    let current_time = clock.timestamp_ms() / 1000;
-    current_time >= ticket.created_at + TICKET_DELAY_DURATION
-}
-
-/// Check if ticket is expired (past active period)
-fun is_ticket_expired(ticket: &AdminTicket, clock: &Clock): bool {
-    let current_time = clock.timestamp_ms() / 1000;
-    current_time >= ticket.created_at + TICKET_DELAY_DURATION + TICKET_ACTIVE_DURATION
 }
