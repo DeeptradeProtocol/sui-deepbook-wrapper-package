@@ -14,12 +14,13 @@ const ETicketNotReady: u64 = 4;
 
 /// Error when the sender is not a multisig address
 const ESenderIsNotMultisig: u64 = 5;
+/// Error when the ticket is not expired
+const ETicketNotExpired: u64 = 6;
 
 // === Constants ===
-/// Ticket delay duration in seconds (24 hours)
-const TICKET_DELAY_DURATION: u64 = 86400;
-/// Ticket active duration in seconds (3 days)
-const TICKET_ACTIVE_DURATION: u64 = 86400 * 3;
+const SECONDS_PER_DAY: u64 = 86400;
+const TICKET_DELAY_DURATION: u64 = SECONDS_PER_DAY * 2; // 2 days
+const TICKET_ACTIVE_DURATION: u64 = SECONDS_PER_DAY * 3; // 3 days
 
 /// Ticket types
 const WITHDRAW_DEEP_RESERVES: u8 = 0;
@@ -43,7 +44,6 @@ public struct AdminTicket has key {
 public struct TicketCreated has copy, drop {
     ticket_id: ID,
     ticket_type: u8,
-    created_at: u64,
 }
 
 /// Event emitted when a ticket is destroyed (consumed)
@@ -79,7 +79,7 @@ public fun create_ticket(
     threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
-): AdminTicket {
+) {
     assert!(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
@@ -98,13 +98,32 @@ public fun create_ticket(
     event::emit(TicketCreated {
         ticket_id: ticket.id.to_inner(),
         ticket_type,
-        created_at,
     });
 
-    ticket
+    transfer::share_object(ticket)
+}
+
+/// Cleans up an expired admin ticket
+/// Any user can call this function to remove an expired ticket from the system
+public fun cleanup_expired_ticket(ticket: AdminTicket, clock: &Clock) {
+    assert!(is_ticket_expired(&ticket, clock), ETicketNotExpired);
+
+    destroy_ticket(ticket);
 }
 
 // === Public-View Functions ===
+/// Check if ticket is ready for execution (past delay period)
+public fun is_ticket_ready(ticket: &AdminTicket, clock: &Clock): bool {
+    let current_time = clock.timestamp_ms() / 1000;
+    current_time >= ticket.created_at + TICKET_DELAY_DURATION
+}
+
+/// Check if ticket is expired (past active period)
+public fun is_ticket_expired(ticket: &AdminTicket, clock: &Clock): bool {
+    let current_time = clock.timestamp_ms() / 1000;
+    current_time >= ticket.created_at + TICKET_DELAY_DURATION + TICKET_ACTIVE_DURATION
+}
+
 public fun withdraw_deep_reserves_ticket_type(): u8 { WITHDRAW_DEEP_RESERVES }
 
 public fun withdraw_protocol_fee_ticket_type(): u8 { WITHDRAW_PROTOCOL_FEE }
@@ -145,17 +164,4 @@ public(package) fun validate_ticket(
     assert!(!is_ticket_expired(ticket, clock), ETicketExpired);
     // Check if ready
     assert!(is_ticket_ready(ticket, clock), ETicketNotReady);
-}
-
-// === Private Functions ===
-/// Check if ticket is ready for execution (past delay period)
-fun is_ticket_ready(ticket: &AdminTicket, clock: &Clock): bool {
-    let current_time = clock.timestamp_ms() / 1000;
-    current_time >= ticket.created_at + TICKET_DELAY_DURATION
-}
-
-/// Check if ticket is expired (past active period)
-fun is_ticket_expired(ticket: &AdminTicket, clock: &Clock): bool {
-    let current_time = clock.timestamp_ms() / 1000;
-    current_time >= ticket.created_at + TICKET_DELAY_DURATION + TICKET_ACTIVE_DURATION
 }

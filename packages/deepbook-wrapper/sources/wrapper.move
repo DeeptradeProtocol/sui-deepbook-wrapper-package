@@ -146,16 +146,11 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
-/// Withdraw deep reserves coverage fees for a specific coin type while verifying that the sender is the expected
-/// multi-sig address. Performs timelock validation using an admin ticket.
+/// Withdraw deep reserves coverage fees for a specific coin type. Performs timelock validation using an admin ticket.
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
 /// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
-/// - pks: Vector of public keys of the signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
 /// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for coin creation and sender verification
 ///
@@ -163,23 +158,13 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
 /// - Coin<CoinType>: All coverage fees of the specified type, or zero coin if none exist
 ///
 /// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
 /// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
 public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     wrapper: &mut Wrapper,
     ticket: AdminTicket,
-    _admin: &AdminCap,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
     wrapper.verify_version();
     validate_ticket(&ticket, withdraw_coverage_fee_ticket_type(), clock, ctx);
 
@@ -196,16 +181,11 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     }
 }
 
-/// Withdraw protocol fees for a specific coin type while verifying that the sender is the expected
-/// multi-sig address. Performs timelock validation using an admin ticket.
+/// Withdraw protocol fees for a specific coin type. Performs timelock validation using an admin ticket.
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
 /// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
-/// - pks: Vector of public keys of the multi-sig signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
 /// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for coin creation and sender verification
 ///
@@ -213,23 +193,13 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
 /// - Coin<CoinType>: All protocol fees of the specified type, or zero coin if none exist
 ///
 /// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
 /// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
 public fun withdraw_protocol_fee<CoinType>(
     wrapper: &mut Wrapper,
     ticket: AdminTicket,
-    _admin: &AdminCap,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
     wrapper.verify_version();
     validate_ticket(&ticket, withdraw_protocol_fee_ticket_type(), clock, ctx);
 
@@ -246,17 +216,13 @@ public fun withdraw_protocol_fee<CoinType>(
     }
 }
 
-/// Withdraw a specified amount of DEEP coins from the wrapper's reserves while verifying that the sender
-/// is the expected multi-sig address. Performs timelock validation using an admin ticket
+/// Withdraw a specified amount of DEEP coins from the wrapper's reserves.
+/// Performs timelock validation using an admin ticket
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
 /// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
 /// - amount: Amount of DEEP tokens to withdraw
-/// - pks: Vector of public keys of the multi-sig signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
 /// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for coin creation and sender verification
 ///
@@ -264,24 +230,14 @@ public fun withdraw_protocol_fee<CoinType>(
 /// - Coin<DEEP>: The requested amount of DEEP tokens withdrawn from reserves
 ///
 /// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
 /// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
 public fun withdraw_deep_reserves(
     wrapper: &mut Wrapper,
     ticket: AdminTicket,
-    _admin: &AdminCap,
     amount: u64,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<DEEP> {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
     wrapper.verify_version();
     validate_ticket(&ticket, withdraw_deep_reserves_ticket_type(), clock, ctx);
 
