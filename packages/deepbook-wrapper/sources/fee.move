@@ -2,7 +2,6 @@ module deepbook_wrapper::fee;
 
 use deepbook::constants::fee_penalty_multiplier;
 use deepbook::pool::Pool;
-use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::{
     calculate_deep_required,
     get_sui_per_deep,
@@ -16,7 +15,6 @@ use deepbook_wrapper::ticket::{
     update_default_fees_ticket_type,
     update_pool_specific_fees_ticket_type
 };
-use multisig::multisig;
 use pyth::price_info::PriceInfoObject;
 use sui::balance::Balance;
 use sui::clock::Clock;
@@ -41,7 +39,7 @@ const MAX_TAKER_FEE_RATE: u64 = 2_000_000;
 /// The maximum allowed maker fee rate (10 bps = 0.10%)
 const MAX_MAKER_FEE_RATE: u64 = 1_000_000;
 
-// === Default Fee Constants for Initialization ===
+// Default Fee Constants for Initialization
 const DEFAULT_DEEP_TAKER_FEE_BPS: u64 = 600_000; // 6 bps
 const DEFAULT_DEEP_MAKER_FEE_BPS: u64 = 300_000; // 3 bps
 const DEFAULT_INPUT_COIN_TAKER_FEE_BPS: u64 = 500_000; // 5 bps
@@ -81,19 +79,11 @@ public fun update_default_fees(
     config: &mut TradingFeeConfig,
     ticket: AdminTicket,
     new_fees: PoolFeeConfig,
-    _admin: &AdminCap,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
     validate_pool_fee_config(&new_fees);
 
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
     validate_ticket(&ticket, update_default_fees_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
@@ -108,19 +98,11 @@ public fun update_pool_specific_fees<BaseToken, QuoteToken>(
     ticket: AdminTicket,
     pool: &Pool<BaseToken, QuoteToken>,
     new_fees: PoolFeeConfig,
-    _admin: &AdminCap,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
     validate_pool_fee_config(&new_fees);
 
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
     validate_ticket(&ticket, update_pool_specific_fees_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
