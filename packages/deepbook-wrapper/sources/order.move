@@ -52,11 +52,6 @@ const EDeepRequiredExceedsMax: u64 = 5;
 /// Error when actual sui fee exceeds the max sui fee
 const ESuiFeeExceedsMax: u64 = 6;
 
-/// A generic error code for any function that is no longer supported.
-/// The value 1000 is used by convention across modules for this purpose.
-#[allow(unused_const)]
-const EFunctionDeprecated: u64 = 1000;
-
 // === Structs ===
 /// Tracks how DEEP will be sourced for an order
 /// Used to coordinate token sourcing from user wallet and wrapper reserves
