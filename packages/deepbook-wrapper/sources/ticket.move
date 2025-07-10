@@ -18,10 +18,9 @@ const ESenderIsNotMultisig: u64 = 5;
 const ETicketNotExpired: u64 = 6;
 
 // === Constants ===
-/// Ticket delay duration in seconds (24 hours)
-const TICKET_DELAY_DURATION: u64 = 86400;
-/// Ticket active duration in seconds (3 days)
-const TICKET_ACTIVE_DURATION: u64 = 86400 * 3;
+const SECONDS_PER_DAY: u64 = 86400;
+const TICKET_DELAY_DURATION: u64 = SECONDS_PER_DAY * 2; // 2 days
+const TICKET_ACTIVE_DURATION: u64 = SECONDS_PER_DAY * 3; // 3 days
 
 /// Ticket types
 const WITHDRAW_DEEP_RESERVES: u8 = 0;
