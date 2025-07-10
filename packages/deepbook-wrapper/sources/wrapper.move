@@ -81,6 +81,21 @@ public struct UnsettledFeeKey has copy, drop, store {
     order_id: u128,
 }
 
+/// Unsettled fee for specific order
+/// See `docs/unsettled-fees.md` for detailed explanation of the unsettled fees system.
+public struct UnsettledFee<phantom CoinType> has store {
+    /// Fee balance
+    balance: Balance<CoinType>,
+    order_quantity: u64,
+    /// Maker quantity this fee balance corresponds to
+    maker_quantity: u64,
+}
+
+/// Key struct for storing charged fees by coin type
+public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
+    dummy_field: bool,
+}
+
 // === Events ===
 public struct UnsettledFeeAdded has copy, drop {
     key: UnsettledFeeKey,
@@ -97,19 +112,19 @@ public struct UserFeesSettled has copy, drop {
     filled_quantity: u64,
 }
 
-/// Unsettled fee for specific order
-/// See `docs/unsettled-fees.md` for detailed explanation of the unsettled fees system.
-public struct UnsettledFee<phantom CoinType> has store {
-    /// Fee balance
-    balance: Balance<CoinType>,
-    order_quantity: u64,
-    /// Maker quantity this fee balance corresponds to
-    maker_quantity: u64,
-}
+/// Initialize the wrapper module
+fun init(ctx: &mut TxContext) {
+    let wrapper = Wrapper {
+        id: object::new(ctx),
+        allowed_versions: vec_set::singleton(current_version()),
+        deep_reserves: balance::zero(),
+        deep_reserves_coverage_fees: bag::new(ctx),
+        protocol_fees: bag::new(ctx),
+        unsettled_fees: bag::new(ctx),
+    };
 
-/// Key struct for storing charged fees by coin type
-public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
-    dummy_field: bool,
+    // Share the wrapper object
+    transfer::share_object(wrapper);
 }
 
 // === Public-Mutative Functions ===
@@ -589,21 +604,6 @@ public(package) fun verify_version(wrapper: &Wrapper) {
 }
 
 // === Private Functions ===
-/// Initialize the wrapper module
-fun init(ctx: &mut TxContext) {
-    let wrapper = Wrapper {
-        id: object::new(ctx),
-        allowed_versions: vec_set::singleton(current_version()),
-        deep_reserves: balance::zero(),
-        deep_reserves_coverage_fees: bag::new(ctx),
-        protocol_fees: bag::new(ctx),
-        unsettled_fees: bag::new(ctx),
-    };
-
-    // Share the wrapper object
-    transfer::share_object(wrapper);
-}
-
 /// Destroy the empty unsettled fee
 fun destroy_empty<CoinType>(unsettled_fee: UnsettledFee<CoinType>) {
     assert!(unsettled_fee.balance.value() == 0, EUnsettledFeeNotEmpty);
