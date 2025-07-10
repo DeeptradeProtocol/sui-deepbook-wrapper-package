@@ -22,9 +22,26 @@ use sui::coin::Coin;
 use sui::event;
 use sui::table::{Self, Table};
 
+// === Errors ===
+const EInvalidFeePrecision: u64 = 1;
+const EFeeOutOfRange: u64 = 2;
+const EInvalidFeeHierarchy: u64 = 3;
+
 // === Constants ===
-/// Fee rate for protocol fee in billionths (1%)
-const PROTOCOL_FEE_BPS: u64 = 10_000_000;
+/// The multiple that fee rates must adhere to (e.g., 10,000 = 0.001% precision)
+const FEE_PRECISION_MULTIPLE: u64 = 10_000;
+/// The minimum allowed fee rate (0 bps)
+const MIN_FEE_RATE: u64 = 0;
+/// The maximum allowed taker fee rate (20 bps = 0.20%)
+const MAX_TAKER_FEE_RATE: u64 = 2_000_000;
+/// The maximum allowed maker fee rate (10 bps = 0.10%)
+const MAX_MAKER_FEE_RATE: u64 = 1_000_000;
+
+// Default fee rates for initialization
+const DEFAULT_DEEP_TAKER_FEE_BPS: u64 = 600_000; // 6 bps
+const DEFAULT_DEEP_MAKER_FEE_BPS: u64 = 300_000; // 3 bps
+const DEFAULT_INPUT_COIN_TAKER_FEE_BPS: u64 = 500_000; // 5 bps
+const DEFAULT_INPUT_COIN_MAKER_FEE_BPS: u64 = 200_000; // 2 bps
 
 // === Structs ===
 /// Configuration object containing trading fee rates
@@ -63,6 +80,8 @@ public fun update_default_fees(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
+    validate_pool_fee_config(&new_fees);
+
     validate_ticket(&ticket, update_default_fees_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
@@ -80,6 +99,8 @@ public fun update_pool_specific_fees<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
+    validate_pool_fee_config(&new_fees);
+
     validate_ticket(&ticket, update_pool_specific_fees_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
@@ -451,14 +472,40 @@ public(package) fun charge_swap_fee<CoinType>(
 }
 
 // === Private Functions ===
+/// Validates that the fee rates in a PoolFeeConfig are within the allowed precision and range.
+fun validate_pool_fee_config(fees: &PoolFeeConfig) {
+    validate_fee_pair(
+        fees.deep_fee_type_taker_rate,
+        fees.deep_fee_type_maker_rate,
+    );
+    validate_fee_pair(
+        fees.input_coin_fee_type_taker_rate,
+        fees.input_coin_fee_type_maker_rate,
+    );
+}
+
+/// Validates a single taker/maker fee pair against precision, range, and consistency rules.
+fun validate_fee_pair(taker_rate: u64, maker_rate: u64) {
+    // --- Precision Checks ---
+    assert!(taker_rate % FEE_PRECISION_MULTIPLE == 0, EInvalidFeePrecision);
+    assert!(maker_rate % FEE_PRECISION_MULTIPLE == 0, EInvalidFeePrecision);
+
+    // --- Range Checks ---
+    assert!(taker_rate >= MIN_FEE_RATE && taker_rate <= MAX_TAKER_FEE_RATE, EFeeOutOfRange);
+    assert!(maker_rate >= MIN_FEE_RATE && maker_rate <= MAX_MAKER_FEE_RATE, EFeeOutOfRange);
+
+    // --- Hierarchy Check ---
+    assert!(maker_rate <= taker_rate, EInvalidFeeHierarchy);
+}
+
 fun init(ctx: &mut TxContext) {
     let trading_fee_config = TradingFeeConfig {
         id: object::new(ctx),
         default_fees: PoolFeeConfig {
-            deep_fee_type_taker_rate: PROTOCOL_FEE_BPS,
-            deep_fee_type_maker_rate: PROTOCOL_FEE_BPS,
-            input_coin_fee_type_taker_rate: PROTOCOL_FEE_BPS,
-            input_coin_fee_type_maker_rate: PROTOCOL_FEE_BPS,
+            deep_fee_type_taker_rate: DEFAULT_DEEP_TAKER_FEE_BPS,
+            deep_fee_type_maker_rate: DEFAULT_DEEP_MAKER_FEE_BPS,
+            input_coin_fee_type_taker_rate: DEFAULT_INPUT_COIN_TAKER_FEE_BPS,
+            input_coin_fee_type_maker_rate: DEFAULT_INPUT_COIN_MAKER_FEE_BPS,
         },
         pool_specific_fees: table::new(ctx),
     };
