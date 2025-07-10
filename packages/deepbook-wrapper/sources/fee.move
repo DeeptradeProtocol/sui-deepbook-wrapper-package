@@ -23,10 +23,9 @@ use sui::event;
 use sui::table::{Self, Table};
 
 // === Errors ===
-/// Error when the sender is not a multisig address
-const EInvalidFeePrecision: u64 = 2;
-const EFeeOutOfRange: u64 = 3;
-const EInvalidFeeHierarchy: u64 = 4;
+const EInvalidFeePrecision: u64 = 1;
+const EFeeOutOfRange: u64 = 2;
+const EInvalidFeeHierarchy: u64 = 3;
 
 // === Constants ===
 /// The multiple that fee rates must adhere to (e.g., 10,000 = 0.0001% precision)
@@ -38,7 +37,7 @@ const MAX_TAKER_FEE_RATE: u64 = 2_000_000;
 /// The maximum allowed maker fee rate (10 bps = 0.10%)
 const MAX_MAKER_FEE_RATE: u64 = 1_000_000;
 
-// Default Fee Constants for Initialization
+// Default fee rates for initialization
 const DEFAULT_DEEP_TAKER_FEE_BPS: u64 = 600_000; // 6 bps
 const DEFAULT_DEEP_MAKER_FEE_BPS: u64 = 300_000; // 3 bps
 const DEFAULT_INPUT_COIN_TAKER_FEE_BPS: u64 = 500_000; // 5 bps
