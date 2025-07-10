@@ -45,7 +45,6 @@ public struct AdminTicket has key {
 public struct TicketCreated has copy, drop {
     ticket_id: ID,
     ticket_type: u8,
-    created_at: u64,
 }
 
 /// Event emitted when a ticket is destroyed (consumed)
@@ -100,7 +99,6 @@ public fun create_ticket(
     event::emit(TicketCreated {
         ticket_id: ticket.id.to_inner(),
         ticket_type,
-        created_at,
     });
 
     transfer::share_object(ticket)
