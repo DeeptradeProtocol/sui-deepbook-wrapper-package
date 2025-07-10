@@ -7,7 +7,7 @@ use deepbook_wrapper::wrapper::{
     Wrapper,
     join_deep_reserves_coverage_fee,
     join_protocol_fee,
-    join,
+    deposit_into_reserves,
     split_deep_reserves
 };
 use sui::clock::Clock;
@@ -66,7 +66,7 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
 
     // Apply wrapper DEEP reserves coverage fees to the output
     let mut result_quote = quote_out;
-    join(wrapper, deep_remainder);
+    deposit_into_reserves(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
     join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
@@ -125,7 +125,7 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
 
     // Apply wrapper DEEP reserves coverage fees to the output
     let mut result_base = base_out;
-    join(wrapper, deep_remainder);
+    deposit_into_reserves(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
     join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
@@ -176,7 +176,7 @@ public fun swap_exact_base_for_quote_input_fee<BaseToken, QuoteToken>(
     // Apply wrapper protocol fees to the output
     let mut result_quote = quote_out;
     // The `deep_remainder` is just an empty coin, so it could be either destroyed or joined to the wrapper reserves
-    join(wrapper, deep_remainder);
+    deposit_into_reserves(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
     join_protocol_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
@@ -227,7 +227,7 @@ public fun swap_exact_quote_for_base_input_fee<BaseToken, QuoteToken>(
     // Apply wrapper protocol fees to the output
     let mut result_base = base_out;
     // The `deep_remainder` is just an empty coin, so it could be either destroyed or joined to the wrapper reserves
-    join(wrapper, deep_remainder);
+    deposit_into_reserves(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
     join_protocol_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
