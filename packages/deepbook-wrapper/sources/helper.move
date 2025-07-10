@@ -1,6 +1,6 @@
 module deepbook_wrapper::helper;
 
-use deepbook::constants;
+use deepbook::constants::{Self, live, partially_filled};
 use deepbook::pool::Pool;
 use deepbook_wrapper::math;
 use deepbook_wrapper::oracle;
@@ -30,6 +30,12 @@ const EUnexpectedPositiveExponent: u64 = 5;
 
 /// Error when the decimal adjustment exceeds maximum safe power of 10 for u64
 const EDecimalAdjustmentTooLarge: u64 = 6;
+
+/// Error when the discount rate is greater than 100%
+const EInvalidDiscountRate: u64 = 7;
+
+/// Error when the deep from reserves is greater than the total deep required
+const EInvalidDeepFromReserves: u64 = 8;
 
 // === Constants ===
 /// Current version of the package. Update during upgrades
@@ -89,6 +95,53 @@ public(package) fun apply_slippage(value: u64, slippage: u64): u64 {
 
     // Add slippage to original value
     value + slippage_amount
+}
+
+/// Applies a discount to a value and returns the discounted result
+/// The discount rate is in billionths format (e.g., 50_000_000 = 5%)
+public(package) fun apply_discount(value: u64, discount_rate: u64): u64 {
+    // Verify that the discount is not greater than 100%
+    assert!(discount_rate <= 1_000_000_000, EInvalidDiscountRate);
+
+    let discount_multiplier = 1_000_000_000 - discount_rate;
+    math::mul(value, discount_multiplier)
+}
+
+/// Calculates discount rate based on how much of the DEEP fees the user pays themselves
+/// The more user covers DeepBook fees on their own, the higher the discount rate
+/// If no DEEP fees are required, user gets maximum discount
+public(package) fun calculate_discount_rate(
+    max_discount_rate: u64,
+    deep_from_reserves: u64,
+    deep_required: u64,
+): u64 {
+    assert!(deep_from_reserves <= deep_required, EInvalidDeepFromReserves);
+
+    let deep_covered_by_user = deep_required - deep_from_reserves;
+    // If deep_required is 0, set rate to 100% to give maximum discount
+    let fee_paid_by_user_rate = if (deep_required > 0)
+        math::div(deep_covered_by_user, deep_required) else 1_000_000_000;
+    let discount_rate = math::mul(max_discount_rate, fee_paid_by_user_rate);
+
+    discount_rate
+}
+
+/// Calculate the taker and maker ratios for an order based on execution status.
+/// Returns (taker_ratio, maker_ratio) in billionths.
+public(package) fun calculate_order_taker_maker_ratio(
+    original_quantity: u64,
+    executed_quantity: u64,
+    order_status: u8,
+): (u64, u64) {
+    // An order has maker part only if it's not fully executed and is live or partially filled
+    let order_has_maker_part =
+        executed_quantity < original_quantity &&
+        (order_status == live() || order_status == partially_filled());
+
+    let taker_ratio = math::div(executed_quantity, original_quantity);
+    let maker_ratio = if (order_has_maker_part) 1_000_000_000 - taker_ratio else 0;
+
+    (taker_ratio, maker_ratio)
 }
 
 /// Calculates the order amount in tokens (quote for bid, base for ask)
