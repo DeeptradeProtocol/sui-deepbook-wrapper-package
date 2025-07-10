@@ -24,7 +24,6 @@ use sui::table::{Self, Table};
 
 // === Errors ===
 /// Error when the sender is not a multisig address
-const ESenderIsNotMultisig: u64 = 1;
 const EInvalidFeePrecision: u64 = 2;
 const EFeeOutOfRange: u64 = 3;
 const EInvalidFeeHierarchy: u64 = 4;
