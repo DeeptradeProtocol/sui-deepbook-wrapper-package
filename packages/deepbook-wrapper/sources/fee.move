@@ -30,7 +30,7 @@ const EFeeOutOfRange: u64 = 3;
 const EInvalidFeeHierarchy: u64 = 4;
 
 // === Constants ===
-/// The multiple that fee rates must adhere to (e.g., 10,000 = 0.0001% precision)
+/// The multiple that fee rates must adhere to (e.g., 10,000 = 0.001% precision)
 const FEE_PRECISION_MULTIPLE: u64 = 10_000;
 /// The minimum allowed fee rate (0 bps)
 const MIN_FEE_RATE: u64 = 0;
