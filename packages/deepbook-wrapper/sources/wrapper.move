@@ -20,6 +20,7 @@ use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
+use sui::event;
 use sui::vec_set::{Self, VecSet};
 use token::deep::DEEP;
 
@@ -80,8 +81,23 @@ public struct UnsettledFeeKey has copy, drop, store {
     order_id: u128,
 }
 
+// === Events ===
+public struct UnsettledFeeAdded has copy, drop {
+    key: UnsettledFeeKey,
+    fee_value: u64,
+    order_quantity: u64,
+    maker_quantity: u64,
+}
+
+public struct UserFeesSettled has copy, drop {
+    key: UnsettledFeeKey,
+    fee_value: u64,
+    order_quantity: u64,
+    maker_quantity: u64,
+    filled_quantity: u64,
+}
+
 /// Unsettled fee for specific order
-///
 /// See `docs/unsettled-fees.md` for detailed explanation of the unsettled fees system.
 public struct UnsettledFee<phantom CoinType> has store {
     /// Fee balance
@@ -429,7 +445,8 @@ public(package) fun add_unsettled_fee<CoinType>(
     assert!(executed_quantity < order_quantity, EOrderFullyExecuted);
 
     // Fee must be not zero to be added
-    assert!(fee.value() > 0, EZeroUnsettledFee);
+    let fee_value = fee.value();
+    assert!(fee_value > 0, EZeroUnsettledFee);
 
     let unsettled_fee_key = UnsettledFeeKey {
         pool_id: order_info.pool_id(),
@@ -463,7 +480,14 @@ public(package) fun add_unsettled_fee<CoinType>(
             maker_quantity,
         };
         wrapper.unsettled_fees.add(unsettled_fee_key, new_unsettled_fee);
-    }
+    };
+
+    event::emit(UnsettledFeeAdded {
+        key: unsettled_fee_key,
+        fee_value,
+        order_quantity,
+        maker_quantity,
+    });
 }
 
 /// Settle unsettled fees back to the user for unfilled portions of their order
@@ -522,12 +546,23 @@ public(package) fun settle_user_fees<BaseToken, QuoteToken, FeeCoinType>(
     );
 
     let fee_to_settle = unsettled_fee.balance.split(amount_to_settle);
+    let fee_value = fee_to_settle.value();
 
     if (unsettled_fee.balance.value() == 0) {
         let unsettled_fee: UnsettledFee<FeeCoinType> = wrapper
             .unsettled_fees
             .remove(unsettled_fee_key);
         unsettled_fee.destroy_empty();
+    };
+
+    if (fee_value > 0) {
+        event::emit(UserFeesSettled {
+            key: unsettled_fee_key,
+            fee_value,
+            order_quantity,
+            maker_quantity,
+            filled_quantity,
+        });
     };
 
     fee_to_settle.into_coin(ctx)
