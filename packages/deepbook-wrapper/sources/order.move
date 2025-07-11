@@ -407,6 +407,16 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
+    // Verify the order expire timestamp is the max possible expire timestamp
+    let max_expire_timestamp = constants::max_u64();
+    assert!(expire_timestamp == max_expire_timestamp, ENotSupportedExpireTimestamp);
+
+    // Verify the self matching option is self matching allowed
+    assert!(
+        self_matching_option == constants::self_matching_allowed(),
+        ENotSupportedSelfMatchingOption,
+    );
+
     // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
@@ -468,6 +478,12 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
+    // Verify the self matching option is self matching allowed
+    assert!(
+        self_matching_option == constants::self_matching_allowed(),
+        ENotSupportedSelfMatchingOption,
+    );
+
     // Calculate base quantity for market order
     let (base_quantity, _) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
@@ -543,6 +559,16 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): (OrderInfo) {
     wrapper.verify_version();
+
+    // Verify the order expire timestamp is the max possible expire timestamp
+    let max_expire_timestamp = constants::max_u64();
+    assert!(expire_timestamp == max_expire_timestamp, ENotSupportedExpireTimestamp);
+
+    // Verify the self matching option is self matching allowed
+    assert!(
+        self_matching_option == constants::self_matching_allowed(),
+        ENotSupportedSelfMatchingOption,
+    );
 
     // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
@@ -629,6 +655,12 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): (OrderInfo) {
     wrapper.verify_version();
+
+    // Verify the self matching option is self matching allowed
+    assert!(
+        self_matching_option == constants::self_matching_allowed(),
+        ENotSupportedSelfMatchingOption,
+    );
 
     // We use calculate_market_order_params to get base quantity, which uses `get_quantity_out` under the hood,
     // since `get_quantity_out` returns `base_quantity` without applying fees to it.
