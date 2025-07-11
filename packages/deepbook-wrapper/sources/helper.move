@@ -37,6 +37,12 @@ const EInvalidDiscountRate: u64 = 7;
 /// Error when the deep from reserves is greater than the total deep required
 const EInvalidDeepFromReserves: u64 = 8;
 
+/// Error when the original quantity is zero
+const EZeroOriginalQuantity: u64 = 9;
+
+/// Error when the executed quantity exceeds the original quantity
+const EExecutedQuantityExceedsOriginal: u64 = 10;
+
 // === Constants ===
 /// Current version of the package. Update during upgrades
 const CURRENT_VERSION: u16 = 1;
@@ -133,6 +139,10 @@ public(package) fun calculate_order_taker_maker_ratio(
     executed_quantity: u64,
     order_status: u8,
 ): (u64, u64) {
+    // Validate inputs
+    assert!(original_quantity > 0, EZeroOriginalQuantity);
+    assert!(executed_quantity <= original_quantity, EExecutedQuantityExceedsOriginal);
+
     // An order has maker part only if it's not fully executed and is live or partially filled
     let order_has_maker_part =
         executed_quantity < original_quantity &&
