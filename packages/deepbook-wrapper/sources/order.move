@@ -393,10 +393,12 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
 /// - client_order_id: Client-provided order identifier
 /// - clock: System clock for timestamp verification
 public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
+    wrapper: &mut Wrapper,
+    trading_fee_config: &TradingFeeConfig,
     pool: &mut Pool<BaseToken, QuoteToken>,
     balance_manager: &mut BalanceManager,
-    base_coin: Coin<BaseToken>,
-    quote_coin: Coin<QuoteToken>,
+    mut base_coin: Coin<BaseToken>,
+    mut quote_coin: Coin<QuoteToken>,
     price: u64,
     quantity: u64,
     is_bid: bool,
@@ -407,6 +409,8 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
+    wrapper.verify_version();
+
     // Verify the order expire timestamp is the max possible expire timestamp
     let max_expire_timestamp = constants::max_u64();
     assert!(expire_timestamp == max_expire_timestamp, ENotSupportedExpireTimestamp);
@@ -420,18 +424,21 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
+    // Extract max discount rate for this pool
+    let max_discount_rate = trading_fee_config.get_fee_rates(pool).max_deep_fee_discount_rate();
+
     // Prepare order execution
     let proof = prepare_whitelisted_order_execution(
         balance_manager,
-        base_coin,
-        quote_coin,
+        &mut base_coin,
+        &mut quote_coin,
         order_amount,
         is_bid,
         ctx,
     );
 
     // Place limit order
-    pool.place_limit_order(
+    let order_info = pool.place_limit_order(
         balance_manager,
         &proof,
         client_order_id,
@@ -444,7 +451,24 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
         expire_timestamp,
         clock,
         ctx,
-    )
+    );
+
+    // Charge protocol fees
+    charge_protocol_fees(
+        wrapper,
+        trading_fee_config,
+        pool,
+        balance_manager,
+        base_coin,
+        quote_coin,
+        &order_info,
+        order_amount,
+        max_discount_rate,
+        true,
+        ctx,
+    );
+
+    order_info
 }
 
 /// Creates a market order on DeepBook using coins from user's wallet for whitelisted pools
@@ -467,10 +491,12 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
 /// - client_order_id: Client-provided order identifier
 /// - clock: System clock for order book state
 public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
+    wrapper: &mut Wrapper,
+    trading_fee_config: &TradingFeeConfig,
     pool: &mut Pool<BaseToken, QuoteToken>,
     balance_manager: &mut BalanceManager,
-    base_coin: Coin<BaseToken>,
-    quote_coin: Coin<QuoteToken>,
+    mut base_coin: Coin<BaseToken>,
+    mut quote_coin: Coin<QuoteToken>,
     order_amount: u64,
     is_bid: bool,
     self_matching_option: u8,
@@ -478,6 +504,8 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
+    wrapper.verify_version();
+
     // Verify the self matching option is self matching allowed
     assert!(
         self_matching_option == constants::self_matching_allowed(),
@@ -492,18 +520,21 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
         clock,
     );
 
+    // Extract max discount rate for this pool
+    let max_discount_rate = trading_fee_config.get_fee_rates(pool).max_deep_fee_discount_rate();
+
     // Prepare order execution
     let proof = prepare_whitelisted_order_execution(
         balance_manager,
-        base_coin,
-        quote_coin,
+        &mut base_coin,
+        &mut quote_coin,
         order_amount,
         is_bid,
         ctx,
     );
 
     // Place market order
-    pool.place_market_order(
+    let order_info = pool.place_market_order(
         balance_manager,
         &proof,
         client_order_id,
@@ -513,7 +544,24 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
         false, // pay_with_deep is false for whitelisted pools
         clock,
         ctx,
-    )
+    );
+
+    // Charge protocol fees
+    charge_protocol_fees(
+        wrapper,
+        trading_fee_config,
+        pool,
+        balance_manager,
+        base_coin,
+        quote_coin,
+        &order_info,
+        order_amount,
+        max_discount_rate,
+        true,
+        ctx,
+    );
+
+    order_info
 }
 
 /// Creates a limit order on DeepBook using input coins for fees
@@ -1380,8 +1428,8 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
 /// - is_bid: True for buy orders, false for sell orders
 fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     balance_manager: &mut BalanceManager,
-    mut base_coin: Coin<BaseToken>,
-    mut quote_coin: Coin<QuoteToken>,
+    base_coin: &mut Coin<BaseToken>,
+    quote_coin: &mut Coin<QuoteToken>,
     order_amount: u64,
     is_bid: bool,
     ctx: &mut TxContext,
@@ -1409,18 +1457,14 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     // Step 2: Execute input coin deposit plan
     execute_input_coin_deposit_plan(
         balance_manager,
-        &mut base_coin,
-        &mut quote_coin,
+        base_coin,
+        quote_coin,
         &input_coin_deposit_plan,
         is_bid,
         ctx,
     );
 
-    // Step 3: Return unused coins to the caller
-    transfer_if_nonzero(base_coin, ctx.sender());
-    transfer_if_nonzero(quote_coin, ctx.sender());
-
-    // Step 4: Generate and return proof
+    // Step 3: Generate and return proof
     balance_manager.generate_proof_as_owner(ctx)
 }
 
