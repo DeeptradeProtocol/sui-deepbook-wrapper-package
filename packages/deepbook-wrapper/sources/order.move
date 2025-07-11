@@ -1267,7 +1267,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     let wrapper_deep_reserves = deep_reserves(wrapper);
 
     // Get the max protocol fee discount rate
-    let max_discount_rate = trading_fee_config.max_discount_rate();
+    let max_discount_rate = trading_fee_config.get_fee_rates(pool).max_deep_fee_discount_rate();
 
     // Get the order plans from the core logic
     let (deep_plan, coverage_fee_plan, input_coin_deposit_plan) = create_order_core(

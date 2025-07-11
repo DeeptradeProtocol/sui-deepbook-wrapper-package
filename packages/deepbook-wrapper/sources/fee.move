@@ -144,20 +144,17 @@ public fun get_fee_rates<BaseToken, QuoteToken>(
 /// Get the deep fee type rates from a pool fee config.
 /// Returns (taker_fee_rate, maker_fee_rate) in billionths.
 public fun deep_fee_type_rates(config: PoolFeeConfig): (u64, u64) {
-    let PoolFeeConfig { deep_fee_type_taker_rate, deep_fee_type_maker_rate, .. } = config;
-    (deep_fee_type_taker_rate, deep_fee_type_maker_rate)
+    (config.deep_fee_type_taker_rate, config.deep_fee_type_maker_rate)
 }
 
 /// Get the input coin fee type rates from a pool fee config.
 /// Returns (taker_fee_rate, maker_fee_rate) in billionths.
 public fun input_coin_fee_type_rates(config: PoolFeeConfig): (u64, u64) {
-    let PoolFeeConfig { input_coin_fee_type_taker_rate, input_coin_fee_type_maker_rate, .. } =
-        config;
-    (input_coin_fee_type_taker_rate, input_coin_fee_type_maker_rate)
+    (config.input_coin_fee_type_taker_rate, config.input_coin_fee_type_maker_rate)
 }
 
-public fun max_discount_rate(config: &TradingFeeConfig): u64 {
-    250_000_000 // 25%
+public fun max_deep_fee_discount_rate(config: PoolFeeConfig): u64 {
+    config.max_deep_fee_discount_rate
 }
 
 /// Estimate the total fee for a limit order using DEEP fee type
@@ -206,8 +203,9 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
     );
 
     // Get the protocol fee rates for the pool and max discount rate
-    let (protocol_taker_fee_rate, _) = trading_fee_config.get_fee_rates(pool).deep_fee_type_rates();
-    let max_discount_rate = trading_fee_config.max_discount_rate();
+    let pool_fee_config = trading_fee_config.get_fee_rates(pool);
+    let (protocol_taker_fee_rate, _) = pool_fee_config.deep_fee_type_rates();
+    let max_discount_rate = pool_fee_config.max_deep_fee_discount_rate();
 
     // Get DEEP required for the order
     let deep_required = calculate_deep_required(pool, quantity, price);
@@ -278,8 +276,9 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     );
 
     // Get the protocol fee rates for the pool and max discount rate
-    let (protocol_taker_fee_rate, _) = trading_fee_config.get_fee_rates(pool).deep_fee_type_rates();
-    let max_discount_rate = trading_fee_config.max_discount_rate();
+    let pool_fee_config = trading_fee_config.get_fee_rates(pool);
+    let (protocol_taker_fee_rate, _) = pool_fee_config.deep_fee_type_rates();
+    let max_discount_rate = pool_fee_config.max_deep_fee_discount_rate();
 
     // Get DEEP required for the order
     let (_, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
