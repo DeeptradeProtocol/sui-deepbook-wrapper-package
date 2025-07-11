@@ -1712,7 +1712,7 @@ public fun assert_deep_plan_eq(
 }
 
 #[test_only]
-public fun assert_fee_plan_eq(
+public fun assert_coverage_fee_plan_eq(
     actual: CoverageFeePlan,
     expected_from_wallet: u64,
     expected_from_balance_manager: u64,
