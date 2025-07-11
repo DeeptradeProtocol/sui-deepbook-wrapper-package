@@ -31,6 +31,8 @@ const EFeeOutOfRange: u64 = 2;
 const EInvalidFeeHierarchy: u64 = 3;
 const EInvalidDiscountPrecision: u64 = 4;
 const EDiscountOutOfRange: u64 = 5;
+const EInvalidRatioSum: u64 = 6;
+const EZeroOrderAmount: u64 = 7;
 
 // === Constants ===
 /// The multiple that fee rates must adhere to, aligned with DeepBook (0.01 bps = 0.0001%)
@@ -409,6 +411,10 @@ public(package) fun calculate_protocol_fees(
     order_amount: u64,
     discount_rate: u64,
 ): (u64, u64, u64) {
+    // Validate input parameters
+    assert!(taker_ratio + maker_ratio <= 1_000_000_000, EInvalidRatioSum);
+    assert!(order_amount > 0, EZeroOrderAmount);
+
     let taker_amount = math::mul(order_amount, taker_ratio);
     let maker_amount = math::mul(order_amount, maker_ratio);
 
