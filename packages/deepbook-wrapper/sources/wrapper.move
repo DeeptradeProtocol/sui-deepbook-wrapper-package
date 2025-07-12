@@ -63,6 +63,9 @@ const EFilledQuantityGreaterThanOrderQuantity: u64 = 13;
 /// Error when the unsettled fee is not empty to be destroyed
 const EUnsettledFeeNotEmpty: u64 = 14;
 
+/// Error when trying to join unsettled fee with different coin type
+const EUnsettledFeeCoinTypeMismatch: u64 = 15;
+
 // === Structs ===
 /// Wrapper struct for DeepBook V3
 public struct Wrapper has key, store {
@@ -466,8 +469,12 @@ public(package) fun add_unsettled_fee<CoinType>(
     };
     let maker_quantity = order_quantity - executed_quantity;
 
-    if (wrapper.unsettled_fees.contains(unsettled_fee_key)) {
-        // If the order already has an unsettled fee
+    let has_same_coin_type_fee = wrapper
+        .unsettled_fees
+        .contains_with_type<UnsettledFeeKey, UnsettledFee<CoinType>>(unsettled_fee_key);
+
+    if (has_same_coin_type_fee) {
+        // If the order already has an unsettled fee with the same coin type
         let existing_unsettled_fee: &mut UnsettledFee<CoinType> = wrapper
             .unsettled_fees
             .borrow_mut(unsettled_fee_key);
@@ -484,7 +491,12 @@ public(package) fun add_unsettled_fee<CoinType>(
         // Add the balance to the existing unsettled fee
         existing_unsettled_fee.balance.join(fee);
     } else {
-        // If the order doesn't have an unsettled fee, create the new one
+        // Fees are always charged in the order's input coin, which never changes for a given order.
+        // Therefore, if any fee exists for this order, reject this attempt to add a different coin type.
+        let has_fee_with_different_coin_type = wrapper.unsettled_fees.contains(unsettled_fee_key);
+        assert!(!has_fee_with_different_coin_type, EUnsettledFeeCoinTypeMismatch);
+
+        // Create a new unsettled fee
         let new_unsettled_fee = UnsettledFee<CoinType> {
             balance: fee,
             order_quantity,
@@ -606,4 +618,49 @@ fun destroy_empty<CoinType>(unsettled_fee: UnsettledFee<CoinType>) {
 
     let UnsettledFee { balance, .. } = unsettled_fee;
     balance::destroy_zero(balance);
+}
+
+// === Test Functions ===
+/// Check if an unsettled fee exists for a specific order
+#[test_only]
+public fun has_unsettled_fee<CoinType>(
+    wrapper: &Wrapper,
+    pool_id: ID,
+    balance_manager_id: ID,
+    order_id: u128,
+): bool {
+    let key = UnsettledFeeKey { pool_id, balance_manager_id, order_id };
+    wrapper.unsettled_fees.contains_with_type<UnsettledFeeKey, UnsettledFee<CoinType>>(key)
+}
+
+/// Get the unsettled fee balance for a specific order
+#[test_only]
+public fun get_unsettled_fee_balance<CoinType>(
+    wrapper: &Wrapper,
+    pool_id: ID,
+    balance_manager_id: ID,
+    order_id: u128,
+): u64 {
+    let key = UnsettledFeeKey { pool_id, balance_manager_id, order_id };
+    let unsettled_fee: &UnsettledFee<CoinType> = wrapper.unsettled_fees.borrow(key);
+    unsettled_fee.balance.value()
+}
+
+/// Get the order parameters stored in an unsettled fee
+#[test_only]
+public fun get_unsettled_fee_order_params<CoinType>(
+    wrapper: &Wrapper,
+    pool_id: ID,
+    balance_manager_id: ID,
+    order_id: u128,
+): (u64, u64) {
+    let key = UnsettledFeeKey { pool_id, balance_manager_id, order_id };
+    let unsettled_fee: &UnsettledFee<CoinType> = wrapper.unsettled_fees.borrow(key);
+    (unsettled_fee.order_quantity, unsettled_fee.maker_quantity)
+}
+
+/// Initialize the wrapper module for testing
+#[test_only]
+public fun init_for_testing(ctx: &mut TxContext) {
+    init(ctx);
 }
