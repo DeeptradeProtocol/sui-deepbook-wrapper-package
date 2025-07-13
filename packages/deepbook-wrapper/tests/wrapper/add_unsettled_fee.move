@@ -546,6 +546,68 @@ fun cross_pool_scenarios() {
     scenario.end();
 }
 
+#[test, expected_failure(abort_code = wrapper::EOrderNotLiveOrPartiallyFilled)]
+fun filled_order_fails() {
+    let mut scenario = setup_wrapper_test(OWNER);
+    let pool_id = id_from_address(@0x1);
+    let balance_manager_id = id_from_address(ALICE);
+    let order_id = 12345u128;
+    let fee_amount = 1000u64;
+
+    scenario.next_tx(OWNER);
+    {
+        let mut wrapper = scenario.take_shared<Wrapper>();
+        let fee_balance = balance::create_for_testing<SUI>(fee_amount);
+        let order_info = create_filled_order_info(
+            pool_id,
+            balance_manager_id,
+            order_id,
+            ALICE,
+            1000000, // price
+            100, // original_quantity
+            100, // executed_quantity - fully filled
+        );
+
+        // Should fail for filled order
+        wrapper.add_unsettled_fee(fee_balance, &order_info);
+
+        return_shared(wrapper);
+    };
+
+    scenario.end();
+}
+
+#[test, expected_failure(abort_code = wrapper::EOrderNotLiveOrPartiallyFilled)]
+fun expired_order_fails() {
+    let mut scenario = setup_wrapper_test(OWNER);
+    let pool_id = id_from_address(@0x1);
+    let balance_manager_id = id_from_address(ALICE);
+    let order_id = 12345u128;
+    let fee_amount = 1000u64;
+
+    scenario.next_tx(OWNER);
+    {
+        let mut wrapper = scenario.take_shared<Wrapper>();
+        let fee_balance = balance::create_for_testing<SUI>(fee_amount);
+        let order_info = create_expired_order_info(
+            pool_id,
+            balance_manager_id,
+            order_id,
+            ALICE,
+            1000000, // price
+            100, // original_quantity
+            50, // executed_quantity
+        );
+
+        // Should fail for expired order
+        wrapper.add_unsettled_fee(fee_balance, &order_info);
+
+        return_shared(wrapper);
+    };
+
+    scenario.end();
+}
+
 /// Setup a test scenario with an initialized wrapper
 public(package) fun setup_wrapper_test(owner: address): Scenario {
     let mut scenario = begin(owner);
@@ -619,5 +681,49 @@ public(package) fun create_cancelled_order_info(
         original_quantity,
         executed_quantity,
         constants::canceled(),
+    )
+}
+
+/// Create a filled OrderInfo for testing
+public(package) fun create_filled_order_info(
+    pool_id: ID,
+    balance_manager_id: ID,
+    order_id: u128,
+    trader: address,
+    price: u64,
+    original_quantity: u64,
+    executed_quantity: u64,
+): order_info::OrderInfo {
+    order_info::create_order_info_for_tests(
+        pool_id,
+        balance_manager_id,
+        order_id,
+        trader,
+        price,
+        original_quantity,
+        executed_quantity,
+        constants::filled(),
+    )
+}
+
+/// Create an expired OrderInfo for testing
+public(package) fun create_expired_order_info(
+    pool_id: ID,
+    balance_manager_id: ID,
+    order_id: u128,
+    trader: address,
+    price: u64,
+    original_quantity: u64,
+    executed_quantity: u64,
+): order_info::OrderInfo {
+    order_info::create_order_info_for_tests(
+        pool_id,
+        balance_manager_id,
+        order_id,
+        trader,
+        price,
+        original_quantity,
+        executed_quantity,
+        constants::expired(),
     )
 }
