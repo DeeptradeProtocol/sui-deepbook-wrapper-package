@@ -72,23 +72,25 @@ public struct DeepPlan has copy, drop {
     deep_reserves_cover_order: bool,
 }
 
-/// Tracks fee charging strategy for an order
-/// Determines amount and sources for fee payment
-/// Fees are always paid in SUI
+/// Tracks coverage fee charging strategy for an order
+/// Coverage fees are charged when using wrapper DEEP reserves to cover order requirements
+/// Determines amount and sources for coverage fee payment in SUI coins
 public struct CoverageFeePlan has copy, drop {
-    /// Amount of coverage fee to take from user's wallet
     from_wallet: u64,
-    /// Amount of coverage fee to take from user's balance manager
     from_balance_manager: u64,
     /// Whether user has enough coins to cover the fee
     user_covers_fee: bool,
 }
 
+/// Tracks protocol fee charging strategy for an order
+/// Determines taker and maker fee amounts and sources for fee payment
+/// Fees are paid in input coins (base or quote tokens)
 public struct ProtocolFeePlan has copy, drop {
     taker_fee_from_wallet: u64,
     taker_fee_from_balance_manager: u64,
     maker_fee_from_wallet: u64,
     maker_fee_from_balance_manager: u64,
+    /// Whether user has enough coins to cover the fees
     user_covers_fee: bool,
 }
 
@@ -108,13 +110,14 @@ public struct InputCoinDepositPlan has copy, drop {
 /// This function orchestrates the entire limit order creation process through the following steps:
 /// 1. Creates plans for:
 ///    - DEEP coin sourcing from user wallet and wrapper reserves
-///    - Fee collection in SUI coins
+///    - Coverage fee collection in SUI coins
 ///    - Input coin deposits from wallet to balance manager
 /// 2. Executes the plans through shared preparation logic that:
 ///    - Sources DEEP coins according to the DEEP plan
-///    - Collects fees according to the fee plan
+///    - Collects coverage fees according to the coverage fee plan
 ///    - Deposits input coins according to the input coin deposit plan
 /// 3. Places the limit order on DeepBook and returns the order info
+/// 4. Plans and charges protocol fees based on order execution results
 ///
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
@@ -178,13 +181,9 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
         ENotSupportedSelfMatchingOption,
     );
 
-    // Calculate DEEP required for limit order
     let deep_required = calculate_deep_required(pool, quantity, price);
-
-    // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    // Prepare order execution
     let (proof, protocol_fee_discount_rate) = prepare_order_execution(
         wrapper,
         trading_fee_config,
@@ -208,7 +207,6 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
         ctx,
     );
 
-    // Place limit order
     let order_info = pool.place_limit_order(
         balance_manager,
         &proof,
@@ -224,7 +222,6 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
         ctx,
     );
 
-    // Charge protocol fees
     charge_protocol_fees(
         wrapper,
         trading_fee_config,
@@ -246,13 +243,14 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
 /// This function orchestrates the entire market order creation process through the following steps:
 /// 1. Creates plans for:
 ///    - DEEP coin sourcing from user wallet and wrapper reserves
-///    - Fee collection in SUI coins
+///    - Coverage fee collection in SUI coins
 ///    - Input coin deposits from wallet to balance manager
 /// 2. Executes the plans through shared preparation logic that:
 ///    - Sources DEEP coins according to the DEEP plan
-///    - Collects fees according to the fee plan
+///    - Collects coverage fees according to the coverage fee plan
 ///    - Deposits input coins according to the input coin deposit plan
 /// 3. Places the market order on DeepBook and returns the order info
+/// 4. Plans and charges protocol fees based on order execution results
 ///
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
@@ -307,7 +305,6 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
         ENotSupportedSelfMatchingOption,
     );
 
-    // Calculate base quantity and DEEP required for market order
     let (base_quantity, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
         order_amount,
@@ -315,7 +312,6 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
         clock,
     );
 
-    // Prepare order execution
     let (proof, protocol_fee_discount_rate) = prepare_order_execution(
         wrapper,
         trading_fee_config,
@@ -339,7 +335,6 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
         ctx,
     );
 
-    // Place market order
     let order_info = pool.place_market_order(
         balance_manager,
         &proof,
@@ -352,7 +347,6 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
         ctx,
     );
 
-    // Charge protocol fees
     charge_protocol_fees(
         wrapper,
         trading_fee_config,
@@ -374,12 +368,16 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
 /// This function orchestrates the order creation process:
 /// 1. Calculates required order amount based on price and quantity
 /// 2. Prepares order execution by handling coin deposits (see `prepare_whitelisted_order_execution`)
-/// 3. Places the limit order on DeepBook and returns the order info
+/// 3. Places the limit order on DeepBook
+/// 4. Plans and charges protocol fees based on order execution results
+/// 5. Returns the order info
 ///
-/// Note: This function is optimized for whitelisted pools and doesn't require DEEP tokens
-/// or additional fee handling since these are not needed for whitelisted pools.
+/// Note: This function is optimized for whitelisted pools and doesn't require wrapper reserves
+/// to be used.
 ///
 /// Parameters:
+/// - wrapper: The DeepBook wrapper instance to add protocol fees to
+/// - trading_fee_config: Trading fee configuration object
 /// - pool: The trading pool where the order will be placed
 /// - balance_manager: User's balance manager for managing coin deposits
 /// - base_coin: Base token coins from user's wallet
@@ -421,13 +419,9 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
         ENotSupportedSelfMatchingOption,
     );
 
-    // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
-
-    // Extract max discount rate for this pool
     let max_discount_rate = trading_fee_config.get_fee_rates(pool).max_deep_fee_discount_rate();
 
-    // Prepare order execution
     let proof = prepare_whitelisted_order_execution(
         balance_manager,
         &mut base_coin,
@@ -437,7 +431,6 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Place limit order
     let order_info = pool.place_limit_order(
         balance_manager,
         &proof,
@@ -447,13 +440,12 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
         price,
         quantity,
         is_bid,
-        false, // pay_with_deep is false for whitelisted pools
+        true, // Using DEEP for fees (though whitelisted pools don't require fees)
         expire_timestamp,
         clock,
         ctx,
     );
 
-    // Charge protocol fees
     charge_protocol_fees(
         wrapper,
         trading_fee_config,
@@ -475,12 +467,16 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
 /// This function orchestrates the order creation process:
 /// 1. Calculates base quantity from order amount using current order book state
 /// 2. Prepares order execution by handling coin deposits (see `prepare_whitelisted_order_execution`)
-/// 3. Places the market order on DeepBook and returns the order info
+/// 3. Places the market order on DeepBook
+/// 4. Plans and charges protocol fees based on order execution results
+/// 5. Returns the order info
 ///
-/// Note: This function is optimized for whitelisted pools and doesn't require DEEP tokens
-/// or additional fee handling since these are not needed for whitelisted pools.
+/// Note: This function is optimized for whitelisted pools and doesn't require wrapper reserves
+/// to be used.
 ///
 /// Parameters:
+/// - wrapper: The DeepBook wrapper instance to add protocol fees to
+/// - trading_fee_config: Trading fee configuration object
 /// - pool: The trading pool where the order will be placed
 /// - balance_manager: User's balance manager for managing coin deposits
 /// - base_coin: Base token coins from user's wallet
@@ -512,7 +508,6 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
         ENotSupportedSelfMatchingOption,
     );
 
-    // Calculate base quantity for market order
     let (base_quantity, _) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
         order_amount,
@@ -520,10 +515,8 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
         clock,
     );
 
-    // Extract max discount rate for this pool
     let max_discount_rate = trading_fee_config.get_fee_rates(pool).max_deep_fee_discount_rate();
 
-    // Prepare order execution
     let proof = prepare_whitelisted_order_execution(
         balance_manager,
         &mut base_coin,
@@ -533,7 +526,6 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Place market order
     let order_info = pool.place_market_order(
         balance_manager,
         &proof,
@@ -541,12 +533,11 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
         self_matching_option,
         base_quantity,
         is_bid,
-        false, // pay_with_deep is false for whitelisted pools
+        true, // Using DEEP for fees (though whitelisted pools don't require fees)
         clock,
         ctx,
     );
 
-    // Charge protocol fees
     charge_protocol_fees(
         wrapper,
         trading_fee_config,
@@ -566,13 +557,11 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
 
 /// Creates a limit order on DeepBook using input coins for fees
 /// This function orchestrates the limit order creation process through the following steps:
-/// 1. Creates plans for:
-///    - Fee collection in input coins
-///    - Input coin deposits from wallet to balance manager
-/// 2. Executes the plans through shared preparation logic that:
-///    - Collects fees according to the input coin fee plan
-///    - Deposits input coins according to the input coin deposit plan
-/// 3. Places the limit order on DeepBook and returns the order info
+/// 1. Creates plan for input coin deposits from wallet to balance manager
+/// 2. Executes the plan through shared preparation logic
+/// 3. Places the limit order on DeepBook
+/// 4. Plans and charges protocol fees based on order execution results
+/// 5. Returns the order info
 ///
 /// Parameters:
 /// * `wrapper` - The DeepBook wrapper instance managing the order process
@@ -618,10 +607,8 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
         ENotSupportedSelfMatchingOption,
     );
 
-    // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    // Prepare order execution
     let proof = prepare_input_fee_order_execution(
         pool,
         balance_manager,
@@ -632,7 +619,6 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Place limit order with pay_with_deep set to false since we're using input coins for fees
     let order_info = pool.place_limit_order(
         balance_manager,
         &proof,
@@ -648,7 +634,6 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Charge protocol fees
     charge_protocol_fees(
         wrapper,
         trading_fee_config,
@@ -668,13 +653,11 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
 
 /// Creates a market order on DeepBook using input coins for fees
 /// This function orchestrates the market order creation process through the following steps:
-/// 1. Creates plans for:
-///    - Fee collection in input coins
-///    - Input coin deposits from wallet to balance manager
-/// 2. Executes the plans through shared preparation logic that:
-///    - Collects fees according to the input coin fee plan
-///    - Deposits input coins according to the input coin deposit plan
-/// 3. Places the market order on DeepBook and returns the order info
+/// 1. Creates plan for input coin deposits from wallet to balance manager
+/// 2. Executes the plan through shared preparation logic
+/// 3. Places the market order on DeepBook
+/// 4. Plans and charges protocol fees based on order execution results
+/// 5. Returns the order info
 ///
 /// Parameters:
 /// * `wrapper` - The DeepBook wrapper instance managing the order process
@@ -720,7 +703,6 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
         clock,
     );
 
-    // Prepare order execution
     let proof = prepare_input_fee_order_execution(
         pool,
         balance_manager,
@@ -731,7 +713,6 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Place market order with pay_with_deep set to false since we're using input coins for fees
     let order_info = pool.place_market_order(
         balance_manager,
         &proof,
@@ -744,7 +725,6 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Charge protocol fees
     charge_protocol_fees(
         wrapper,
         trading_fee_config,
@@ -762,6 +742,16 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     order_info
 }
 
+/// Cancels an order and settles any associated with the order unsettled fees
+///
+/// Parameters:
+/// - wrapper: The DeepBook wrapper instance
+/// - pool: The trading pool where the order was placed
+/// - balance_manager: User's balance manager
+/// - order_id: ID of the order to cancel
+/// - clock: System clock for timestamp verification
+///
+/// Returns the settled fees as a coin of the specified type
 public fun cancel_order_and_settle_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinType>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseAsset, QuoteAsset>,
@@ -788,7 +778,7 @@ public fun cancel_order_and_settle_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinT
 // === Public-Package Functions ===
 /// Core logic function that orchestrates the creation of both limit and market orders using coins from various sources
 /// Coordinates all requirements by analyzing available resources and calculating necessary allocations
-/// Creates comprehensive plans for DEEP coins sourcing, fee charging, and input coin deposits
+/// Creates comprehensive plans for DEEP coins sourcing, coverage fee charging, and input coin deposits
 ///
 /// Parameters:
 /// - is_pool_whitelisted: Whether the pool is whitelisted by DeepBook
@@ -801,12 +791,11 @@ public fun cancel_order_and_settle_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinT
 /// - wallet_input_coin: Amount of input coins (base/quote) in user's wallet
 /// - wrapper_deep_reserves: Amount of DEEP available in wrapper reserves
 /// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
-/// - protocol_fee_rate: Protocol fee rate in billionths
 /// - sui_per_deep: Current DEEP/SUI price from reference pool
 ///
 /// Returns a tuple with three structured plans:
 /// - DeepPlan: Coordinates DEEP coin sourcing from user wallet and wrapper reserves
-/// - CoverageFeePlan: Specifies fee amount and sources for SUI fee payment
+/// - CoverageFeePlan: Specifies coverage fee amount and sources for SUI fee payment
 /// - InputCoinDepositPlan: Determines how input coins will be sourced for the order
 public(package) fun create_order_core(
     is_pool_whitelisted: bool,
@@ -926,7 +915,6 @@ public(package) fun get_deep_plan(
 /// * `use_wrapper_deep_reserves` - Whether the order requires DEEP from wrapper reserves
 /// * `deep_from_reserves` - Amount of DEEP to be taken from wrapper reserves
 /// * `is_pool_whitelisted` - Whether the pool is whitelisted by DeepBook
-/// * `protocol_fee_rate` - Protocol fee rate in billionths
 /// * `sui_per_deep` - Current DEEP/SUI price from reference pool
 /// * `sui_in_wallet` - Amount of SUI available in user's wallet
 /// * `balance_manager_sui` - Amount of SUI available in user's balance manager
@@ -934,16 +922,14 @@ public(package) fun get_deep_plan(
 /// # Returns
 /// * `CoverageFeePlan` - Struct containing:
 ///   - Coverage fee amounts from wallet and balance manager
-///   - Protocol fee amounts from wallet and balance manager
 ///   - Whether user has sufficient funds to cover fees
 ///
 /// # Flow
 /// 1. Returns zero fee plan if pool is whitelisted or not using wrapper DEEP
-/// 2. Calculates total fee, coverage fee, and protocol fee
-/// 3. Returns zero fee plan if total fee is zero
+/// 2. Calculates coverage fee
+/// 3. Returns zero fee plan if coverage fee is zero
 /// 4. Returns insufficient fee plan if user lacks total funds
 /// 5. Plans coverage fee collection from available sources
-/// 6. Plans protocol fee collection from remaining funds
 public(package) fun get_coverage_fee_plan(
     use_wrapper_deep_reserves: bool,
     deep_from_reserves: u64,
@@ -988,6 +974,20 @@ public(package) fun get_coverage_fee_plan(
     }
 }
 
+/// Creates a protocol fee plan for order execution
+/// Calculates taker and maker fees based on order execution status and determines
+/// how to source the fees from user's wallet and balance manager
+///
+/// Parameters:
+/// - order_info: Information about the executed order
+/// - taker_fee_rate: Protocol taker fee rate in billionths
+/// - maker_fee_rate: Protocol maker fee rate in billionths
+/// - coin_in_wallet: Amount of input coins available in user's wallet
+/// - coin_in_balance_manager: Amount of input coins available in user's balance manager
+/// - order_amount: Total order amount
+/// - discount_rate: Discount rate applied to fees
+///
+/// Returns a ProtocolFeePlan with fee amounts from different sources
 public(package) fun get_protocol_fee_plan(
     order_info: &OrderInfo,
     taker_fee_rate: u64,
@@ -1137,18 +1137,16 @@ public(package) fun plan_fee_collection(
     }
 }
 
-/// Validates that actual fees don't exceed maximum allowed amounts with slippage
-/// Checks both DEEP and SUI fees against their respective limits
+/// Validates that actual DeepBook and coverage fees don't exceed maximum allowed amounts with slippage
 ///
 /// Parameters:
 /// - deep_required: Actual amount of DEEP required for the order
 /// - deep_from_reserves: Amount of DEEP to be taken from wrapper reserves
-/// - protocol_fee_rate: Protocol fee rate in billionths
 /// - sui_per_deep: Current DEEP/SUI price from reference pool
 /// - estimated_deep_required: Estimated DEEP requirement used to calculate maximum allowed one
 /// - estimated_deep_required_slippage: Slippage in billionths applied to estimated DEEP requirement for maximum calculation
-/// - estimated_sui_fee: Estimated SUI fee used to calculate maximum allowed SUI fee
-/// - estimated_sui_fee_slippage: Slippage in billionths applied to estimated SUI fee for maximum calculation
+/// - estimated_sui_fee: Estimated coverage fee used to calculate maximum allowed coverage fee
+/// - estimated_sui_fee_slippage: Slippage in billionths applied to estimated coverage fee for maximum calculation
 public(package) fun validate_fees_against_max(
     deep_required: u64,
     deep_from_reserves: u64,
@@ -1168,7 +1166,7 @@ public(package) fun validate_fees_against_max(
     // Validate DEEP fee
     assert!(deep_required <= max_deep_required, EDeepRequiredExceedsMax);
 
-    // Validate SUI fee (only applies when using wrapper DEEP reserves)
+    // Validate coverage fee (only applies when using wrapper DEEP reserves)
     if (deep_from_reserves > 0) {
         let actual_sui_fee = calculate_deep_reserves_coverage_order_fee(
             sui_per_deep,
@@ -1178,7 +1176,21 @@ public(package) fun validate_fees_against_max(
     };
 }
 
-/// Charges protocol fees for a given order with input coins
+/// Charges protocol fees for a given order using input coins
+/// Calculates taker and maker fees based on order execution status and collects fees
+/// from user's wallet and balance manager according to the protocol fee plan
+///
+/// Parameters:
+/// - wrapper: The DeepBook wrapper instance
+/// - trading_fee_config: Trading fee configuration object
+/// - pool: The trading pool where the order was placed
+/// - balance_manager: User's balance manager
+/// - base_coin: Base token coins from user's wallet
+/// - quote_coin: Quote token coins from user's wallet
+/// - order_info: Information about the executed order
+/// - order_amount: Total order amount
+/// - discount_rate: Discount rate applied to fees
+/// - deep_fee_type: Whether using DEEP fee type rates (true) or input coin fee type rates (false)
 public(package) fun charge_protocol_fees<BaseToken, QuoteToken>(
     wrapper: &mut Wrapper,
     trading_fee_config: &TradingFeeConfig,
@@ -1252,15 +1264,15 @@ public(package) fun charge_protocol_fees<BaseToken, QuoteToken>(
 // === Private Functions ===
 /// Prepares order execution by handling all common order creation logic:
 /// 1. Verifies the caller owns the balance manager
-/// 2. Validates estimated fee slippage parameters and calculates maximum allowed values
-/// 3. Verifies that actual DEEP required and SUI fee don't exceed maximums with slippage
-/// 4. Creates plans for DEEP sourcing, fee collection, and input coin deposit
+/// 2. Validates estimated fee slippage parameters
+/// 3. Creates plans for DEEP sourcing, coverage fee collection, and input coin deposit
+/// 4. Verifies that actual DEEP required and coverage fee don't exceed maximums with slippage
 /// 5. Executes the plans in sequence:
 ///    - Sources DEEP coins from user wallet and wrapper reserves according to DeepPlan
-///    - Collects fees in SUI coins according to CoverageFeePlan
+///    - Collects coverage fees in SUI coins according to CoverageFeePlan
 ///    - Deposits required input coins according to InputCoinDepositPlan
-/// 6. Returns unused coins to the caller
-/// 7. Returns the balance manager proof needed for order placement
+/// 6. Returns unused DEEP and SUI coins to the caller
+/// 7. Returns the balance manager proof needed for order placement and protocol fee discount rate
 ///
 /// This function contains the shared execution logic between limit and market orders,
 /// processing the plans created by create_order_core.
@@ -1312,7 +1324,6 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     // Verify the caller owns the balance manager
     assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
-    // Validate slippage parameters
     validate_slippage(estimated_deep_required_slippage);
     validate_slippage(estimated_sui_fee_slippage);
 
@@ -1324,7 +1335,6 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         clock,
     );
 
-    // Extract all the data we need from DeepBook objects
     let is_pool_whitelisted = pool.whitelisted();
 
     // Get balances from balance manager
@@ -1341,13 +1351,9 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     let quote_in_wallet = quote_coin.value();
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
-    // Get wrapper deep reserves
     let wrapper_deep_reserves = deep_reserves(wrapper);
-
-    // Get the max protocol fee discount rate
     let max_discount_rate = trading_fee_config.get_fee_rates(pool).max_deep_fee_discount_rate();
 
-    // Get the order plans from the core logic
     let (deep_plan, coverage_fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
         deep_required,
@@ -1362,7 +1368,6 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         sui_per_deep,
     );
 
-    // Validate actual fees against maximum allowed ones
     validate_fees_against_max(
         deep_required,
         deep_plan.from_deep_reserves,
@@ -1380,10 +1385,8 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         deep_required,
     );
 
-    // Step 1: Execute DEEP plan
     execute_deep_plan(wrapper, balance_manager, &mut deep_coin, &deep_plan, ctx);
 
-    // Step 2: Execute coverage fee charging plan
     execute_coverage_fee_plan(
         wrapper,
         balance_manager,
@@ -1392,7 +1395,6 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         ctx,
     );
 
-    // Step 3: Execute input coin deposit plan
     execute_input_coin_deposit_plan(
         balance_manager,
         base_coin,
@@ -1402,7 +1404,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
         ctx,
     );
 
-    // Return unused coins to the caller. Base and quote coins will be returned after protocol fees charging
+    // Base and quote coins will be returned after protocol fees charging
     transfer_if_nonzero(deep_coin, ctx.sender());
     transfer_if_nonzero(sui_coin, ctx.sender());
 
@@ -1447,14 +1449,12 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     let quote_in_wallet = quote_coin.value();
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
-    // Step 1: Determine input coin deposit plan
     let input_coin_deposit_plan = get_input_coin_deposit_plan(
         order_amount,
         wallet_input_coin,
         balance_manager_input_coin,
     );
 
-    // Step 2: Execute input coin deposit plan
     execute_input_coin_deposit_plan(
         balance_manager,
         base_coin,
@@ -1464,31 +1464,23 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Step 3: Generate and return proof
     balance_manager.generate_proof_as_owner(ctx)
 }
 
 /// Prepares order execution by handling input coin fee and deposit logic
 /// 1. Verifies the caller owns the balance manager
-/// 2. Creates plans for:
-///    - Fee collection in input coins
-///    - Input coin deposits from wallet to balance manager
-/// 3. Executes the plans in sequence:
-///    - Collects fees according to the input coin fee plan
-///    - Deposits input coins according to the input coin deposit plan
-/// 4. Returns unused coins to the caller
-/// 5. Returns the balance manager proof needed for order placement
+/// 2. Creates plan for input coin deposits from wallet to balance manager
+/// 3. Executes the plan
+/// 4. Returns the balance manager proof needed for order placement
 ///
 /// Parameters:
-/// * `wrapper` - The DeepBook wrapper instance managing the order process
-/// * `trading_fee_config` - Trading fee configuration object
-/// * `pool` - The trading pool where the order will be placed
-/// * `balance_manager` - User's balance manager for managing coin deposits
-/// * `base_coin` - Base token coins from user's wallet
-/// * `quote_coin` - Quote token coins from user's wallet
-/// * `taker_fee` - DeepBook's taker fee rate in billionths
-/// * `order_amount` - Order amount in quote tokens (for bids) or base tokens (for asks)
-/// * `is_bid` - True for buy orders, false for sell orders
+/// - pool: The trading pool where the order will be placed
+/// - balance_manager: User's balance manager for managing coin deposits
+/// - base_coin: Base token coins from user's wallet
+/// - quote_coin: Quote token coins from user's wallet
+/// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
+/// - is_bid: True for buy orders, false for sell orders
+/// - ctx: Transaction context
 fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     pool: &Pool<BaseToken, QuoteToken>,
     balance_manager: &mut BalanceManager,
@@ -1518,14 +1510,12 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     // Calculate total amount needed to be on the balance manager
     let total_amount = order_amount + deepbook_fee;
 
-    // Determine input coin deposit plan
     let input_coin_deposit_plan = get_input_coin_deposit_plan(
         total_amount,
         wallet_input_coin,
         balance_manager_input_coin,
     );
 
-    // Execute input coin deposit plan
     execute_input_coin_deposit_plan(
         balance_manager,
         base_coin,
@@ -1535,7 +1525,6 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
         ctx,
     );
 
-    // Generate and return proof
     balance_manager.generate_proof_as_owner(ctx)
 }
 
@@ -1576,28 +1565,17 @@ fun execute_deep_plan(
     };
 }
 
-/// Executes the fee charging plan by taking SUI coins from specified sources
-/// Takes fees in SUI coins from user's wallet and balance manager.
-/// Splits the collection into two parts: coverage fees and protocol fees.
+/// Executes the coverage fee charging plan by taking SUI coins from specified sources
 ///
-/// # Arguments
-/// * `wrapper` - Main wrapper object that will receive the fees
-/// * `balance_manager` - User's balance manager to withdraw fees from
-/// * `sui_coin` - User's SUI coins to take fees from
-/// * `fee_plan` - Plan that specifies how much to take from each source
-/// * `ctx` - Transaction context
+/// Parameters:
+/// - wrapper: Main wrapper object that will receive the fees
+/// - balance_manager: User's balance manager to withdraw fees from
+/// - sui_coin: User's SUI coins to take fees from
+/// - fee_plan: Plan that specifies how much to take from each source
+/// - ctx: Transaction context
 ///
-/// # Flow
-/// 1. Checks if user can pay fees
-/// 2. Collects coverage fees:
-///    - Takes from wallet if needed
-///    - Takes from balance manager if needed
-/// 3. Collects protocol fees:
-///    - Takes from wallet if needed
-///    - Takes from balance manager if needed
-///
-/// # Aborts
-/// * `EInsufficientFee` - If user cannot cover the fees
+/// Aborts:
+/// - EInsufficientFee: If user cannot cover the fees
 fun execute_coverage_fee_plan(
     wrapper: &mut Wrapper,
     balance_manager: &mut BalanceManager,
@@ -1607,7 +1585,6 @@ fun execute_coverage_fee_plan(
 ) {
     wrapper.verify_version();
 
-    // Verify user covers wrapper fee
     assert!(fee_plan.user_covers_fee, EInsufficientFee);
 
     // Collect coverage fee from wallet if needed
@@ -1626,26 +1603,18 @@ fun execute_coverage_fee_plan(
     };
 }
 
-/// Executes the fee charging plan by taking input coins from specified sources
-/// Takes fees in input coins from user's wallet and balance manager
+/// Executes the protocol fee charging plan by taking input coins from specified sources
 ///
-/// # Arguments
-/// * `wrapper` - Main wrapper object that will receive the fees
-/// * `balance_manager` - User's balance manager to withdraw fees from
-/// * `base_coin` - User's base coin from wallet
-/// * `quote_coin` - User's quote coin from wallet
-/// * `fee_plan` - Plan that specifies how much to take from each source
-/// * `is_bid` - True for buy orders, false for sell orders
-/// * `ctx` - Transaction context
+/// Parameters:
+/// - wrapper: Main wrapper object that will receive the fees
+/// - balance_manager: User's balance manager to withdraw fees from
+/// - coin: User's coin from wallet
+/// - order_info: Order info returned by DeepBook order placement function
+/// - fee_plan: Plan that specifies how much to take from each source
+/// - ctx: Transaction context
 ///
-/// # Flow
-/// 1. Checks if user can pay fees
-/// 2. Collects protocol fees:
-///    - Takes from wallet if needed
-///    - Takes from balance manager if needed
-///
-/// # Aborts
-/// * `EInsufficientFee` - If user cannot cover the fees
+/// Aborts:
+/// - EInsufficientFee: If user cannot cover the fees
 fun execute_protocol_fee_plan<CoinType>(
     wrapper: &mut Wrapper,
     balance_manager: &mut BalanceManager,
@@ -1656,7 +1625,6 @@ fun execute_protocol_fee_plan<CoinType>(
 ) {
     wrapper.verify_version();
 
-    // Verify user covers protocol fee
     assert!(fee_plan.user_covers_fee, EInsufficientFee);
 
     // Collect taker fee from wallet if needed
@@ -1733,18 +1701,24 @@ fun execute_input_coin_deposit_plan<BaseToken, QuoteToken>(
     };
 }
 
-/// Makes a fee plan where no fees need to be collected
+/// Creates a coverage fee plan with no fees and user_covers_fee set to true
+/// Used when no coverage fees are required
 fun zero_coverage_fee_plan(): CoverageFeePlan {
     create_empty_coverage_fee_plan(true)
 }
 
-/// Makes a fee plan for when user doesn't have enough funds
+/// Creates a coverage fee plan with no fees and user_covers_fee set to false
+/// Used when user doesn't have enough funds to cover fees
 fun insufficient_coverage_fee_plan(): CoverageFeePlan {
     create_empty_coverage_fee_plan(false)
 }
 
-/// Helper to create a fee plan with no fees and specified coverage status
-/// The coverage status tells if user can pay fees (true) or not (false)
+/// Creates a coverage fee plan with zero fees and specified user coverage status
+///
+/// Parameters:
+/// - user_covers_fee: Whether the user can cover fees (true) or not (false)
+///
+/// Returns a CoverageFeePlan with zero fees from all sources
 fun create_empty_coverage_fee_plan(user_covers_fee: bool): CoverageFeePlan {
     CoverageFeePlan {
         from_wallet: 0,
@@ -1753,14 +1727,24 @@ fun create_empty_coverage_fee_plan(user_covers_fee: bool): CoverageFeePlan {
     }
 }
 
+/// Creates a protocol fee plan with no fees and user_covers_fee set to true
+/// Used when no protocol fees are required
 fun zero_protocol_fee_plan(): ProtocolFeePlan {
     create_empty_protocol_fee_plan(true)
 }
 
+/// Creates a protocol fee plan with no fees and user_covers_fee set to false
+/// Used when user doesn't have enough funds to cover protocol fees
 fun insufficient_protocol_fee_plan(): ProtocolFeePlan {
     create_empty_protocol_fee_plan(false)
 }
 
+/// Creates a protocol fee plan with zero fees and specified user coverage status
+///
+/// Parameters:
+/// - user_covers_fee: Whether the user can cover fees (true) or not (false)
+///
+/// Returns a ProtocolFeePlan with zero fees from all sources
 fun create_empty_protocol_fee_plan(user_covers_fee: bool): ProtocolFeePlan {
     ProtocolFeePlan {
         taker_fee_from_wallet: 0,
