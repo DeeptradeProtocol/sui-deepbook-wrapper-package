@@ -651,6 +651,18 @@ public fun get_unsettled_fee_balance<CoinType>(
     unsettled_fee.balance.value()
 }
 
+/// Get the protocol fee balance for a specific coin type.
+#[test_only]
+public fun get_protocol_fee_balance<CoinType>(wrapper: &Wrapper): u64 {
+    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    if (wrapper.protocol_fees.contains(key)) {
+        let balance: &Balance<CoinType> = wrapper.protocol_fees.borrow(key);
+        balance.value()
+    } else {
+        0
+    }
+}
+
 /// Get the order parameters stored in an unsettled fee
 #[test_only]
 public fun get_unsettled_fee_order_params<CoinType>(
@@ -668,4 +680,15 @@ public fun get_unsettled_fee_order_params<CoinType>(
 #[test_only]
 public fun init_for_testing(ctx: &mut TxContext) {
     init(ctx);
+}
+
+/// Finalize the protocol fee settlement process and return the result for testing
+#[test_only]
+public fun finish_protocol_fee_settlement_for_testing<FeeCoinType>(
+    receipt: FeeSettlementReceipt<FeeCoinType>,
+): (u64, u64) {
+    let count = receipt.orders_count;
+    let total = receipt.total_fees_settled;
+    finish_protocol_fee_settlement(receipt);
+    (count, total)
 }
