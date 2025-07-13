@@ -18,6 +18,7 @@ For detailed technical specifications and implementation details, please refer t
 - [DeepBook Wrapper Design](docs/DESIGN.md)
 - [Oracle Price Calculation](docs/oracle-price-calculation.md)
 - [Oracle Pricing Security](docs/oracle-pricing-security.md)
+- [Unsettled Fees](docs/unsettled-fees.md)
 
 
 ### Swaps
