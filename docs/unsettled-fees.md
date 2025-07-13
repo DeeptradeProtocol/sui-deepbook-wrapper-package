@@ -14,6 +14,14 @@ When a user places an order, we follow this process:
    - For live/unfilled portions: calculate fees at the maker rate and add to unsettled fees
 3. **Create a direct relationship** between the live order and its unsettled fees
 
+## Protocol Fee Discounts
+
+The system offers protocol fee discounts when using the DEEP fee type, designed to incentivize DEEP holders:
+
+- **Discount calculation**: The more DeepBook fees you cover with your own DEEP tokens, the higher your discount
+- **Maximum discount**: Achieved when the user fully covers the DeepBook fees themselves
+- **Configuration**: Maximum discount rates are specified for each pool in the `TradingFeeConfig`, alongside the standard fee rates
+
 ## Fee Settlement Mechanisms
 
 ### 1. User Cancellation Settlement
