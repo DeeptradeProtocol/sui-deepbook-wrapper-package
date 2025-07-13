@@ -562,11 +562,16 @@ public(package) fun settle_user_fees<BaseToken, QuoteToken, FeeCoinType>(
     assert!(maker_quantity > 0, EZeroMakerQuantity);
     assert!(filled_quantity <= order_quantity, EFilledQuantityGreaterThanOrderQuantity);
 
-    let not_executed_quantity = order_quantity - filled_quantity;
-    let amount_to_settle = math::div(
-        math::mul(unsettled_fee_value, not_executed_quantity),
-        maker_quantity,
-    );
+    let amount_to_settle = if (filled_quantity == 0) {
+        // If the order is completely unfilled, return all fees
+        unsettled_fee_value
+    } else {
+        let not_executed_quantity = order_quantity - filled_quantity;
+        math::div(
+            math::mul(unsettled_fee_value, not_executed_quantity),
+            maker_quantity,
+        )
+    };
 
     let fee_to_settle = unsettled_fee.balance.split(amount_to_settle);
     let fee_value = fee_to_settle.value();
