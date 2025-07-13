@@ -123,13 +123,15 @@ public(package) fun calculate_discount_rate(
 ): u64 {
     assert!(deep_from_reserves <= deep_required, EInvalidDeepFromReserves);
 
-    let deep_covered_by_user = deep_required - deep_from_reserves;
-    // If deep_required is 0, set rate to 100% to give maximum discount
-    let fee_paid_by_user_rate = if (deep_required > 0)
-        math::div(deep_covered_by_user, deep_required) else 1_000_000_000;
-    let discount_rate = math::mul(max_discount_rate, fee_paid_by_user_rate);
+    // If deep_required is 0, give maximum discount
+    if (deep_required == 0) return max_discount_rate;
 
-    discount_rate
+    let deep_covered_by_user = deep_required - deep_from_reserves;
+
+    // If user covers 0 DEEP, they get 0 discount
+    if (deep_covered_by_user == 0) return 0;
+
+    math::div(math::mul(max_discount_rate, deep_covered_by_user), deep_required)
 }
 
 /// Calculate the taker and maker ratios for an order based on execution status.
