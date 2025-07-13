@@ -1579,7 +1579,7 @@ fun settlement_with_maximum_precision_amounts() {
 /// - Creates deepbook registry and clock
 /// - Creates funded balance manager for ALICE
 /// - Creates SUI/USDC pool with reference DEEP pricing
-fun setup_test_environment(): (Scenario, ID, ID) {
+public(package) fun setup_test_environment(): (Scenario, ID, ID) {
     let mut scenario = begin(OWNER);
 
     // Setup wrapper
