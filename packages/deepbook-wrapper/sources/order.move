@@ -1785,6 +1785,23 @@ public fun assert_coverage_fee_plan_eq(
 }
 
 #[test_only]
+public fun assert_protocol_fee_plan_eq(
+    actual: ProtocolFeePlan,
+    expected_taker_fee_from_wallet: u64,
+    expected_taker_fee_from_balance_manager: u64,
+    expected_maker_fee_from_wallet: u64,
+    expected_maker_fee_from_balance_manager: u64,
+    expected_sufficient: bool,
+) {
+    use std::unit_test::assert_eq;
+    assert_eq!(actual.taker_fee_from_wallet, expected_taker_fee_from_wallet);
+    assert_eq!(actual.taker_fee_from_balance_manager, expected_taker_fee_from_balance_manager);
+    assert_eq!(actual.maker_fee_from_wallet, expected_maker_fee_from_wallet);
+    assert_eq!(actual.maker_fee_from_balance_manager, expected_maker_fee_from_balance_manager);
+    assert_eq!(actual.user_covers_fee, expected_sufficient);
+}
+
+#[test_only]
 public fun assert_input_coin_deposit_plan_eq(
     actual: InputCoinDepositPlan,
     expected_order_amount: u64,
