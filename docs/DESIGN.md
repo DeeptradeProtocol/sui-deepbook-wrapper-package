@@ -58,6 +58,7 @@ When using DEEP fee type, users can receive protocol fee discounts:
 
 - The more DeepBook fees you cover with your own DEEP tokens, the higher your discount
 - Maximum discount is achieved when the user fully covers the DeepBook fees themselves
+- Whitelisted pools automatically receive the maximum protocol fee discount rate for each order
 
 ### Unsettled Fees
 
