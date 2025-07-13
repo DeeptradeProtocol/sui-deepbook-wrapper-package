@@ -493,7 +493,8 @@ fun test_withdraw_balance_too_low_e() {
     abort 0
 }
 
-public(package) fun deposit_into_account<T>(
+#[test_only]
+public fun deposit_into_account<T>(
     balance_manager: &mut BalanceManager,
     amount: u64,
     test: &mut Scenario,
@@ -504,7 +505,8 @@ public(package) fun deposit_into_account<T>(
     );
 }
 
-public(package) fun create_acct_and_share_with_funds(
+#[test_only]
+public fun create_acct_and_share_with_funds(
     sender: address,
     amount: u64,
     test: &mut Scenario,
@@ -526,7 +528,8 @@ public(package) fun create_acct_and_share_with_funds(
     }
 }
 
-public(package) fun create_acct_and_share_with_funds_typed<
+#[test_only]
+public fun create_acct_and_share_with_funds_typed<
     BaseAsset,
     QuoteAsset,
     ReferenceBaseAsset,
