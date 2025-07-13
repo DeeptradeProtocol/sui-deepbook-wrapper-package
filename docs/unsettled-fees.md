@@ -10,7 +10,7 @@ When a user places an order, we follow this process:
 
 1. **Place the order** in the DeepBook
 2. **Analyze the order execution**:
-   - For immediately executed portions: charge protocol fees at the taker rate (since we know this was taker activity)
+   - For immediately executed portions: charge protocol fees at the taker rate
    - For live/unfilled portions: calculate fees at the maker rate and add to unsettled fees
 3. **Create a direct relationship** between the live order and its unsettled fees
 
