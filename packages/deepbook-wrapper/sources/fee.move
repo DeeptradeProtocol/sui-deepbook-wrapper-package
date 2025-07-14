@@ -124,16 +124,16 @@ public fun update_pool_specific_fees<BaseToken, QuoteToken>(
 
 // === Public-View Functions ===
 /// Get pool-specific fee config if configured, otherwise default fee config.
-public fun get_fee_rates<BaseToken, QuoteToken>(
-    config: &TradingFeeConfig,
+public fun get_pool_fee_config<BaseToken, QuoteToken>(
+    trading_fee_config: &TradingFeeConfig,
     pool: &Pool<BaseToken, QuoteToken>,
 ): PoolFeeConfig {
     let pool_id = object::id(pool);
 
-    if (config.pool_specific_fees.contains(pool_id)) {
-        *config.pool_specific_fees.borrow(pool_id)
+    if (trading_fee_config.pool_specific_fees.contains(pool_id)) {
+        *trading_fee_config.pool_specific_fees.borrow(pool_id)
     } else {
-        config.default_fees
+        trading_fee_config.default_fees
     }
 }
 
