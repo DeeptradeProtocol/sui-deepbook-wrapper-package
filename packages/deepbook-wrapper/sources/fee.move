@@ -123,8 +123,7 @@ public fun update_pool_specific_fees<BaseToken, QuoteToken>(
 }
 
 // === Public-View Functions ===
-/// Get pool-specific fee rates if configured, otherwise default fee rates.
-/// Returns (taker_fee_rate, maker_fee_rate) in billionths.
+/// Get pool-specific fee config if configured, otherwise default fee config.
 public fun get_fee_rates<BaseToken, QuoteToken>(
     config: &TradingFeeConfig,
     pool: &Pool<BaseToken, QuoteToken>,
