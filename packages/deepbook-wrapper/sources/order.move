@@ -237,7 +237,7 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
         &order_info,
         order_amount,
         protocol_fee_discount_rate,
-        true,
+        true, // is DEEP fee type
         ctx,
     );
 
@@ -362,7 +362,7 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
         &order_info,
         order_amount,
         protocol_fee_discount_rate,
-        true,
+        true, // is DEEP fee type
         ctx,
     );
 
@@ -463,7 +463,7 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
         &order_info,
         order_amount,
         max_discount_rate,
-        true,
+        true, // is DEEP fee type
         ctx,
     );
 
@@ -557,7 +557,7 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
         &order_info,
         order_amount,
         max_discount_rate,
-        true,
+        true, // is DEEP fee type
         ctx,
     );
 
@@ -653,7 +653,7 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
         &order_info,
         order_amount,
         0, // No discount rate for input fee orders
-        false,
+        false, // is Input coin fee type
         ctx,
     );
 
@@ -744,7 +744,7 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
         &order_info,
         order_amount,
         0, // No discount rate for input fee orders
-        false,
+        false, // is Input coin fee type
         ctx,
     );
 
