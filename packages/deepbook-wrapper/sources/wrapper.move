@@ -36,8 +36,8 @@ const EFunctionDeprecated: u64 = 1000;
 /// - allowed_versions: Versions that are allowed to interact with the wrapper
 /// - disabled_versions: Versions that have been permanently disabled
 /// - deep_reserves: The DEEP reserves in the wrapper
-/// - deep_reserves_coverage_fees: The DEEP reserves coverage fees in the wrapper
-/// - protocol_fees: The protocol fees in the wrapper
+/// - deep_reserves_coverage_fees: The DEEP reserves coverage fees collected by the wrapper
+/// - protocol_fees: The protocol fees collected by the wrapper
 public struct Wrapper has key, store {
     id: UID,
     allowed_versions: VecSet<u16>,
@@ -56,14 +56,15 @@ public struct FundCap has key, store {
 /// Key struct for storing charged fees by coin type
 public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {}
 
+// === Events ===
 /// Event emitted when a new version is enabled for the wrapper
-public struct VersionEnabled has copy, drop, store {
+public struct VersionEnabled has copy, drop {
     wrapper_id: ID,
     version: u16,
 }
 
 /// Event emitted when a version is permanently disabled for the wrapper
-public struct VersionDisabled has copy, drop, store {
+public struct VersionDisabled has copy, drop {
     wrapper_id: ID,
     version: u16,
 }
@@ -145,7 +146,7 @@ public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16
 
     event::emit(VersionEnabled {
         wrapper_id: wrapper.id.to_inner(),
-        version: version,
+        version,
     });
 }
 
@@ -160,7 +161,7 @@ public fun disable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u1
 
     event::emit(VersionDisabled {
         wrapper_id: wrapper.id.to_inner(),
-        version: version,
+        version,
     });
 }
 
