@@ -24,11 +24,11 @@ const EFunctionDeprecated: u64 = 1000;
 // === Constants ===
 const DEEP_SCALING_FACTOR: u64 = 1_000_000;
 // Default protocol fee for creating a pool
-const DEFAULT_CREATE_POOL_PROTOCOL_FEE: u64 = 100 * DEEP_SCALING_FACTOR; // 100 DEEP
+const DEFAULT_POOL_CREATION_PROTOCOL_FEE: u64 = 100 * DEEP_SCALING_FACTOR; // 100 DEEP
 // Minimum protocol fee for creating a pool
-const MIN_CREATE_POOL_PROTOCOL_FEE: u64 = 0; // 0 DEEP
+const MIN_POOL_CREATION_PROTOCOL_FEE: u64 = 0; // 0 DEEP
 // Maximum protocol fee for creating a pool
-const MAX_CREATE_POOL_PROTOCOL_FEE: u64 = 500 * DEEP_SCALING_FACTOR; // 500 DEEP
+const MAX_POOL_CREATION_PROTOCOL_FEE: u64 = 500 * DEEP_SCALING_FACTOR; // 500 DEEP
 
 // === Structs ===
 /// Create pool configuration object that stores the protocol fee
@@ -133,7 +133,7 @@ public fun update_create_pool_protocol_fee_v2(
     new_fee: u64,
 ) {
     assert!(
-        new_fee >= MIN_CREATE_POOL_PROTOCOL_FEE && new_fee <= MAX_CREATE_POOL_PROTOCOL_FEE,
+        new_fee >= MIN_POOL_CREATION_PROTOCOL_FEE && new_fee <= MAX_POOL_CREATION_PROTOCOL_FEE,
         EPoolCreationFeeOutOfRange,
     );
     let old_fee = config.protocol_fee;
@@ -157,7 +157,7 @@ public fun get_create_pool_protocol_fee(config: &CreatePoolConfig): u64 {
 fun init(ctx: &mut TxContext) {
     let config = CreatePoolConfig {
         id: object::new(ctx),
-        protocol_fee: DEFAULT_CREATE_POOL_PROTOCOL_FEE,
+        protocol_fee: DEFAULT_POOL_CREATION_PROTOCOL_FEE,
     };
 
     transfer::share_object(config);
