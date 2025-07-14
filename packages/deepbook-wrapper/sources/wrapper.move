@@ -127,7 +127,8 @@ public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16
     wrapper.allowed_versions.insert(version);
 }
 
-/// Disable the specified package version for the wrapper
+/// Permanently disable the specified package version for the wrapper.
+/// This version will not be able to be enabled again.
 public fun disable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
     assert!(version != current_version(), ECannotDisableCurrentVersion);
     assert!(wrapper.allowed_versions.contains(&version), EVersionNotEnabled);
