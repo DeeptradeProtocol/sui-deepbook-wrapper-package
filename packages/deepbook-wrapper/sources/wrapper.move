@@ -5,6 +5,7 @@ use deepbook_wrapper::helper::current_version;
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
+use sui::event;
 use sui::vec_set::{Self, VecSet};
 use token::deep::DEEP;
 
@@ -20,6 +21,9 @@ const EVersionNotEnabled: u64 = 5;
 /// Error when trying to use shared object in a package whose version is not enabled
 const EPackageVersionNotEnabled: u64 = 6;
 
+/// Error when trying to enable a version that has been permanently disabled
+const EVersionPermanentlyDisabled: u64 = 7;
+
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
 #[allow(unused_const)]
@@ -27,17 +31,52 @@ const EFunctionDeprecated: u64 = 1000;
 
 // === Structs ===
 /// Wrapper struct for DeepBook V3
+/// - allowed_versions: Versions that are allowed to interact with the wrapper
+/// - disabled_versions: Versions that have been permanently disabled
+/// - deep_reserves: The DEEP reserves in the wrapper
+/// - deep_reserves_coverage_fees: The DEEP reserves coverage fees collected by the wrapper
+/// - protocol_fees: The protocol fees collected by the wrapper
 public struct Wrapper has key, store {
     id: UID,
     allowed_versions: VecSet<u16>,
+    disabled_versions: VecSet<u16>,
     deep_reserves: Balance<DEEP>,
     deep_reserves_coverage_fees: Bag,
     protocol_fees: Bag,
 }
 
 /// Key struct for storing charged fees by coin type
-public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
-    dummy_field: bool,
+public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {}
+
+// === Events ===
+/// Event emitted when DEEP coins are withdrawn from the wrapper's reserves
+public struct DeepReservesWithdrawn has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
+/// Event emitted when deep reserves coverage fees are withdrawn for a specific coin type
+public struct CoverageFeeWithdrawn<phantom CoinType> has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
+/// Event emitted when protocol fees are withdrawn for a specific coin type
+public struct ProtocolFeeWithdrawn<phantom CoinType> has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
+/// Event emitted when a new version is enabled for the wrapper
+public struct VersionEnabled has copy, drop {
+    wrapper_id: ID,
+    version: u16,
+}
+
+/// Event emitted when a version is permanently disabled for the wrapper
+public struct VersionDisabled has copy, drop {
+    wrapper_id: ID,
+    version: u16,
 }
 
 // === Public-Mutative Functions ===
@@ -55,11 +94,18 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
 ): Coin<CoinType> {
     wrapper.verify_version();
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
 
     if (wrapper.deep_reserves_coverage_fees.contains(key)) {
         let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
-        balance::withdraw_all(balance).into_coin(ctx)
+        let coin = balance::withdraw_all(balance).into_coin(ctx);
+
+        event::emit(CoverageFeeWithdrawn<CoinType> {
+            wrapper_id: wrapper.id.to_inner(),
+            amount: coin.value(),
+        });
+
+        coin
     } else {
         coin::zero(ctx)
     }
@@ -73,11 +119,18 @@ public fun withdraw_protocol_fee<CoinType>(
 ): Coin<CoinType> {
     wrapper.verify_version();
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
 
     if (wrapper.protocol_fees.contains(key)) {
         let balance = wrapper.protocol_fees.borrow_mut(key);
-        balance::withdraw_all(balance).into_coin(ctx)
+        let coin = balance::withdraw_all(balance).into_coin(ctx);
+
+        event::emit(ProtocolFeeWithdrawn<CoinType> {
+            wrapper_id: wrapper.id.to_inner(),
+            amount: coin.value(),
+        });
+
+        coin
     } else {
         coin::zero(ctx)
     }
@@ -91,20 +144,46 @@ public fun withdraw_deep_reserves(
     ctx: &mut TxContext,
 ): Coin<DEEP> {
     wrapper.verify_version();
-    wrapper.deep_reserves.split(amount).into_coin(ctx)
+
+    let coin = split_deep_reserves(wrapper, amount, ctx);
+
+    event::emit(DeepReservesWithdrawn {
+        wrapper_id: wrapper.id.to_inner(),
+        amount,
+    });
+
+    coin
 }
 
 /// Enable the specified package version for the wrapper
 public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
+    // Check if the version has been permanently disabled
+    assert!(!wrapper.disabled_versions.contains(&version), EVersionPermanentlyDisabled);
+
+    // Check if the version is already enabled
     assert!(!wrapper.allowed_versions.contains(&version), EVersionAlreadyEnabled);
+
     wrapper.allowed_versions.insert(version);
+
+    event::emit(VersionEnabled {
+        wrapper_id: wrapper.id.to_inner(),
+        version,
+    });
 }
 
-/// Disable the specified package version for the wrapper
+/// Permanently disable the specified package version for the wrapper
 public fun disable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
     assert!(version != current_version(), ECannotDisableCurrentVersion);
     assert!(wrapper.allowed_versions.contains(&version), EVersionNotEnabled);
+
+    // Remove from allowed and add to disabled
     wrapper.allowed_versions.remove(&version);
+    wrapper.disabled_versions.insert(version);
+
+    event::emit(VersionDisabled {
+        wrapper_id: wrapper.id.to_inner(),
+        version,
+    });
 }
 
 // === Public-View Functions ===
@@ -126,7 +205,7 @@ public(package) fun join_deep_reserves_coverage_fee<CoinType>(
         return
     };
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
     if (wrapper.deep_reserves_coverage_fees.contains(key)) {
         let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
         balance::join(balance, fee);
@@ -144,7 +223,7 @@ public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Bala
         return
     };
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
     if (wrapper.protocol_fees.contains(key)) {
         let balance = wrapper.protocol_fees.borrow_mut(key);
         balance::join(balance, fee);
@@ -179,6 +258,7 @@ fun init(ctx: &mut TxContext) {
     let wrapper = Wrapper {
         id: object::new(ctx),
         allowed_versions: vec_set::singleton(current_version()),
+        disabled_versions: vec_set::empty(),
         deep_reserves: balance::zero(),
         deep_reserves_coverage_fees: bag::new(ctx),
         protocol_fees: bag::new(ctx),

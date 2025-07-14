@@ -16,6 +16,9 @@ The wrapper acts as an intermediary, managing all DEEP-related fee operations.
 
 For detailed technical specifications and implementation details, please refer to:
 - [DeepBook Wrapper Design](docs/DESIGN.md)
+- [Oracle Price Calculation](docs/oracle-price-calculation.md)
+- [Oracle Pricing Security](docs/oracle-pricing-security.md)
+- [Versioning](docs/versioning.md)
 
 
 ### Swaps
@@ -123,6 +126,7 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 0x208d664e59ad391212a11ad8658d0e9d7510c6cd1785bd0d477d73505d5c89b1
 0xc49f720f4e8427cbd3955846ca9231441dab8ccda6c3da6e9d44ed6f9dcf865c
 0x2356885eae212599c0c7a42d648cc2100dedfa4698f8fc58fc6b9f67806f2bfc
+0x03aafc54af513d592bcb91136d61b94ea40b0f9b50477f24a3a9a38fca625174
 ```
 
 
