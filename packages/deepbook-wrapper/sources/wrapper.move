@@ -94,6 +94,7 @@ public fun deposit_into_reserves(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
         wrapper_id: wrapper.id.to_inner(),
         amount: deep_coin.value(),
     });
+
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
