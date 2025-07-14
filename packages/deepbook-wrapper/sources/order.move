@@ -48,6 +48,7 @@ const EInvalidOwner: u64 = 4;
 const EDeepRequiredExceedsMax: u64 = 5;
 /// Error when actual sui fee exceeds the max sui fee
 const ESuiFeeExceedsMax: u64 = 6;
+
 /// Not supported parameters errors
 const ENotSupportedExpireTimestamp: u64 = 7;
 const ENotSupportedSelfMatchingOption: u64 = 8;

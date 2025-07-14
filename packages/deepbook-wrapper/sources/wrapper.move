@@ -27,42 +27,27 @@ use token::deep::DEEP;
 // === Errors ===
 /// Error when trying to use deep from reserves but there is not enough available
 const EInsufficientDeepReserves: u64 = 1;
-
 /// Allowed versions management errors
 const EVersionAlreadyEnabled: u64 = 2;
 const ECannotDisableCurrentVersion: u64 = 3;
 const EVersionNotEnabled: u64 = 4;
-
 /// Error when trying to use shared object in a package whose version is not enabled
 const EPackageVersionNotEnabled: u64 = 5;
-
-/// Error when the sender is not a multisig address
 const ESenderIsNotMultisig: u64 = 6;
-
 /// Error when the caller is not the owner of the balance manager
 const EInvalidOwner: u64 = 7;
-
-/// Error when the order status is not live or partially filled when joining unsettled fee
 const EOrderNotLiveOrPartiallyFilled: u64 = 8;
-
-/// Error when the order is fully executed when joining unsettled fee
 const EOrderFullyExecuted: u64 = 9;
-
 /// Error when trying to add an unsettled fee with zero value
 const EZeroUnsettledFee: u64 = 10;
-
 /// Error when the order params mismatch on joining unsettled fee
 const EOrderParamsMismatch: u64 = 11;
-
-/// Error when the maker quantity is zero on claiming an unsettled fee
+/// Error when the maker quantity is zero on settling user fees
 const EZeroMakerQuantity: u64 = 12;
-
-/// Error when the filled quantity is greater than the original order quantity on claiming an unsettled fee
+/// Error when the filled quantity is greater than the original order quantity on settling user fees
 const EFilledQuantityGreaterThanOrderQuantity: u64 = 13;
-
 /// Error when the unsettled fee is not empty to be destroyed
 const EUnsettledFeeNotEmpty: u64 = 14;
-
 /// Error when trying to join unsettled fee with different coin type
 const EUnsettledFeeCoinTypeMismatch: u64 = 15;
 
@@ -121,13 +106,11 @@ public struct UserFeesSettled has copy, drop {
     filled_quantity: u64,
 }
 
-/// Emitted when a batch of protocol fees is settled
 public struct ProtocolFeesSettled<phantom FeeCoinType> has copy, drop {
     orders_count: u64,
     total_fees_settled: u64,
 }
 
-/// Initialize the wrapper module
 fun init(ctx: &mut TxContext) {
     let wrapper = Wrapper {
         id: object::new(ctx),
@@ -138,7 +121,6 @@ fun init(ctx: &mut TxContext) {
         unsettled_fees: bag::new(ctx),
     };
 
-    // Share the wrapper object
     transfer::share_object(wrapper);
 }
 

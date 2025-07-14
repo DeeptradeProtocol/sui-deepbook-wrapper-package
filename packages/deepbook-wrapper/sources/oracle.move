@@ -8,24 +8,19 @@ use sui::clock::Clock;
 // === Errors ===
 /// Error when the price confidence interval exceeds the threshold
 const EPriceConfidenceExceedsThreshold: u64 = 1;
-
 /// Error when the price is stale
 const EStalePrice: u64 = 2;
-
 /// Error when the price magnitude is zero
 const EZeroPriceMagnitude: u64 = 3;
 
 // === Constants ===
 /// Min confidence ratio of X means that the confidence interval must be less than (100/X)% of the price
 const MIN_CONFIDENCE_RATIO: u64 = 20;
-
 /// Maximum allowed price staleness in seconds
 const MAX_STALENESS_SECONDS: u64 = 60;
-
 /// DEEP price feed id
 const DEEP_PRICE_FEED_ID: vector<u8> =
     x"29bdd5248234e33bd93d3b81100b5fa32eaa5997843847e2c2cb16d7c6d9f7ff";
-
 /// SUI price feed id
 const SUI_PRICE_FEED_ID: vector<u8> =
     x"23d7315113f5b1d3ba7a83604c44b94d79f4fd69af77f804fc7f920a6dc65744";

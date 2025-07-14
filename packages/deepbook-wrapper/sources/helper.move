@@ -15,38 +15,28 @@ use token::deep::DEEP;
 // === Errors ===
 /// Error when the reference pool is not eligible for the order
 const EIneligibleReferencePool: u64 = 1;
-
 /// Error when the slippage is invalid (greater than 100% in billionths)
 const EInvalidSlippage: u64 = 2;
-
 /// Error when the provided price feed identifier doesn't match the expected one
 const EInvalidPriceFeedIdentifier: u64 = 3;
-
 /// Error when there are no ask prices available in the order book
 const ENoAskPrice: u64 = 4;
-
 /// Error when the price feed returned positive exponent, indicating significant Pyth format change requiring manual review
 const EUnexpectedPositiveExponent: u64 = 5;
-
 /// Error when the decimal adjustment exceeds maximum safe power of 10 for u64
 const EDecimalAdjustmentTooLarge: u64 = 6;
-
 /// Error when the discount rate is greater than 100%
 const EInvalidDiscountRate: u64 = 7;
-
 /// Error when the deep from reserves is greater than the total deep required
 const EInvalidDeepFromReserves: u64 = 8;
-
 /// Error when the original quantity is zero
 const EZeroOriginalQuantity: u64 = 9;
-
 /// Error when the executed quantity exceeds the original quantity
 const EExecutedQuantityExceedsOriginal: u64 = 10;
 
 // === Constants ===
 /// Current version of the package. Update during upgrades
 const CURRENT_VERSION: u16 = 1;
-
 /// The maximum power of 10 that doesn't overflow u64. 10^20 overflows u64
 const MAX_SAFE_U64_POWER_OF_TEN: u64 = 19;
 
