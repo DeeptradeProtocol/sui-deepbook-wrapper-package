@@ -166,6 +166,8 @@ public fun create_limit_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
+    wrapper.verify_version();
+
     // Calculate DEEP required for limit order
     let deep_required = calculate_deep_required(pool, quantity, price);
 
@@ -267,6 +269,8 @@ public fun create_market_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Ref
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
+    wrapper.verify_version();
+
     // Calculate base quantity and DEEP required for market order
     let (base_quantity, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
@@ -482,6 +486,8 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
+    wrapper.verify_version();
+
     // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
@@ -552,8 +558,9 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
-    // Calculate base quantity for market order
+    wrapper.verify_version();
 
+    // Calculate base quantity for market order
     // We use calculate_market_order_params to get base quantity, which uses `get_quantity_out` under the hood,
     // since `get_quantity_out` returns `base_quantity` without applying fees to it.
     // We do need that, since we have to apply our protocol fee & deepbook fee on top of the order amount.
@@ -1101,6 +1108,8 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     clock: &Clock,
     ctx: &mut TxContext,
 ): TradeProof {
+    wrapper.verify_version();
+
     // Verify the caller owns the balance manager
     assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
@@ -1287,6 +1296,8 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     is_bid: bool,
     ctx: &mut TxContext,
 ): TradeProof {
+    wrapper.verify_version();
+
     // Verify the caller owns the balance manager
     assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
@@ -1357,6 +1368,8 @@ fun execute_deep_plan(
     deep_plan: &DeepPlan,
     ctx: &mut TxContext,
 ) {
+    wrapper.verify_version();
+
     // Check if there is enough DEEP in the wrapper reserves
     if (deep_plan.use_wrapper_deep_reserves) {
         assert!(deep_plan.deep_reserves_cover_order, EInsufficientDeepReserves);
@@ -1405,6 +1418,8 @@ fun execute_fee_plan(
     fee_plan: &FeePlan,
     ctx: &mut TxContext,
 ) {
+    wrapper.verify_version();
+
     // Verify user covers wrapper fee
     assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFee);
 
@@ -1464,6 +1479,7 @@ fun execute_input_coin_fee_plan<BaseToken, QuoteToken>(
     is_bid: bool,
     ctx: &mut TxContext,
 ) {
+    wrapper.verify_version();
     assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFee);
 
     // Collect protocol fee from wallet if needed
