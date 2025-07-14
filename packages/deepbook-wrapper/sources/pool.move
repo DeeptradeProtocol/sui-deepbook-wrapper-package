@@ -40,7 +40,7 @@ public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop 
     min_size: u64,
 }
 
-/// Initialize the pool module
+/// Initialize the pool creation config object
 fun init(ctx: &mut TxContext) {
     let config = PoolCreationConfig {
         id: object::new(ctx),
