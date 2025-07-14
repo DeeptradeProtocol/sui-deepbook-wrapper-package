@@ -35,6 +35,7 @@ const EFunctionDeprecated: u64 = 1000;
 public struct Wrapper has key, store {
     id: UID,
     allowed_versions: VecSet<u16>,
+    // Versions that have been permanently disabled
     disabled_versions: VecSet<u16>,
     deep_reserves: Balance<DEEP>,
     deep_reserves_coverage_fees: Bag,
@@ -117,7 +118,7 @@ public fun withdraw_deep_reserves_v2(
 
 /// Enable the specified package version for the wrapper
 public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
-    // Check if the version has been permanently disabled
+    // Check if the version has been permanently disabled.
     assert!(!wrapper.disabled_versions.contains(&version), EVersionPermanentlyDisabled);
 
     // Check if the version is already enabled
