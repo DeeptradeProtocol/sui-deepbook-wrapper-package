@@ -84,6 +84,24 @@ public struct PoolFeesUpdated has copy, drop {
     new_fees: PoolFeeConfig,
 }
 
+/// Initialize trading fee config object
+fun init(ctx: &mut TxContext) {
+    let trading_fee_config = TradingFeeConfig {
+        id: object::new(ctx),
+        default_fees: PoolFeeConfig {
+            deep_fee_type_taker_rate: DEFAULT_DEEP_TAKER_FEE_BPS,
+            deep_fee_type_maker_rate: DEFAULT_DEEP_MAKER_FEE_BPS,
+            input_coin_fee_type_taker_rate: DEFAULT_INPUT_COIN_TAKER_FEE_BPS,
+            input_coin_fee_type_maker_rate: DEFAULT_INPUT_COIN_MAKER_FEE_BPS,
+            max_deep_fee_discount_rate: DEFAULT_DEEP_FEE_DISCOUNT_RATE,
+        },
+        pool_specific_fees: table::new(ctx),
+    };
+
+    // Share the trading fee config object
+    transfer::share_object(trading_fee_config);
+}
+
 // === Public-Mutative Functions ===
 /// Updates the default fee rates.
 public fun update_default_fees(
@@ -506,21 +524,4 @@ fun validate_discount_rate(discount_rate: u64) {
         discount_rate >= MIN_DISCOUNT_RATE && discount_rate <= MAX_DISCOUNT_RATE,
         EDiscountOutOfRange,
     );
-}
-
-fun init(ctx: &mut TxContext) {
-    let trading_fee_config = TradingFeeConfig {
-        id: object::new(ctx),
-        default_fees: PoolFeeConfig {
-            deep_fee_type_taker_rate: DEFAULT_DEEP_TAKER_FEE_BPS,
-            deep_fee_type_maker_rate: DEFAULT_DEEP_MAKER_FEE_BPS,
-            input_coin_fee_type_taker_rate: DEFAULT_INPUT_COIN_TAKER_FEE_BPS,
-            input_coin_fee_type_maker_rate: DEFAULT_INPUT_COIN_MAKER_FEE_BPS,
-            max_deep_fee_discount_rate: DEFAULT_DEEP_FEE_DISCOUNT_RATE,
-        },
-        pool_specific_fees: table::new(ctx),
-    };
-
-    // Share the trading fee config object
-    transfer::share_object(trading_fee_config);
 }
