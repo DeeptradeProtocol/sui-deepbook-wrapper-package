@@ -55,6 +55,16 @@ public struct PoolCreationProtocolFeeUpdated has copy, drop {
     new_fee: u64,
 }
 
+/// Initialize the pool creation config object
+fun init(ctx: &mut TxContext) {
+    let config = PoolCreationConfig {
+        id: object::new(ctx),
+        protocol_fee: DEFAULT_POOL_CREATION_PROTOCOL_FEE,
+    };
+
+    transfer::share_object(config);
+}
+
 // === Public-Mutative Functions ===
 /// Creates a new permissionless pool for trading between BaseAsset and QuoteAsset
 /// Collects both DeepBook creation fee and protocol fee in DEEP coins
@@ -154,15 +164,4 @@ public fun update_pool_creation_protocol_fee(
 /// Get the current protocol fee for creating a pool
 public fun pool_creation_protocol_fee(config: &PoolCreationConfig): u64 {
     config.protocol_fee
-}
-
-// === Private Functions ===
-/// Initialize the pool module
-fun init(ctx: &mut TxContext) {
-    let config = PoolCreationConfig {
-        id: object::new(ctx),
-        protocol_fee: DEFAULT_POOL_CREATION_PROTOCOL_FEE,
-    };
-
-    transfer::share_object(config);
 }
