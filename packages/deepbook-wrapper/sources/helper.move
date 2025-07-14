@@ -32,8 +32,16 @@ const EUnexpectedPositiveExponent: u64 = 5;
 const EDecimalAdjustmentTooLarge: u64 = 6;
 
 // === Constants ===
+/// Current version of the package. Update during upgrades
+const CURRENT_VERSION: u16 = 1;
+
 /// The maximum power of 10 that doesn't overflow u64. 10^20 overflows u64
 const MAX_SAFE_U64_POWER_OF_TEN: u64 = 19;
+
+// === Public-View Functions ===
+public fun current_version(): u16 {
+    CURRENT_VERSION
+}
 
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters

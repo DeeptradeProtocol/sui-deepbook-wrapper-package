@@ -19,6 +19,7 @@ const EPoolCreationFeeOutOfRange: u64 = 2;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
+#[allow(unused_const)]
 const EFunctionDeprecated: u64 = 1000;
 
 // === Constants ===
@@ -31,15 +32,16 @@ const MIN_POOL_CREATION_PROTOCOL_FEE: u64 = 0; // 0 DEEP
 const MAX_POOL_CREATION_PROTOCOL_FEE: u64 = 500 * DEEP_SCALING_FACTOR; // 500 DEEP
 
 // === Structs ===
-/// Create pool configuration object that stores the protocol fee
-public struct CreatePoolConfig has key, store {
+/// Pool creation configuration object that stores the protocol fee
+public struct PoolCreationConfig has key, store {
     id: UID,
     // Protocol fee can be updated by the admin
     protocol_fee: u64,
 }
 
+// === Events ===
 /// Pool created event emitted when a pool is created with help of the wrapper
-public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop, store {
+public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop {
     pool_id: ID,
     tick_size: u64,
     lot_size: u64,
@@ -80,9 +82,9 @@ public struct PoolCreationProtocolFeeUpdated has copy, drop {
 ///
 /// # Aborts
 /// * `ENotEnoughFee` - If user doesn't provide enough DEEP to cover all fees
-public fun create_permissionless_pool_v2<BaseAsset, QuoteAsset>(
+public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     wrapper: &mut Wrapper,
-    config: &CreatePoolConfig,
+    config: &PoolCreationConfig,
     registry: &mut Registry,
     mut creation_fee: Coin<DEEP>,
     tick_size: u64,
@@ -90,6 +92,8 @@ public fun create_permissionless_pool_v2<BaseAsset, QuoteAsset>(
     min_size: u64,
     ctx: &mut TxContext,
 ): ID {
+    wrapper.verify_version();
+
     let deepbook_fee = constants::pool_creation_fee();
     let protocol_fee = config.protocol_fee;
     let total_fee = deepbook_fee + protocol_fee;
@@ -127,8 +131,8 @@ public fun create_permissionless_pool_v2<BaseAsset, QuoteAsset>(
 }
 
 /// Update the protocol fee for creating a pool
-public fun update_create_pool_protocol_fee_v2(
-    config: &mut CreatePoolConfig,
+public fun update_pool_creation_protocol_fee(
+    config: &mut PoolCreationConfig,
     _admin: &AdminCap,
     new_fee: u64,
 ) {
@@ -148,55 +152,17 @@ public fun update_create_pool_protocol_fee_v2(
 
 // === Public-View Functions ===
 /// Get the current protocol fee for creating a pool
-public fun get_create_pool_protocol_fee(config: &CreatePoolConfig): u64 {
+public fun pool_creation_protocol_fee(config: &PoolCreationConfig): u64 {
     config.protocol_fee
 }
 
 // === Private Functions ===
 /// Initialize the pool module
 fun init(ctx: &mut TxContext) {
-    let config = CreatePoolConfig {
+    let config = PoolCreationConfig {
         id: object::new(ctx),
         protocol_fee: DEFAULT_POOL_CREATION_PROTOCOL_FEE,
     };
 
     transfer::share_object(config);
-}
-
-// === Deprecated Functions ===
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `create_permissionless_pool_v2` instead.",
-    ),
-]
-#[allow(unused_type_parameter)]
-public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
-    _wrapper: &mut Wrapper,
-    _config: &CreatePoolConfig,
-    _registry: &mut Registry,
-    _tick_size: u64,
-    _lot_size: u64,
-    _min_size: u64,
-    _creation_fee: Coin<DEEP>,
-    _ctx: &mut TxContext,
-): ID {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `update_create_pool_protocol_fee_v2` instead.",
-    ),
-]
-public fun update_create_pool_protocol_fee(
-    _admin: &AdminCap,
-    _config: &mut CreatePoolConfig,
-    _new_fee: u64,
-) {
-    abort EFunctionDeprecated
-}
-
-#[deprecated(note = b"This function is deprecated. No new function is needed.")]
-public fun create_pool_creation_config(_admin: &AdminCap, _ctx: &mut TxContext) {
-    abort EFunctionDeprecated
 }

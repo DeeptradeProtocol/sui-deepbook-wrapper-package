@@ -16,6 +16,7 @@ use sui::coin::Coin;
 // === Errors ===
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
+#[allow(unused_const)]
 const EFunctionDeprecated: u64 = 1000;
 
 // === Constants ===
@@ -47,12 +48,7 @@ const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
 /// - u64: Protocol fee
 /// - u64: DEEP required for the order
 ///   Returns (0, 0, 0, deep_required) for whitelisted pools or when user provides all required DEEP
-public fun estimate_full_fee_limit_v3<
-    BaseToken,
-    QuoteToken,
-    ReferenceBaseAsset,
-    ReferenceQuoteAsset,
->(
+public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
     deep_usd_price_info: &PriceInfoObject,
@@ -110,12 +106,7 @@ public fun estimate_full_fee_limit_v3<
 /// - u64: Protocol fee
 /// - u64: DEEP required for the order
 ///   Returns (0, 0, 0, deep_required) for whitelisted pools or when user provides all required DEEP
-public fun estimate_full_fee_market_v3<
-    BaseToken,
-    QuoteToken,
-    ReferenceBaseAsset,
-    ReferenceQuoteAsset,
->(
+public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
     deep_usd_price_info: &PriceInfoObject,
@@ -333,95 +324,4 @@ public(package) fun charge_swap_fee<CoinType>(
     let coin_balance = coin.balance_mut();
     let value = coin_balance.value();
     coin_balance.split(calculate_fee_by_rate(value, fee_bps))
-}
-
-// === Deprecated Functions ===
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `estimate_full_fee_limit_v3` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun estimate_full_fee_limit_v2<
-    BaseToken,
-    QuoteToken,
-    ReferenceBaseAsset,
-    ReferenceQuoteAsset,
->(
-    _pool: &Pool<BaseToken, QuoteToken>,
-    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    _deep_in_balance_manager: u64,
-    _deep_in_wallet: u64,
-    _quantity: u64,
-    _price: u64,
-    _clock: &Clock,
-): (u64, u64, u64, u64) {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `estimate_full_fee_limit_v3` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
-    _pool: &Pool<BaseToken, QuoteToken>,
-    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    _deep_in_balance_manager: u64,
-    _deep_in_wallet: u64,
-    _quantity: u64,
-    _price: u64,
-    _clock: &Clock,
-): (u64, u64, u64) {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `estimate_full_fee_market_v3` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun estimate_full_fee_market_v2<
-    BaseToken,
-    QuoteToken,
-    ReferenceBaseAsset,
-    ReferenceQuoteAsset,
->(
-    _pool: &Pool<BaseToken, QuoteToken>,
-    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    _deep_in_balance_manager: u64,
-    _deep_in_wallet: u64,
-    _order_amount: u64,
-    _is_bid: bool,
-    _clock: &Clock,
-): (u64, u64, u64, u64) {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `estimate_full_fee_market_v3` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
-    _pool: &Pool<BaseToken, QuoteToken>,
-    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    _deep_in_balance_manager: u64,
-    _deep_in_wallet: u64,
-    _order_amount: u64,
-    _is_bid: bool,
-    _clock: &Clock,
-): (u64, u64, u64) {
-    abort EFunctionDeprecated
 }

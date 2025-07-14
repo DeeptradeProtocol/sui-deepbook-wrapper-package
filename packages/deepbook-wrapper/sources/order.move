@@ -51,6 +51,7 @@ const ESuiFeeExceedsMax: u64 = 6;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
+#[allow(unused_const)]
 const EFunctionDeprecated: u64 = 1000;
 
 // === Structs ===
@@ -141,7 +142,7 @@ public struct InputCoinFeePlan has copy, drop {
 /// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
 /// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
-public fun create_limit_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -166,6 +167,8 @@ public fun create_limit_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
+    wrapper.verify_version();
+
     // Calculate DEEP required for limit order
     let deep_required = calculate_deep_required(pool, quantity, price);
 
@@ -245,7 +248,7 @@ public fun create_limit_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
 /// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
 /// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
-public fun create_market_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -267,6 +270,8 @@ public fun create_market_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, Ref
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
+    wrapper.verify_version();
+
     // Calculate base quantity and DEEP required for market order
     let (base_quantity, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
@@ -482,6 +487,8 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
+    wrapper.verify_version();
+
     // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
@@ -552,8 +559,9 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (OrderInfo) {
-    // Calculate base quantity for market order
+    wrapper.verify_version();
 
+    // Calculate base quantity for market order
     // We use calculate_market_order_params to get base quantity, which uses `get_quantity_out` under the hood,
     // since `get_quantity_out` returns `base_quantity` without applying fees to it.
     // We do need that, since we have to apply our protocol fee & deepbook fee on top of the order amount.
@@ -1101,6 +1109,8 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     clock: &Clock,
     ctx: &mut TxContext,
 ): TradeProof {
+    wrapper.verify_version();
+
     // Verify the caller owns the balance manager
     assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
@@ -1287,6 +1297,8 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     is_bid: bool,
     ctx: &mut TxContext,
 ): TradeProof {
+    wrapper.verify_version();
+
     // Verify the caller owns the balance manager
     assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
@@ -1357,6 +1369,8 @@ fun execute_deep_plan(
     deep_plan: &DeepPlan,
     ctx: &mut TxContext,
 ) {
+    wrapper.verify_version();
+
     // Check if there is enough DEEP in the wrapper reserves
     if (deep_plan.use_wrapper_deep_reserves) {
         assert!(deep_plan.deep_reserves_cover_order, EInsufficientDeepReserves);
@@ -1405,6 +1419,8 @@ fun execute_fee_plan(
     fee_plan: &FeePlan,
     ctx: &mut TxContext,
 ) {
+    wrapper.verify_version();
+
     // Verify user covers wrapper fee
     assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFee);
 
@@ -1464,6 +1480,7 @@ fun execute_input_coin_fee_plan<BaseToken, QuoteToken>(
     is_bid: bool,
     ctx: &mut TxContext,
 ) {
+    wrapper.verify_version();
     assert!(fee_plan.user_covers_wrapper_fee, EInsufficientFee);
 
     // Collect protocol fee from wallet if needed
@@ -1629,184 +1646,4 @@ public fun assert_input_coin_fee_plan_eq(
     assert_eq!(actual.protocol_fee_from_wallet, expected_protocol_from_wallet);
     assert_eq!(actual.protocol_fee_from_balance_manager, expected_protocol_from_bm);
     assert_eq!(actual.user_covers_wrapper_fee, expected_sufficient);
-}
-
-// === Deprecated Functions ===
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `create_limit_order_v3` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
-    _wrapper: &mut Wrapper,
-    _pool: &mut Pool<BaseToken, QuoteToken>,
-    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    _balance_manager: &mut BalanceManager,
-    _base_coin: Coin<BaseToken>,
-    _quote_coin: Coin<QuoteToken>,
-    _deep_coin: Coin<DEEP>,
-    _sui_coin: Coin<SUI>,
-    _price: u64,
-    _quantity: u64,
-    _is_bid: bool,
-    _expire_timestamp: u64,
-    _order_type: u8,
-    _self_matching_option: u8,
-    _client_order_id: u64,
-    _estimated_deep_required: u64,
-    _estimated_deep_required_slippage: u64,
-    _estimated_sui_fee: u64,
-    _estimated_sui_fee_slippage: u64,
-    _clock: &Clock,
-    _ctx: &mut TxContext,
-): (OrderInfo) {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `create_limit_order_v3` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
-    _wrapper: &mut Wrapper,
-    _pool: &mut Pool<BaseToken, QuoteToken>,
-    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    _balance_manager: &mut BalanceManager,
-    _base_coin: Coin<BaseToken>,
-    _quote_coin: Coin<QuoteToken>,
-    _deep_coin: Coin<DEEP>,
-    _sui_coin: Coin<SUI>,
-    _price: u64,
-    _quantity: u64,
-    _is_bid: bool,
-    _expire_timestamp: u64,
-    _order_type: u8,
-    _self_matching_option: u8,
-    _client_order_id: u64,
-    _clock: &Clock,
-    _ctx: &mut TxContext,
-): (OrderInfo) {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `create_market_order_v3` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun create_market_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
-    _wrapper: &mut Wrapper,
-    _pool: &mut Pool<BaseToken, QuoteToken>,
-    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    _balance_manager: &mut BalanceManager,
-    _base_coin: Coin<BaseToken>,
-    _quote_coin: Coin<QuoteToken>,
-    _deep_coin: Coin<DEEP>,
-    _sui_coin: Coin<SUI>,
-    _order_amount: u64,
-    _is_bid: bool,
-    _self_matching_option: u8,
-    _client_order_id: u64,
-    _estimated_deep_required: u64,
-    _estimated_deep_required_slippage: u64,
-    _estimated_sui_fee: u64,
-    _estimated_sui_fee_slippage: u64,
-    _clock: &Clock,
-    _ctx: &mut TxContext,
-): (OrderInfo) {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `create_market_order_v3` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
-    _wrapper: &mut Wrapper,
-    _pool: &mut Pool<BaseToken, QuoteToken>,
-    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    _balance_manager: &mut BalanceManager,
-    _base_coin: Coin<BaseToken>,
-    _quote_coin: Coin<QuoteToken>,
-    _deep_coin: Coin<DEEP>,
-    _sui_coin: Coin<SUI>,
-    _order_amount: u64,
-    _is_bid: bool,
-    _self_matching_option: u8,
-    _client_order_id: u64,
-    _clock: &Clock,
-    _ctx: &mut TxContext,
-): (OrderInfo) {
-    abort EFunctionDeprecated
-}
-
-#[deprecated(note = b"This function is deprecated."), allow(unused_type_parameter)]
-public fun estimate_order_requirements<
-    BaseToken,
-    QuoteToken,
-    ReferenceBaseAsset,
-    ReferenceQuoteAsset,
->(
-    _wrapper: &Wrapper,
-    _pool: &Pool<BaseToken, QuoteToken>,
-    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    _balance_manager: &BalanceManager,
-    _deep_in_wallet: u64,
-    _base_in_wallet: u64,
-    _quote_in_wallet: u64,
-    _quantity: u64,
-    _price: u64,
-    _is_bid: bool,
-    _clock: &Clock,
-): (bool, u64, u64) {
-    abort EFunctionDeprecated
-}
-
-#[deprecated(note = b"This function is deprecated."), allow(unused_type_parameter)]
-public fun will_use_wrapper_deep_reserves<BaseToken, QuoteToken>(
-    _wrapper: &Wrapper,
-    _pool: &Pool<BaseToken, QuoteToken>,
-    _balance_manager: &BalanceManager,
-    _deep_in_wallet: u64,
-    _quantity: u64,
-    _price: u64,
-): (bool, bool) {
-    abort EFunctionDeprecated
-}
-
-#[deprecated(note = b"This function is deprecated."), allow(unused_type_parameter)]
-public fun validate_pool_params<BaseToken, QuoteToken>(
-    _pool: &Pool<BaseToken, QuoteToken>,
-    _quantity: u64,
-    _price: u64,
-): bool {
-    abort EFunctionDeprecated
-}
-
-#[deprecated(note = b"This function is deprecated."), allow(unused_type_parameter)]
-public fun has_enough_input_coin<BaseToken, QuoteToken>(
-    _balance_manager: &BalanceManager,
-    _base_in_wallet: u64,
-    _quote_in_wallet: u64,
-    _quantity: u64,
-    _price: u64,
-    _will_use_wrapper_deep: bool,
-    _fee_estimate: u64,
-    _is_bid: bool,
-): bool {
-    abort EFunctionDeprecated
 }
