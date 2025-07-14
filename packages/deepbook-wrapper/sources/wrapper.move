@@ -50,7 +50,7 @@ public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {}
 
 // === Events ===
 /// Event emitted when DEEP coins are withdrawn from the wrapper's reserves
-public struct DeepReservesWithdrawn has copy, drop {
+public struct DeepReservesWithdrawn<phantom DEEP> has copy, drop {
     wrapper_id: ID,
     amount: u64,
 }
@@ -147,7 +147,7 @@ public fun withdraw_deep_reserves(
 
     let coin = split_deep_reserves(wrapper, amount, ctx);
 
-    event::emit(DeepReservesWithdrawn {
+    event::emit(DeepReservesWithdrawn<DEEP> {
         wrapper_id: wrapper.id.to_inner(),
         amount,
     });
