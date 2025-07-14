@@ -84,6 +84,7 @@ public struct PoolFeesUpdated has copy, drop {
     new_fees: PoolFeeConfig,
 }
 
+/// Initialize trading fee config object
 fun init(ctx: &mut TxContext) {
     let trading_fee_config = TradingFeeConfig {
         id: object::new(ctx),
