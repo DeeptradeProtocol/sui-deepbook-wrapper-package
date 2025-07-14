@@ -88,6 +88,8 @@ public struct VersionDisabled has copy, drop {
 // === Public-Mutative Functions ===
 /// Deposit DEEP coins into the wrapper's reserves
 public fun deposit_into_reserves(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
+    wrapper.verify_version();
+
     event::emit(DeepReservesDeposited {
         wrapper_id: wrapper.id.to_inner(),
         amount: deep_coin.value(),
