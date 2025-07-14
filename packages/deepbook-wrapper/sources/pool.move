@@ -10,6 +10,14 @@ use sui::coin::Coin;
 use sui::event;
 use token::deep::DEEP;
 
+// === Errors ===
+/// Error when the user has not enough DEEP to cover the deepbook and protocol fees
+const ENotEnoughFee: u64 = 1;
+
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+const EFunctionDeprecated: u64 = 1000;
+
 // === Constants ===
 // Default protocol fee for creating a pool
 const DEFAULT_CREATE_POOL_PROTOCOL_FEE: u64 = 100 * 1_000_000; // 100 DEEP
@@ -29,16 +37,6 @@ public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop,
     lot_size: u64,
     min_size: u64,
 }
-
-// === Errors ===
-/// Error when the user has not enough DEEP to cover the deepbook and protocol fees
-#[error]
-const ENotEnoughFee: u64 = 1;
-
-/// A generic error code for any function that is no longer supported.
-/// The value 1000 is used by convention across modules for this purpose.
-#[error]
-const EFunctionDeprecated: u64 = 1000;
 
 // === Public-Mutative Functions ===
 /// Creates a new permissionless pool for trading between BaseAsset and QuoteAsset
@@ -122,16 +120,6 @@ public fun update_create_pool_protocol_fee_v2(
     config.protocol_fee = new_fee;
 }
 
-/// Create a new create pool config object
-public fun create_pool_creation_config(_admin: &AdminCap, ctx: &mut TxContext) {
-    let config = CreatePoolConfig {
-        id: object::new(ctx),
-        protocol_fee: DEFAULT_CREATE_POOL_PROTOCOL_FEE,
-    };
-
-    transfer::share_object(config);
-}
-
 // === Public-View Functions ===
 /// Get the current protocol fee for creating a pool
 public fun get_create_pool_protocol_fee(config: &CreatePoolConfig): u64 {
@@ -179,5 +167,10 @@ public fun update_create_pool_protocol_fee(
     _config: &mut CreatePoolConfig,
     _new_fee: u64,
 ) {
+    abort EFunctionDeprecated
+}
+
+#[deprecated(note = b"This function is deprecated. No new function is needed.")]
+public fun create_pool_creation_config(_admin: &AdminCap, _ctx: &mut TxContext) {
     abort EFunctionDeprecated
 }

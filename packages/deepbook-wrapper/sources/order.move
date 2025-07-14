@@ -1,9 +1,9 @@
 module deepbook_wrapper::order;
 
-use deepbook::balance_manager::{Self, BalanceManager, TradeProof};
-use deepbook::pool::{Self, Pool};
+use deepbook::balance_manager::{BalanceManager, TradeProof};
+use deepbook::order_info::OrderInfo;
+use deepbook::pool::Pool;
 use deepbook_wrapper::fee::{
-    estimate_full_order_fee_core,
     calculate_full_order_fee,
     calculate_input_coin_protocol_fee,
     calculate_input_coin_deepbook_fee
@@ -17,18 +17,41 @@ use deepbook_wrapper::helper::{
     validate_slippage,
     apply_slippage
 };
-use deepbook_wrapper::math;
 use deepbook_wrapper::wrapper::{
     Wrapper,
     join_deep_reserves_coverage_fee,
     join_protocol_fee,
-    get_deep_reserves_value,
+    deep_reserves,
     split_deep_reserves
 };
+use pyth::price_info::PriceInfoObject;
 use sui::clock::Clock;
 use sui::coin::Coin;
 use sui::sui::SUI;
 use token::deep::DEEP;
+
+// === Errors ===
+/// Error when trying to use deep from reserves but there is not enough available
+const EInsufficientDeepReserves: u64 = 1;
+
+/// Error when user doesn't have enough coins to cover the required fee
+const EInsufficientFee: u64 = 2;
+
+/// Error when user doesn't have enough input coins to create the order
+const EInsufficientInput: u64 = 3;
+
+/// Error when the caller is not the owner of the balance manager
+const EInvalidOwner: u64 = 4;
+
+/// Error when actual deep required exceeds the max deep required
+const EDeepRequiredExceedsMax: u64 = 5;
+
+/// Error when actual sui fee exceeds the max sui fee
+const ESuiFeeExceedsMax: u64 = 6;
+
+/// A generic error code for any function that is no longer supported.
+/// The value 1000 is used by convention across modules for this purpose.
+const EFunctionDeprecated: u64 = 1000;
 
 // === Structs ===
 /// Tracks how DEEP will be sourced for an order
@@ -82,29 +105,6 @@ public struct InputCoinFeePlan has copy, drop {
     user_covers_wrapper_fee: bool,
 }
 
-// === Errors ===
-/// Error when trying to use deep from reserves but there is not enough available
-const EInsufficientDeepReserves: u64 = 1;
-
-/// Error when user doesn't have enough coins to cover the required fee
-const EInsufficientFee: u64 = 2;
-
-/// Error when user doesn't have enough input coins to create the order
-const EInsufficientInput: u64 = 3;
-
-/// Error when the caller is not the owner of the balance manager
-const EInvalidOwner: u64 = 4;
-
-/// Error when actual deep required exceeds the max deep required
-const EDeepRequiredExceedsMax: u64 = 5;
-
-/// Error when actual sui fee exceeds the max sui fee
-const ESuiFeeExceedsMax: u64 = 6;
-
-/// A generic error code for any function that is no longer supported.
-/// The value 1000 is used by convention across modules for this purpose.
-const EFunctionDeprecated: u64 = 1000;
-
 // === Public-Mutative Functions ===
 /// Creates a limit order on DeepBook using coins from various sources
 /// This function orchestrates the entire limit order creation process through the following steps:
@@ -121,7 +121,9 @@ const EFunctionDeprecated: u64 = 1000;
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - reference_pool: Reference pool for price calculation
+/// - deep_usd_price_info: Pyth price info object for DEEP/USD price
+/// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
 /// - base_coin: Base token coins from user's wallet
 /// - quote_coin: Quote token coins from user's wallet
@@ -139,10 +141,12 @@ const EFunctionDeprecated: u64 = 1000;
 /// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
 /// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
-public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+public fun create_limit_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    deep_usd_price_info: &PriceInfoObject,
+    sui_usd_price_info: &PriceInfoObject,
     balance_manager: &mut BalanceManager,
     base_coin: Coin<BaseToken>,
     quote_coin: Coin<QuoteToken>,
@@ -161,7 +165,7 @@ public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
     estimated_sui_fee_slippage: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate DEEP required for limit order
     let deep_required = calculate_deep_required(pool, quantity, price);
 
@@ -173,6 +177,8 @@ public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
         wrapper,
         pool,
         reference_pool,
+        deep_usd_price_info,
+        sui_usd_price_info,
         balance_manager,
         base_coin,
         quote_coin,
@@ -221,7 +227,9 @@ public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - reference_pool: Reference pool for price calculation
+/// - deep_usd_price_info: Pyth price info object for DEEP/USD price
+/// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
 /// - base_coin: Base token coins from user's wallet
 /// - quote_coin: Quote token coins from user's wallet
@@ -237,10 +245,12 @@ public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, Refe
 /// - estimated_sui_fee: Estimated SUI fee which we can take as a protocol for the order creation
 /// - estimated_sui_fee_slippage: Maximum acceptable slippage for estimated SUI fee in billionths (e.g., 10_000_000 = 1%)
 /// - clock: System clock for timestamp verification
-public fun create_market_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+public fun create_market_order_v3<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     wrapper: &mut Wrapper,
     pool: &mut Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    deep_usd_price_info: &PriceInfoObject,
+    sui_usd_price_info: &PriceInfoObject,
     balance_manager: &mut BalanceManager,
     base_coin: Coin<BaseToken>,
     quote_coin: Coin<QuoteToken>,
@@ -256,7 +266,7 @@ public fun create_market_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, Ref
     estimated_sui_fee_slippage: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate base quantity and DEEP required for market order
     let (base_quantity, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
@@ -270,6 +280,8 @@ public fun create_market_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, Ref
         wrapper,
         pool,
         reference_pool,
+        deep_usd_price_info,
+        sui_usd_price_info,
         balance_manager,
         base_coin,
         quote_coin,
@@ -336,7 +348,7 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     client_order_id: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
@@ -351,8 +363,7 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     );
 
     // Place limit order
-    pool::place_limit_order(
-        pool,
+    pool.place_limit_order(
         balance_manager,
         &proof,
         client_order_id,
@@ -398,7 +409,7 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
     client_order_id: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate base quantity for market order
     let (base_quantity, _) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
@@ -470,7 +481,7 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
     client_order_id: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate order amount based on order type
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
@@ -491,8 +502,7 @@ public fun create_limit_order_input_fee<BaseToken, QuoteToken>(
     );
 
     // Place limit order with pay_with_deep set to false since we're using input coins for fees
-    pool::place_limit_order(
-        pool,
+    pool.place_limit_order(
         balance_manager,
         &proof,
         client_order_id,
@@ -541,7 +551,7 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     client_order_id: u64,
     clock: &Clock,
     ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     // Calculate base quantity for market order
 
     // We use calculate_market_order_params to get base quantity, which uses `get_quantity_out` under the hood,
@@ -571,8 +581,7 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     );
 
     // Place market order with pay_with_deep set to false since we're using input coins for fees
-    pool::place_market_order(
-        pool,
+    pool.place_market_order(
         balance_manager,
         &proof,
         client_order_id,
@@ -585,280 +594,7 @@ public fun create_market_order_input_fee<BaseToken, QuoteToken>(
     )
 }
 
-// === Public-View Functions ===
-/// Estimates the requirements for creating a limit order on DeepBook
-/// Analyzes available resources and requirements to determine if an order can be created
-/// Uses a reference pool to calculate SUI/DEEP price for fee estimation
-///
-/// Parameters:
-/// - wrapper: The DeepBook wrapper instance
-/// - whitelisted_pools_registry: Registry of pools whitelisted by our protocol
-/// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
-/// - balance_manager: User's balance manager
-/// - deep_in_wallet: Amount of DEEP coins in user's wallet
-/// - base_in_wallet: Amount of base tokens in user's wallet
-/// - quote_in_wallet: Amount of quote tokens in user's wallet
-/// - quantity: Order quantity in base tokens
-/// - price: Order price in quote tokens per base token
-/// - is_bid: True for buy orders, false for sell orders
-///
-/// Returns:
-/// - bool: Whether the order can be successfully created with available resources
-/// - u64: Amount of DEEP coins required for the order (if non-whitelisted pool)
-/// - u64: Estimated fee amount in SUI coins
-public fun estimate_order_requirements<
-    BaseToken,
-    QuoteToken,
-    ReferenceBaseAsset,
-    ReferenceQuoteAsset,
->(
-    wrapper: &Wrapper,
-    pool: &Pool<BaseToken, QuoteToken>,
-    reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
-    balance_manager: &BalanceManager,
-    deep_in_wallet: u64,
-    base_in_wallet: u64,
-    quote_in_wallet: u64,
-    quantity: u64,
-    price: u64,
-    is_bid: bool,
-    clock: &Clock,
-): (bool, u64, u64) {
-    // Get wrapper deep reserves
-    let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
-
-    // Check if pool is whitelisted by DeepBook
-    let is_pool_whitelisted = pool::whitelisted(pool);
-
-    // Get pool parameters
-    let (pool_tick_size, pool_lot_size, pool_min_size) = pool::pool_book_params(pool);
-
-    // Get SUI per DEEP price from reference pool
-    let sui_per_deep = get_sui_per_deep(reference_pool, clock);
-
-    // Get balance manager balances
-    let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
-    let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
-    let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
-
-    // Calculate DEEP required
-    let deep_required = calculate_deep_required(pool, quantity, price);
-
-    // Call the core logic function
-    estimate_order_requirements_core(
-        wrapper_deep_reserves,
-        is_pool_whitelisted,
-        pool_tick_size,
-        pool_lot_size,
-        pool_min_size,
-        balance_manager_deep,
-        balance_manager_base,
-        balance_manager_quote,
-        deep_in_wallet,
-        base_in_wallet,
-        quote_in_wallet,
-        quantity,
-        price,
-        is_bid,
-        deep_required,
-        sui_per_deep,
-    )
-}
-
-/// Determines if wrapper DEEP reserves will be needed for placing an order
-/// Analyzes user's available DEEP coins and calculates if wrapper reserves are required
-///
-/// Returns a tuple with two boolean values:
-/// - bool: Whether wrapper DEEP reserves will be used for this order
-/// - bool: Whether the wrapper has sufficient DEEP reserves to cover the order needs
-public fun will_use_wrapper_deep_reserves<BaseToken, QuoteToken>(
-    wrapper: &Wrapper,
-    pool: &Pool<BaseToken, QuoteToken>,
-    balance_manager: &BalanceManager,
-    deep_in_wallet: u64,
-    quantity: u64,
-    price: u64,
-): (bool, bool) {
-    // Get wrapper deep reserves
-    let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
-
-    // Check if pool is whitelisted by DeepBook
-    let is_pool_whitelisted = pool::whitelisted(pool);
-
-    // Calculate how much DEEP is required
-    let deep_required = calculate_deep_required(pool, quantity, price);
-
-    // Check DEEP from balance manager
-    let balance_manager_deep = balance_manager::balance<DEEP>(balance_manager);
-
-    // Get deep plan
-    let deep_plan = get_deep_plan(
-        is_pool_whitelisted,
-        deep_required,
-        balance_manager_deep,
-        deep_in_wallet,
-        wrapper_deep_reserves,
-    );
-
-    (deep_plan.use_wrapper_deep_reserves, deep_plan.deep_reserves_cover_order)
-}
-
-/// Validates that order parameters satisfy the pool's requirements
-/// Checks if quantity and price comply with the pool's tick size, lot size, and minimum size constraints
-///
-/// Returns boolean:
-/// - true: If order parameters are valid for the specified pool
-/// - false: If any parameter violates the pool's constraints
-public fun validate_pool_params<BaseToken, QuoteToken>(
-    pool: &Pool<BaseToken, QuoteToken>,
-    quantity: u64,
-    price: u64,
-): bool {
-    let (tick_size, lot_size, min_size) = pool::pool_book_params(pool);
-
-    // Call the core logic function
-    validate_pool_params_core(
-        quantity,
-        price,
-        tick_size,
-        lot_size,
-        min_size,
-    )
-}
-
-/// Checks if the user has enough input coins for creating an order
-/// Evaluates combined balances from wallet and balance manager against order requirements
-/// Accounts for additional fee requirements when using wrapper DEEP reserves
-///
-/// Returns boolean:
-/// - true: If user has enough coins to create the order with specified parameters
-/// - false: If user doesn't have enough coins for the order
-public fun has_enough_input_coin<BaseToken, QuoteToken>(
-    balance_manager: &BalanceManager,
-    base_in_wallet: u64,
-    quote_in_wallet: u64,
-    quantity: u64,
-    price: u64,
-    will_use_wrapper_deep: bool,
-    fee_estimate: u64,
-    is_bid: bool,
-): bool {
-    // Get balance manager balances
-    let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
-    let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
-
-    // Call the core logic function
-    has_enough_input_coin_core(
-        balance_manager_base,
-        balance_manager_quote,
-        base_in_wallet,
-        quote_in_wallet,
-        quantity,
-        price,
-        will_use_wrapper_deep,
-        fee_estimate,
-        is_bid,
-    )
-}
-
 // === Public-Package Functions ===
-/// Core logic for estimating order requirements without using DeepBook objects
-/// Takes raw parameters instead of DeepBook objects for improved testability
-/// Evaluates all requirements including DEEP needs, fees, and parameter validation
-///
-/// Parameters:
-/// - wrapper_deep_reserves: Amount of DEEP available in wrapper reserves
-/// - is_pool_whitelisted: Whether the pool is whitelisted by DeepBook
-/// - pool_tick_size: Minimum price increment for orders
-/// - pool_lot_size: Minimum quantity increment for orders
-/// - pool_min_size: Minimum order size allowed
-/// - balance_manager_deep: Amount of DEEP in user's balance manager
-/// - balance_manager_base: Amount of base tokens in user's balance manager
-/// - balance_manager_quote: Amount of quote tokens in user's balance manager
-/// - deep_in_wallet: Amount of DEEP in user's wallet
-/// - base_in_wallet: Amount of base tokens in user's wallet
-/// - quote_in_wallet: Amount of quote tokens in user's wallet
-/// - quantity: Order quantity in base tokens
-/// - price: Order price in quote tokens per base token
-/// - is_bid: True for buy orders, false for sell orders
-/// - deep_required: Amount of DEEP required for the order
-/// - sui_per_deep: Current SUI/DEEP price from reference pool
-///
-/// Returns a tuple with three values:
-/// - bool: Whether the order can be created with available resources
-/// - u64: Amount of DEEP coins required for the order (if non-whitelisted pool)
-/// - u64: Estimated fee amount in SUI coins
-public(package) fun estimate_order_requirements_core(
-    wrapper_deep_reserves: u64,
-    is_pool_whitelisted: bool,
-    pool_tick_size: u64,
-    pool_lot_size: u64,
-    pool_min_size: u64,
-    balance_manager_deep: u64,
-    balance_manager_base: u64,
-    balance_manager_quote: u64,
-    deep_in_wallet: u64,
-    base_in_wallet: u64,
-    quote_in_wallet: u64,
-    quantity: u64,
-    price: u64,
-    is_bid: bool,
-    deep_required: u64,
-    sui_per_deep: u64,
-): (bool, u64, u64) {
-    // Get deep plan
-    let deep_plan = get_deep_plan(
-        is_pool_whitelisted,
-        deep_required,
-        balance_manager_deep,
-        deep_in_wallet,
-        wrapper_deep_reserves,
-    );
-
-    // Early return if wrapper doesn't have enough DEEP
-    if (deep_plan.use_wrapper_deep_reserves && !deep_plan.deep_reserves_cover_order) {
-        return (false, deep_required, 0)
-    };
-
-    // Calculate fee
-    let (fee_estimate, _, _) = estimate_full_order_fee_core(
-        is_pool_whitelisted,
-        balance_manager_deep,
-        deep_in_wallet,
-        deep_required,
-        sui_per_deep,
-    );
-
-    // Validate order parameters
-    let valid_params = validate_pool_params_core(
-        quantity,
-        price,
-        pool_tick_size,
-        pool_lot_size,
-        pool_min_size,
-    );
-
-    // Check if user has enough input coins
-    let enough_coins = has_enough_input_coin_core(
-        balance_manager_base,
-        balance_manager_quote,
-        base_in_wallet,
-        quote_in_wallet,
-        quantity,
-        price,
-        deep_plan.use_wrapper_deep_reserves,
-        fee_estimate,
-        is_bid,
-    );
-
-    (
-        valid_params && enough_coins && deep_plan.deep_reserves_cover_order,
-        deep_required,
-        fee_estimate,
-    )
-}
-
 /// Core logic function that orchestrates the creation of both limit and market orders using coins from various sources
 /// Coordinates all requirements by analyzing available resources and calculating necessary allocations
 /// Creates comprehensive plans for DEEP coins sourcing, fee charging, and input coin deposits
@@ -874,7 +610,7 @@ public(package) fun estimate_order_requirements_core(
 /// - wallet_input_coin: Amount of input coins (base/quote) in user's wallet
 /// - wrapper_deep_reserves: Amount of DEEP available in wrapper reserves
 /// - order_amount: Order amount in quote tokens (for bids) or base tokens (for asks)
-/// - sui_per_deep: Current SUI/DEEP price from reference pool
+/// - sui_per_deep: Current DEEP/SUI price from reference pool
 ///
 /// Returns a tuple with three structured plans:
 /// - DeepPlan: Coordinates DEEP coin sourcing from user wallet and wrapper reserves
@@ -972,70 +708,6 @@ public(package) fun create_input_fee_order_core(
     (fee_plan, deposit_plan)
 }
 
-/// Validates that order parameters satisfy the pool's requirements - core logic implementation
-/// Performs three essential checks for order parameter validity:
-/// 1. Quantity meets or exceeds the pool's minimum size
-/// 2. Quantity is a multiple of the pool's lot size
-/// 3. Price is a multiple of the pool's tick size
-///
-/// Returns boolean:
-/// - true: If all order parameters comply with the pool's constraints
-/// - false: If any parameter violates the pool's constraints
-public(package) fun validate_pool_params_core(
-    quantity: u64,
-    price: u64,
-    tick_size: u64,
-    lot_size: u64,
-    min_size: u64,
-): bool {
-    quantity >= min_size && 
-        quantity % lot_size == 0 && 
-        price % tick_size == 0
-}
-
-/// Checks if the user has enough input coins for creating an order - core logic implementation
-/// Evaluates available coin balances against order requirements, considering:
-/// 1. For bid orders: if user has enough quote coins including fee if needed
-/// 2. For ask orders: if user has enough base coins including fee if needed
-///
-/// Returns boolean:
-/// - true: If user has enough coins for the order with specified parameters
-/// - false: If user doesn't have enough coins to create the order
-public(package) fun has_enough_input_coin_core(
-    balance_manager_base: u64,
-    balance_manager_quote: u64,
-    base_in_wallet: u64,
-    quote_in_wallet: u64,
-    quantity: u64,
-    price: u64,
-    will_use_wrapper_deep: bool,
-    fee_estimate: u64,
-    is_bid: bool,
-): bool {
-    if (is_bid) {
-        // For bid orders, check if user has enough quote coins
-        let quote_required = math::mul(quantity, price);
-        let total_quote_available = balance_manager_quote + quote_in_wallet;
-
-        // Need to account for fee if using wrapper DEEP
-        if (will_use_wrapper_deep) {
-            total_quote_available >= (quote_required + fee_estimate)
-        } else {
-            total_quote_available >= quote_required
-        }
-    } else {
-        // For ask orders, check if user has enough base coins
-        let total_base_available = balance_manager_base + base_in_wallet;
-
-        // Need to account for fee if using wrapper DEEP
-        if (will_use_wrapper_deep) {
-            total_base_available >= (quantity + fee_estimate)
-        } else {
-            total_base_available >= quantity
-        }
-    }
-}
-
 /// Analyzes DEEP coin requirements for an order and creates a sourcing plan
 /// Evaluates user's available DEEP coins and determines if wrapper reserves are needed
 /// Calculates optimal allocation from user wallet, balance manager, and wrapper reserves
@@ -1111,7 +783,7 @@ public(package) fun get_deep_plan(
 /// * `use_wrapper_deep_reserves` - Whether the order requires DEEP from wrapper reserves
 /// * `deep_from_reserves` - Amount of DEEP to be taken from wrapper reserves
 /// * `is_pool_whitelisted` - Whether the pool is whitelisted by DeepBook
-/// * `sui_per_deep` - Current SUI/DEEP price from reference pool
+/// * `sui_per_deep` - Current DEEP/SUI price from reference pool
 /// * `sui_in_wallet` - Amount of SUI available in user's wallet
 /// * `balance_manager_sui` - Amount of SUI available in user's balance manager
 ///
@@ -1392,7 +1064,9 @@ public(package) fun validate_fees_against_max(
 /// Parameters:
 /// - wrapper: The DeepBook wrapper instance managing the order process
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool used for SUI/DEEP price calculation
+/// - reference_pool: Reference pool used for fallback DEEP/SUI price calculation
+/// - deep_usd_price_info: Pyth price info object for DEEP/USD price
+/// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - balance_manager: User's balance manager for managing coin deposits
 /// - base_coin: Base token coins from user's wallet
 /// - quote_coin: Quote token coins from user's wallet
@@ -1410,6 +1084,8 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     wrapper: &mut Wrapper,
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    deep_usd_price_info: &PriceInfoObject,
+    sui_usd_price_info: &PriceInfoObject,
     balance_manager: &mut BalanceManager,
     mut base_coin: Coin<BaseToken>,
     mut quote_coin: Coin<QuoteToken>,
@@ -1426,14 +1102,19 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
+    assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
     // Validate slippage parameters
     validate_slippage(estimated_deep_required_slippage);
     validate_slippage(estimated_sui_fee_slippage);
 
-    // Get SUI per DEEP price from reference pool
-    let sui_per_deep = get_sui_per_deep(reference_pool, clock);
+    // Get the best DEEP/SUI price
+    let sui_per_deep = get_sui_per_deep(
+        deep_usd_price_info,
+        sui_usd_price_info,
+        reference_pool,
+        clock,
+    );
 
     // Extract all the data we need from DeepBook objects
     let is_pool_whitelisted = pool.whitelisted();
@@ -1453,7 +1134,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
     // Get wrapper deep reserves
-    let wrapper_deep_reserves = get_deep_reserves_value(wrapper);
+    let wrapper_deep_reserves = deep_reserves(wrapper);
 
     // Get the order plans from the core logic
     let (deep_plan, fee_plan, input_coin_deposit_plan) = create_order_core(
@@ -1538,11 +1219,11 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
+    assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
     // Get balances from balance manager
-    let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
-    let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
+    let balance_manager_base = balance_manager.balance<BaseToken>();
+    let balance_manager_quote = balance_manager.balance<QuoteToken>();
     let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
 
     // Get balances from wallet coins
@@ -1572,7 +1253,7 @@ fun prepare_whitelisted_order_execution<BaseToken, QuoteToken>(
     transfer_if_nonzero(quote_coin, ctx.sender());
 
     // Step 4: Generate and return proof
-    balance_manager::generate_proof_as_owner(balance_manager, ctx)
+    balance_manager.generate_proof_as_owner(ctx)
 }
 
 /// Prepares order execution by handling input coin fee and deposit logic
@@ -1607,14 +1288,14 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ): TradeProof {
     // Verify the caller owns the balance manager
-    assert!(balance_manager::owner(balance_manager) == ctx.sender(), EInvalidOwner);
+    assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
     // Get pool whitelisted status
-    let is_pool_whitelisted = pool::whitelisted(pool);
+    let is_pool_whitelisted = pool.whitelisted();
 
     // Get balances from balance manager
-    let balance_manager_base = balance_manager::balance<BaseToken>(balance_manager);
-    let balance_manager_quote = balance_manager::balance<QuoteToken>(balance_manager);
+    let balance_manager_base = balance_manager.balance<BaseToken>();
+    let balance_manager_quote = balance_manager.balance<QuoteToken>();
     let balance_manager_input_coin = if (is_bid) balance_manager_quote else balance_manager_base;
 
     // Get balances from wallet coins
@@ -1657,7 +1338,7 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     transfer_if_nonzero(quote_coin, ctx.sender());
 
     // Generate and return proof
-    balance_manager::generate_proof_as_owner(balance_manager, ctx)
+    balance_manager.generate_proof_as_owner(ctx)
 }
 
 /// Executes the DEEP coin sourcing plan by acquiring coins from specified sources
@@ -1684,14 +1365,14 @@ fun execute_deep_plan(
     // Take DEEP from wallet if needed
     if (deep_plan.from_user_wallet > 0) {
         let payment = deep_coin.split(deep_plan.from_user_wallet, ctx);
-        balance_manager::deposit(balance_manager, payment, ctx);
+        balance_manager.deposit(payment, ctx);
     };
 
     // Take DEEP from wrapper reserves if needed
     if (deep_plan.from_deep_reserves > 0) {
         let reserve_payment = split_deep_reserves(wrapper, deep_plan.from_deep_reserves, ctx);
 
-        balance_manager::deposit(balance_manager, reserve_payment, ctx);
+        balance_manager.deposit(reserve_payment, ctx);
     };
 }
 
@@ -1733,8 +1414,7 @@ fun execute_fee_plan(
         join_deep_reserves_coverage_fee(wrapper, fee);
     };
     if (fee_plan.coverage_fee_from_balance_manager > 0) {
-        let fee = balance_manager::withdraw<SUI>(
-            balance_manager,
+        let fee = balance_manager.withdraw<SUI>(
             fee_plan.coverage_fee_from_balance_manager,
             ctx,
         );
@@ -1747,8 +1427,7 @@ fun execute_fee_plan(
         join_protocol_fee(wrapper, fee);
     };
     if (fee_plan.protocol_fee_from_balance_manager > 0) {
-        let fee = balance_manager::withdraw<SUI>(
-            balance_manager,
+        let fee = balance_manager.withdraw<SUI>(
             fee_plan.protocol_fee_from_balance_manager,
             ctx,
         );
@@ -1801,15 +1480,13 @@ fun execute_input_coin_fee_plan<BaseToken, QuoteToken>(
     // Collect protocol fee from balance manager if needed
     if (fee_plan.protocol_fee_from_balance_manager > 0) {
         if (is_bid) {
-            let fee = balance_manager::withdraw<QuoteToken>(
-                balance_manager,
+            let fee = balance_manager.withdraw<QuoteToken>(
                 fee_plan.protocol_fee_from_balance_manager,
                 ctx,
             );
             join_protocol_fee(wrapper, fee.into_balance());
         } else {
-            let fee = balance_manager::withdraw<BaseToken>(
-                balance_manager,
+            let fee = balance_manager.withdraw<BaseToken>(
                 fee_plan.protocol_fee_from_balance_manager,
                 ctx,
             );
@@ -1844,11 +1521,11 @@ fun execute_input_coin_deposit_plan<BaseToken, QuoteToken>(
         if (is_bid) {
             // Quote coins for bid
             let payment = quote_coin.split(deposit_plan.from_user_wallet, ctx);
-            balance_manager::deposit(balance_manager, payment, ctx);
+            balance_manager.deposit(payment, ctx);
         } else {
             // Base coins for ask
             let payment = base_coin.split(deposit_plan.from_user_wallet, ctx);
-            balance_manager::deposit(balance_manager, payment, ctx);
+            balance_manager.deposit(payment, ctx);
         };
     };
 }
@@ -1957,7 +1634,41 @@ public fun assert_input_coin_fee_plan_eq(
 // === Deprecated Functions ===
 #[
     deprecated(
-        note = b"This function is deprecated. Please use `create_limit_order_v2` instead.",
+        note = b"This function is deprecated. Please use `create_limit_order_v3` instead.",
+    ),
+    allow(
+        unused_type_parameter,
+    ),
+]
+public fun create_limit_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+    _wrapper: &mut Wrapper,
+    _pool: &mut Pool<BaseToken, QuoteToken>,
+    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    _balance_manager: &mut BalanceManager,
+    _base_coin: Coin<BaseToken>,
+    _quote_coin: Coin<QuoteToken>,
+    _deep_coin: Coin<DEEP>,
+    _sui_coin: Coin<SUI>,
+    _price: u64,
+    _quantity: u64,
+    _is_bid: bool,
+    _expire_timestamp: u64,
+    _order_type: u8,
+    _self_matching_option: u8,
+    _client_order_id: u64,
+    _estimated_deep_required: u64,
+    _estimated_deep_required_slippage: u64,
+    _estimated_sui_fee: u64,
+    _estimated_sui_fee_slippage: u64,
+    _clock: &Clock,
+    _ctx: &mut TxContext,
+): (OrderInfo) {
+    abort EFunctionDeprecated
+}
+
+#[
+    deprecated(
+        note = b"This function is deprecated. Please use `create_limit_order_v3` instead.",
     ),
     allow(
         unused_type_parameter,
@@ -1981,13 +1692,44 @@ public fun create_limit_order<BaseToken, QuoteToken, ReferenceBaseAsset, Referen
     _client_order_id: u64,
     _clock: &Clock,
     _ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     abort EFunctionDeprecated
 }
 
 #[
     deprecated(
-        note = b"This function is deprecated. Please use `create_market_order_v2` instead.",
+        note = b"This function is deprecated. Please use `create_market_order_v3` instead.",
+    ),
+    allow(
+        unused_type_parameter,
+    ),
+]
+public fun create_market_order_v2<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
+    _wrapper: &mut Wrapper,
+    _pool: &mut Pool<BaseToken, QuoteToken>,
+    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    _balance_manager: &mut BalanceManager,
+    _base_coin: Coin<BaseToken>,
+    _quote_coin: Coin<QuoteToken>,
+    _deep_coin: Coin<DEEP>,
+    _sui_coin: Coin<SUI>,
+    _order_amount: u64,
+    _is_bid: bool,
+    _self_matching_option: u8,
+    _client_order_id: u64,
+    _estimated_deep_required: u64,
+    _estimated_deep_required_slippage: u64,
+    _estimated_sui_fee: u64,
+    _estimated_sui_fee_slippage: u64,
+    _clock: &Clock,
+    _ctx: &mut TxContext,
+): (OrderInfo) {
+    abort EFunctionDeprecated
+}
+
+#[
+    deprecated(
+        note = b"This function is deprecated. Please use `create_market_order_v3` instead.",
     ),
     allow(
         unused_type_parameter,
@@ -2008,23 +1750,63 @@ public fun create_market_order<BaseToken, QuoteToken, ReferenceBaseAsset, Refere
     _client_order_id: u64,
     _clock: &Clock,
     _ctx: &mut TxContext,
-): (deepbook::order_info::OrderInfo) {
+): (OrderInfo) {
     abort EFunctionDeprecated
 }
 
-#[deprecated(note = b"This function is deprecated. Please use `create_order_core` instead.")]
-public(package) fun create_limit_order_core(
-    _is_pool_whitelisted: bool,
-    _deep_required: u64,
-    _balance_manager_deep: u64,
-    _balance_manager_sui: u64,
-    _balance_manager_input_coin: u64,
+#[deprecated(note = b"This function is deprecated."), allow(unused_type_parameter)]
+public fun estimate_order_requirements<
+    BaseToken,
+    QuoteToken,
+    ReferenceBaseAsset,
+    ReferenceQuoteAsset,
+>(
+    _wrapper: &Wrapper,
+    _pool: &Pool<BaseToken, QuoteToken>,
+    _reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
+    _balance_manager: &BalanceManager,
     _deep_in_wallet: u64,
-    _sui_in_wallet: u64,
-    _wallet_input_coin: u64,
-    _wrapper_deep_reserves: u64,
-    _order_amount: u64,
-    _sui_per_deep: u64,
-): (DeepPlan, FeePlan, InputCoinDepositPlan) {
+    _base_in_wallet: u64,
+    _quote_in_wallet: u64,
+    _quantity: u64,
+    _price: u64,
+    _is_bid: bool,
+    _clock: &Clock,
+): (bool, u64, u64) {
+    abort EFunctionDeprecated
+}
+
+#[deprecated(note = b"This function is deprecated."), allow(unused_type_parameter)]
+public fun will_use_wrapper_deep_reserves<BaseToken, QuoteToken>(
+    _wrapper: &Wrapper,
+    _pool: &Pool<BaseToken, QuoteToken>,
+    _balance_manager: &BalanceManager,
+    _deep_in_wallet: u64,
+    _quantity: u64,
+    _price: u64,
+): (bool, bool) {
+    abort EFunctionDeprecated
+}
+
+#[deprecated(note = b"This function is deprecated."), allow(unused_type_parameter)]
+public fun validate_pool_params<BaseToken, QuoteToken>(
+    _pool: &Pool<BaseToken, QuoteToken>,
+    _quantity: u64,
+    _price: u64,
+): bool {
+    abort EFunctionDeprecated
+}
+
+#[deprecated(note = b"This function is deprecated."), allow(unused_type_parameter)]
+public fun has_enough_input_coin<BaseToken, QuoteToken>(
+    _balance_manager: &BalanceManager,
+    _base_in_wallet: u64,
+    _quote_in_wallet: u64,
+    _quantity: u64,
+    _price: u64,
+    _will_use_wrapper_deep: bool,
+    _fee_estimate: u64,
+    _is_bid: bool,
+): bool {
     abort EFunctionDeprecated
 }

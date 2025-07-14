@@ -16,6 +16,8 @@ The wrapper acts as an intermediary, managing all DEEP-related fee operations.
 
 For detailed technical specifications and implementation details, please refer to:
 - [DeepBook Wrapper Design](docs/DESIGN.md)
+- [Oracle Price Calculation](docs/oracle-price-calculation.md)
+- [Oracle Pricing Security](docs/oracle-pricing-security.md)
 
 
 ### Swaps
@@ -101,8 +103,12 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 
 1. Go to `packages/deepbook-wrapper` directory (`cd packages/deepbook-wrapper/`)
 2. Set `address` to `0x0` in `Move.toml`
-3. Run command:
-`sui client upgrade --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
+3. Verify compability:
+`sui-local sui client upgrade --dry-run --verify-compatibility --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
+4. Dry run upgrade:
+`sui client upgrade --dry-run --upgrade-capability 0xae8c80532528977c531c7ee477d55d9e8618320e03c0ce923740ee8635cab01b --gas-budget 1000000000`
+5. Upgrade:
+`0x03aafc54af513d592bcb91136d61b94ea40b0f9b50477f24a3a9a38fca625174`
 4. (optional) Update `examples/constants.ts` with new addresses of `WRAPPER_PACKAGE_ID`, `ADMIN_CAP_OBJECT_ID`, `WRAPPER_OBJECT_ID`, `FUND_CAP_OBJECT_ID`.
 5. Set `address` to new `address` of deployed package in `Move.toml`
 6. Build contract with new address: `sui move build`
@@ -119,6 +125,7 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 0x208d664e59ad391212a11ad8658d0e9d7510c6cd1785bd0d477d73505d5c89b1
 0xc49f720f4e8427cbd3955846ca9231441dab8ccda6c3da6e9d44ed6f9dcf865c
 0x2356885eae212599c0c7a42d648cc2100dedfa4698f8fc58fc6b9f67806f2bfc
+0x03aafc54af513d592bcb91136d61b94ea40b0f9b50477f24a3a9a38fca625174
 ```
 
 
@@ -136,6 +143,20 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 When creating a new trading pool, there are two separate fees:
 
 DeepBook protocol requires 500 DEEP coins as a fee for each new pool creation. Additionally, the Wrapper charges 100 DEEP coins as its pool creation fee.
+
+## Development Tools
+
+### Lines of Code Analysis
+
+Analyze and count lines of code across all DeepBook Wrapper modules:
+
+```bash
+node scripts/count-loc.js [--help for options]
+```
+
+The script provides a detailed breakdown by module and calculates effective lines of code. It analyzes both source files and test files separately.
+
+Example: `🎯 Effective LoC (sources only): 1,234 lines`
 
 ## License
 

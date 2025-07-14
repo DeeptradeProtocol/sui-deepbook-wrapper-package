@@ -6,12 +6,8 @@ edition = "2024.beta"
 [dependencies]
 # Mainnet version
 deepbook = { local = "../deepbook", address = "0xcaf6ba059d539a97646d47f0b9ddf843e138d215e2a12ca1f4585d386f7aec3a" }
-token = { local = "../token", address = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270" }
-
-# DeepBook V3 dependencies with specific commit
-# deepbook = { git = "https://github.com/MystenLabs/deepbookv3.git", subdir = "packages/deepbook", rev = "197b5339e69fb95ffce64994869b1b61dcb56c8d" }
-# token = { git = "https://github.com/MystenLabs/deepbookv3.git", subdir = "packages/token", rev = "197b5339e69fb95ffce64994869b1b61dcb56c8d" }
+Pyth = { local = "../pyth", address = "0x04e20ddf36af412a4096f9014f4a565af9e812db9a05cc40254846cf6ed0ad91" }
 
 [addresses]
-deepbook_wrapper = "0x2356885eae212599c0c7a42d648cc2100dedfa4698f8fc58fc6b9f67806f2bfc"
+deepbook_wrapper = "0x03aafc54af513d592bcb91136d61b94ea40b0f9b50477f24a3a9a38fca625174"
 # deepbook_wrapper = "0x0"

@@ -2,17 +2,13 @@ import { bcs } from "@mysten/sui/bcs";
 import { Transaction } from "@mysten/sui/transactions";
 import { user } from "../../common";
 import { provider } from "../../common";
-import {
-  DEEP_DECIMALS,
-  WRAPPER_OBJECT_ID,
-  WRAPPER_PACKAGE_ID,
-} from "../../constants";
+import { DEEP_DECIMALS, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../../constants";
 
 export async function getDeepReservesBalance() {
   const tx = new Transaction();
 
   tx.moveCall({
-    target: `${WRAPPER_PACKAGE_ID}::wrapper::get_deep_reserves_value`,
+    target: `${WRAPPER_PACKAGE_ID}::wrapper::deep_reserves`,
     arguments: [tx.object(WRAPPER_OBJECT_ID)],
   });
 
@@ -34,9 +30,7 @@ export async function getDeepReservesBalance() {
   }
 
   const deepReservesValueRaw = returnValues[0][0];
-  const deepReservesValueDecoded = bcs
-    .u64()
-    .parse(new Uint8Array(deepReservesValueRaw));
+  const deepReservesValueDecoded = bcs.u64().parse(new Uint8Array(deepReservesValueRaw));
   const deepReservesValue = +deepReservesValueDecoded / 10 ** DEEP_DECIMALS;
 
   return {
