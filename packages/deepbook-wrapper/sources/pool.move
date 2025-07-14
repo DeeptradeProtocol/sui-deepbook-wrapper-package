@@ -30,6 +30,7 @@ public struct CreatePoolConfig has key, store {
     protocol_fee: u64,
 }
 
+// === Events ===
 /// Pool created event emitted when a pool is created with help of the wrapper
 public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop {
     pool_id: ID,
