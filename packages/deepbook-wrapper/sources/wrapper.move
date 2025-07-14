@@ -523,9 +523,7 @@ public(package) fun settle_user_fees<BaseToken, QuoteToken, FeeCoinType>(
         order_id,
     };
 
-    if (!wrapper.unsettled_fees.contains(unsettled_fee_key)) {
-        return coin::zero(ctx)
-    };
+    if (!wrapper.unsettled_fees.contains(unsettled_fee_key)) return coin::zero(ctx);
 
     let unsettled_fee: &mut UnsettledFee<FeeCoinType> = wrapper
         .unsettled_fees
@@ -608,7 +606,7 @@ fun destroy_empty<CoinType>(unsettled_fee: UnsettledFee<CoinType>) {
     assert!(unsettled_fee.balance.value() == 0, EUnsettledFeeNotEmpty);
 
     let UnsettledFee { balance, .. } = unsettled_fee;
-    balance::destroy_zero(balance);
+    balance.destroy_zero();
 }
 
 // === Test Functions ===
