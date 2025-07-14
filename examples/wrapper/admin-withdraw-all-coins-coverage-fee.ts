@@ -1,9 +1,9 @@
 import { Transaction } from "@mysten/sui/transactions";
 import { keypair, provider, user } from "../common";
-import { ADMIN_CAP_OBJECT_ID, NS_COIN_TYPE, WRAPPER_PACKAGE_ID } from "../constants";
+import { ADMIN_CAP_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
+import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 import { getWrapperBags } from "./utils/getWrapperBags";
 import { processFeesBag } from "./utils/processFeeBag";
-import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 
 // yarn ts-node examples/wrapper/admin-withdraw-all-coins-coverage-fee.ts > admin-withdraw-all-coins-coverage-fee.log 2>&1
 (async () => {
@@ -18,7 +18,7 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
   for (const coinType of coinTypes) {
     getWithdrawFeeTx({
       coinType,
-      target: `${WRAPPER_PACKAGE_ID}::wrapper::admin_withdraw_deep_reserves_coverage_fee_v2`,
+      target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves_coverage_fee`,
       user,
       adminCapId: ADMIN_CAP_OBJECT_ID,
       transaction: tx,
