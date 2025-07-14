@@ -38,29 +38,25 @@ use token::deep::DEEP;
 // === Errors ===
 /// Error when trying to use deep from reserves but there is not enough available
 const EInsufficientDeepReserves: u64 = 1;
-
 /// Error when user doesn't have enough coins to cover the required fee
 const EInsufficientFee: u64 = 2;
-
 /// Error when user doesn't have enough input coins to create the order
 const EInsufficientInput: u64 = 3;
-
 /// Error when the caller is not the owner of the balance manager
 const EInvalidOwner: u64 = 4;
-
 /// Error when actual deep required exceeds the max deep required
 const EDeepRequiredExceedsMax: u64 = 5;
-
 /// Error when actual sui fee exceeds the max sui fee
 const ESuiFeeExceedsMax: u64 = 6;
-
 /// Not supported parameters errors
 const ENotSupportedExpireTimestamp: u64 = 7;
 const ENotSupportedSelfMatchingOption: u64 = 8;
 
 // === Structs ===
-/// Tracks how DEEP will be sourced for an order
-/// Used to coordinate token sourcing from user wallet and wrapper reserves
+/// A plan that specifies how to source DEEP tokens for an order's DeepBook fees.
+///
+/// It determines how much DEEP to take from the user's wallet and how much to
+/// supply from the wrapper's reserves if the user's balance is insufficient.
 public struct DeepPlan has copy, drop {
     /// Whether DEEP from wrapper reserves is needed for this order
     use_wrapper_deep_reserves: bool,
@@ -72,9 +68,11 @@ public struct DeepPlan has copy, drop {
     deep_reserves_cover_order: bool,
 }
 
-/// Tracks coverage fee charging strategy for an order
-/// Coverage fees are charged when using wrapper DEEP reserves to cover order requirements
-/// Determines amount and sources for coverage fee payment in SUI coins
+/// A plan for charging a coverage fee when the wrapper's DEEP reserves are used.
+///
+/// This fee is charged in SUI as compensation for using the wrapper's DEEP to
+/// pay for an order's DeepBook fees. This struct determines how much SUI to
+/// take from the user's wallet and balance manager to pay this fee.
 public struct CoverageFeePlan has copy, drop {
     from_wallet: u64,
     from_balance_manager: u64,
@@ -82,9 +80,12 @@ public struct CoverageFeePlan has copy, drop {
     user_covers_fee: bool,
 }
 
-/// Tracks protocol fee charging strategy for an order
-/// Determines taker and maker fee amounts and sources for fee payment
-/// Fees are paid in input coins (base or quote tokens)
+/// A plan for charging the wrapper's protocol fees on an order.
+///
+/// The protocol fee is an additional fee charged by the wrapper for its services,
+/// paid in the order's input coin (base or quote). This plan calculates the
+/// maker and taker portions of the fee and defines how to source the payment
+/// from the user's wallet and balance manager.
 public struct ProtocolFeePlan has copy, drop {
     taker_fee_from_wallet: u64,
     taker_fee_from_balance_manager: u64,
@@ -94,8 +95,11 @@ public struct ProtocolFeePlan has copy, drop {
     user_covers_fee: bool,
 }
 
-/// Tracks input coin requirements for an order
-/// Plans how input coins will be sourced from user wallet and balance manager
+/// A plan for depositing the required input coins into the balance manager.
+///
+/// To place a DeepBook order, the necessary funds (base or quote tokens) must be
+/// available in the user's balance manager. This plan calculates how many coins
+/// to transfer from the user's wallet to the balance manager to cover the order.
 public struct InputCoinDepositPlan has copy, drop {
     /// Total amount of input coins needed for the order
     order_amount: u64,
@@ -420,7 +424,9 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     );
 
     let order_amount = calculate_order_amount(quantity, price, is_bid);
-    let max_discount_rate = trading_fee_config.get_pool_fee_config(pool).max_deep_fee_discount_rate();
+    let max_discount_rate = trading_fee_config
+        .get_pool_fee_config(pool)
+        .max_deep_fee_discount_rate();
 
     let proof = prepare_whitelisted_order_execution(
         balance_manager,
@@ -515,7 +521,9 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
         clock,
     );
 
-    let max_discount_rate = trading_fee_config.get_pool_fee_config(pool).max_deep_fee_discount_rate();
+    let max_discount_rate = trading_fee_config
+        .get_pool_fee_config(pool)
+        .max_deep_fee_discount_rate();
 
     let proof = prepare_whitelisted_order_execution(
         balance_manager,
@@ -1352,7 +1360,9 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
     let wrapper_deep_reserves = deep_reserves(wrapper);
-    let max_discount_rate = trading_fee_config.get_pool_fee_config(pool).max_deep_fee_discount_rate();
+    let max_discount_rate = trading_fee_config
+        .get_pool_fee_config(pool)
+        .max_deep_fee_discount_rate();
 
     let (deep_plan, coverage_fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
