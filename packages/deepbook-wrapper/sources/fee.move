@@ -98,7 +98,6 @@ fun init(ctx: &mut TxContext) {
         pool_specific_fees: table::new(ctx),
     };
 
-    // Share the trading fee config object
     transfer::share_object(trading_fee_config);
 }
 
