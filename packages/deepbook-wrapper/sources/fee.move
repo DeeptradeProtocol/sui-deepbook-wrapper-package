@@ -204,7 +204,7 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
     );
 
     // Get the protocol fee rates for the pool and max discount rate
-    let pool_fee_config = trading_fee_config.get_fee_rates(pool);
+    let pool_fee_config = trading_fee_config.get_pool_fee_config(pool);
     let (protocol_taker_fee_rate, _) = pool_fee_config.deep_fee_type_rates();
     let max_discount_rate = pool_fee_config.max_deep_fee_discount_rate();
 
@@ -277,7 +277,7 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     );
 
     // Get the protocol fee rates for the pool and max discount rate
-    let pool_fee_config = trading_fee_config.get_fee_rates(pool);
+    let pool_fee_config = trading_fee_config.get_pool_fee_config(pool);
     let (protocol_taker_fee_rate, _) = pool_fee_config.deep_fee_type_rates();
     let max_discount_rate = pool_fee_config.max_deep_fee_discount_rate();
 

@@ -420,7 +420,7 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
     );
 
     let order_amount = calculate_order_amount(quantity, price, is_bid);
-    let max_discount_rate = trading_fee_config.get_fee_rates(pool).max_deep_fee_discount_rate();
+    let max_discount_rate = trading_fee_config.get_pool_fee_config(pool).max_deep_fee_discount_rate();
 
     let proof = prepare_whitelisted_order_execution(
         balance_manager,
@@ -515,7 +515,7 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
         clock,
     );
 
-    let max_discount_rate = trading_fee_config.get_fee_rates(pool).max_deep_fee_discount_rate();
+    let max_discount_rate = trading_fee_config.get_pool_fee_config(pool).max_deep_fee_discount_rate();
 
     let proof = prepare_whitelisted_order_execution(
         balance_manager,
@@ -1205,7 +1205,7 @@ public(package) fun charge_protocol_fees<BaseToken, QuoteToken>(
     ctx: &mut TxContext,
 ) {
     // Get the protocol fee rates for the pool
-    let pool_protocol_fee_config = trading_fee_config.get_fee_rates(pool);
+    let pool_protocol_fee_config = trading_fee_config.get_pool_fee_config(pool);
     let (protocol_taker_fee_rate, protocol_maker_fee_rate) = if (deep_fee_type) {
         pool_protocol_fee_config.deep_fee_type_rates()
     } else {
@@ -1352,7 +1352,7 @@ fun prepare_order_execution<BaseToken, QuoteToken, ReferenceBaseAsset, Reference
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
     let wrapper_deep_reserves = deep_reserves(wrapper);
-    let max_discount_rate = trading_fee_config.get_fee_rates(pool).max_deep_fee_discount_rate();
+    let max_discount_rate = trading_fee_config.get_pool_fee_config(pool).max_deep_fee_discount_rate();
 
     let (deep_plan, coverage_fee_plan, input_coin_deposit_plan) = create_order_core(
         is_pool_whitelisted,
