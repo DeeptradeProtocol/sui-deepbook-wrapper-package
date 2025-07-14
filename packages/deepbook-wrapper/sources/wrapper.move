@@ -474,8 +474,9 @@ public(package) fun add_unsettled_fee<CoinType>(
         // Add the balance to the existing unsettled fee
         existing_unsettled_fee.balance.join(fee);
     } else {
-        // Fees are always charged in the order's input coin, which never changes for a given order.
-        // Therefore, if any fee exists for this order, reject this attempt to add a different coin type.
+        // Fees are always charged in the order's input coin. Before adding a new fee,
+        // ensure no fee with a different coin type already exists for this order.
+        // If one does, the attempt is rejected to prevent a mismatch.
         let has_fee_with_different_coin_type = wrapper.unsettled_fees.contains(unsettled_fee_key);
         assert!(!has_fee_with_different_coin_type, EUnsettledFeeCoinTypeMismatch);
 
