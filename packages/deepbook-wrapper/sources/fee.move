@@ -2,133 +2,156 @@ module deepbook_wrapper::fee;
 
 use deepbook::constants::fee_penalty_multiplier;
 use deepbook::pool::Pool;
-use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::{
     calculate_deep_required,
     get_sui_per_deep,
     calculate_market_order_params
 };
 use deepbook_wrapper::math;
-use deepbook_wrapper::wrapper::{
+use deepbook_wrapper::ticket::{
     AdminTicket,
+    validate_ticket,
     destroy_ticket,
-    update_deep_fee_type_rate_ticket_type,
-    update_input_coin_protocol_fee_multiplier_ticket_type
+    update_default_fees_ticket_type,
+    update_pool_specific_fees_ticket_type
 };
-use multisig::multisig;
 use pyth::price_info::PriceInfoObject;
 use sui::balance::Balance;
 use sui::clock::Clock;
 use sui::coin::Coin;
+use sui::event;
+use sui::table::{Self, Table};
 
 // === Errors ===
-/// Error when the sender is not a multisig address
-const ESenderIsNotMultisig: u64 = 1;
-
-/// A generic error code for any function that is no longer supported.
-/// The value 1000 is used by convention across modules for this purpose.
-#[allow(unused_const)]
-const EFunctionDeprecated: u64 = 1000;
+const EInvalidFeePrecision: u64 = 1;
+const EFeeOutOfRange: u64 = 2;
+const EInvalidFeeHierarchy: u64 = 3;
+const EInvalidDiscountPrecision: u64 = 4;
+const EDiscountOutOfRange: u64 = 5;
 
 // === Constants ===
-/// Fee rate for protocol fee in billionths (1%)
-const PROTOCOL_FEE_BPS: u64 = 10_000_000;
+/// The multiple that fee rates must adhere to, aligned with DeepBook (0.01 bps = 0.0001%)
+const FEE_PRECISION_MULTIPLE: u64 = 1000;
+/// The minimum allowed fee rate (0 bps)
+const MIN_FEE_RATE: u64 = 0;
+/// The maximum allowed taker fee rate (20 bps = 0.20%)
+const MAX_TAKER_FEE_RATE: u64 = 2_000_000;
+/// The maximum allowed maker fee rate (10 bps = 0.10%)
+const MAX_MAKER_FEE_RATE: u64 = 1_000_000;
+/// The minimum allowed discount rate (0%)
+const MIN_DISCOUNT_RATE: u64 = 0;
+/// The maximum allowed discount rate (100%)
+const MAX_DISCOUNT_RATE: u64 = 1_000_000_000;
 
-/// Protocol fee multiplier when fee is paid in input coins (75% of taker fee)
-const INPUT_COIN_PROTOCOL_FEE_MULTIPLIER: u64 = 750_000_000;
+// Default fee rates for initialization
+const DEFAULT_DEEP_TAKER_FEE_BPS: u64 = 600_000; // 6 bps
+const DEFAULT_DEEP_MAKER_FEE_BPS: u64 = 300_000; // 3 bps
+const DEFAULT_INPUT_COIN_TAKER_FEE_BPS: u64 = 500_000; // 5 bps
+const DEFAULT_INPUT_COIN_MAKER_FEE_BPS: u64 = 200_000; // 2 bps
+const DEFAULT_DEEP_FEE_DISCOUNT_RATE: u64 = 250_000_000; // 2500 bps (25%)
 
 // === Structs ===
-/// Configuration object containing trading fee rates and multipliers
+/// Configuration object containing trading fee rates
 public struct TradingFeeConfig has key {
     id: UID,
-    deep_fee_type_rate: u64,
-    input_coin_protocol_fee_multiplier: u64,
+    default_fees: PoolFeeConfig,
+    pool_specific_fees: Table<ID, PoolFeeConfig>,
+}
+
+/// Struct to hold a complete fee configuration
+public struct PoolFeeConfig has copy, drop, store {
+    deep_fee_type_taker_rate: u64,
+    deep_fee_type_maker_rate: u64,
+    input_coin_fee_type_taker_rate: u64,
+    input_coin_fee_type_maker_rate: u64,
+    max_deep_fee_discount_rate: u64,
+}
+
+// === Events ===
+/// Event for when default fees are updated
+public struct DefaultFeesUpdated has copy, drop {
+    new_fees: PoolFeeConfig,
+}
+
+/// Event for when a pool-specific fee config is updated
+public struct PoolFeesUpdated has copy, drop {
+    pool_id: ID,
+    new_fees: PoolFeeConfig,
 }
 
 // === Public-Mutative Functions ===
-/// Update the deep fee type rate while verifying that the sender is the expected multi-sig address.
-/// Performs timelock validation using an admin ticket.
-///
-/// Parameters:
-/// - config: Trading fee configuration object
-/// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
-/// - new_rate: New DEEP fee type rate in billionths
-/// - pks: Vector of public keys of the multi-sig signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
-/// - clock: Clock for timestamp validation
-/// - ctx: Mutable transaction context for coin creation and sender verification
-///
-/// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
-/// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
-public fun update_deep_fee_type_rate(
+/// Updates the default fee rates.
+public fun update_default_fees(
     config: &mut TradingFeeConfig,
     ticket: AdminTicket,
-    _admin: &AdminCap,
-    new_rate: u64,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
+    new_fees: PoolFeeConfig,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
-    validate_ticket(&ticket, update_deep_fee_type_rate_ticket_type(), clock, ctx);
+    validate_pool_fee_config(&new_fees);
 
-    // Consume ticket after successful validation
+    validate_ticket(&ticket, update_default_fees_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
-    config.deep_fee_type_rate = new_rate;
+    config.default_fees = new_fees;
+
+    event::emit(DefaultFeesUpdated { new_fees });
 }
 
-/// Update the input coin protocol fee multiplier while verifying that the sender is the expected
-/// multi-sig address. Performs timelock validation using an admin ticket.
-///
-/// Parameters:
-/// - config: Trading fee configuration object
-/// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - _admin: Admin capability
-/// - new_multiplier: New input coin protocol fee multiplier in billionths
-/// - pks: Vector of public keys of the multi-sig signers
-/// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions
-/// - clock: Clock for timestamp validation
-/// - ctx: Mutable transaction context for coin creation and sender verification
-///
-/// Aborts:
-/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
-///   derived from the provided pks, weights, and threshold parameters
-/// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
-public fun update_input_coin_protocol_fee_multiplier(
+/// Updates or creates a pool-specific fee configuration.
+public fun update_pool_specific_fees<BaseToken, QuoteToken>(
     config: &mut TradingFeeConfig,
     ticket: AdminTicket,
-    _admin: &AdminCap,
-    new_multiplier: u64,
-    pks: vector<vector<u8>>,
-    weights: vector<u8>,
-    threshold: u16,
+    pool: &Pool<BaseToken, QuoteToken>,
+    new_fees: PoolFeeConfig,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
-    validate_ticket(&ticket, update_input_coin_protocol_fee_multiplier_ticket_type(), clock, ctx);
+    validate_pool_fee_config(&new_fees);
 
-    // Consume ticket after successful validation
+    validate_ticket(&ticket, update_pool_specific_fees_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
-    config.input_coin_protocol_fee_multiplier = new_multiplier;
+    let pool_id = object::id(pool);
+
+    if (config.pool_specific_fees.contains(pool_id)) {
+        config.pool_specific_fees.remove(pool_id);
+    };
+    config.pool_specific_fees.add(pool_id, new_fees);
+
+    event::emit(PoolFeesUpdated { pool_id, new_fees });
 }
 
 // === Public-View Functions ===
+/// Get pool-specific fee config if configured, otherwise default fee config.
+public fun get_pool_fee_config<BaseToken, QuoteToken>(
+    trading_fee_config: &TradingFeeConfig,
+    pool: &Pool<BaseToken, QuoteToken>,
+): PoolFeeConfig {
+    let pool_id = object::id(pool);
+
+    if (trading_fee_config.pool_specific_fees.contains(pool_id)) {
+        *trading_fee_config.pool_specific_fees.borrow(pool_id)
+    } else {
+        trading_fee_config.default_fees
+    }
+}
+
+/// Get the deep fee type rates from a pool fee config.
+/// Returns (taker_fee_rate, maker_fee_rate) in billionths.
+public fun deep_fee_type_rates(config: PoolFeeConfig): (u64, u64) {
+    let PoolFeeConfig { deep_fee_type_taker_rate, deep_fee_type_maker_rate, .. } = config;
+    (deep_fee_type_taker_rate, deep_fee_type_maker_rate)
+}
+
+/// Get the input coin fee type rates from a pool fee config.
+/// Returns (taker_fee_rate, maker_fee_rate) in billionths.
+public fun input_coin_fee_type_rates(config: PoolFeeConfig): (u64, u64) {
+    let PoolFeeConfig { input_coin_fee_type_taker_rate, input_coin_fee_type_maker_rate, .. } =
+        config;
+    (input_coin_fee_type_taker_rate, input_coin_fee_type_maker_rate)
+}
+
 /// Calculates the total fee estimate for a limit order in SUI coins
 /// Uses oracle price feeds and reference pool to calculate the best DEEP/SUI price.
 /// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
@@ -260,14 +283,6 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     );
 
     (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
-}
-
-public fun deep_fee_type_rate(config: &TradingFeeConfig): u64 {
-    config.deep_fee_type_rate
-}
-
-public fun input_coin_protocol_fee_multiplier(config: &TradingFeeConfig): u64 {
-    config.input_coin_protocol_fee_multiplier
 }
 
 // === Public-Package Functions ===
@@ -464,11 +479,55 @@ public(package) fun charge_swap_fee<CoinType>(
 }
 
 // === Private Functions ===
+/// Validates that the fee rates in a PoolFeeConfig are within the allowed precision and range.
+fun validate_pool_fee_config(fees: &PoolFeeConfig) {
+    validate_fee_pair(
+        fees.deep_fee_type_taker_rate,
+        fees.deep_fee_type_maker_rate,
+    );
+    validate_fee_pair(
+        fees.input_coin_fee_type_taker_rate,
+        fees.input_coin_fee_type_maker_rate,
+    );
+    validate_discount_rate(fees.max_deep_fee_discount_rate);
+}
+
+/// Validates a single taker/maker fee pair against precision, range, and consistency rules.
+fun validate_fee_pair(taker_rate: u64, maker_rate: u64) {
+    // --- Precision Checks ---
+    assert!(taker_rate % FEE_PRECISION_MULTIPLE == 0, EInvalidFeePrecision);
+    assert!(maker_rate % FEE_PRECISION_MULTIPLE == 0, EInvalidFeePrecision);
+
+    // --- Range Checks ---
+    assert!(taker_rate >= MIN_FEE_RATE && taker_rate <= MAX_TAKER_FEE_RATE, EFeeOutOfRange);
+    assert!(maker_rate >= MIN_FEE_RATE && maker_rate <= MAX_MAKER_FEE_RATE, EFeeOutOfRange);
+
+    // --- Hierarchy Check ---
+    assert!(maker_rate <= taker_rate, EInvalidFeeHierarchy);
+}
+
+/// Validates the discount rate against precision and range rules.
+fun validate_discount_rate(discount_rate: u64) {
+    // --- Precision Check ---
+    assert!(discount_rate % FEE_PRECISION_MULTIPLE == 0, EInvalidDiscountPrecision);
+    // --- Range Check ---
+    assert!(
+        discount_rate >= MIN_DISCOUNT_RATE && discount_rate <= MAX_DISCOUNT_RATE,
+        EDiscountOutOfRange,
+    );
+}
+
 fun init(ctx: &mut TxContext) {
     let trading_fee_config = TradingFeeConfig {
         id: object::new(ctx),
-        deep_fee_type_rate: PROTOCOL_FEE_BPS,
-        input_coin_protocol_fee_multiplier: INPUT_COIN_PROTOCOL_FEE_MULTIPLIER,
+        default_fees: PoolFeeConfig {
+            deep_fee_type_taker_rate: DEFAULT_DEEP_TAKER_FEE_BPS,
+            deep_fee_type_maker_rate: DEFAULT_DEEP_MAKER_FEE_BPS,
+            input_coin_fee_type_taker_rate: DEFAULT_INPUT_COIN_TAKER_FEE_BPS,
+            input_coin_fee_type_maker_rate: DEFAULT_INPUT_COIN_MAKER_FEE_BPS,
+            max_deep_fee_discount_rate: DEFAULT_DEEP_FEE_DISCOUNT_RATE,
+        },
+        pool_specific_fees: table::new(ctx),
     };
 
     // Share the trading fee config object
