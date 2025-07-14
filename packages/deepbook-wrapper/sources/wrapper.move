@@ -29,6 +29,7 @@ const EVersionPermanentlyDisabled: u64 = 7;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
+#[allow(unused_const)]
 const EFunctionDeprecated: u64 = 1000;
 
 // === Structs ===
@@ -71,7 +72,7 @@ public struct VersionDisabled has copy, drop {
 
 // === Public-Mutative Functions ===
 /// Create a new fund capability for the wrapper
-public fun create_fund_cap_v2(wrapper: &Wrapper, _admin: &AdminCap, ctx: &mut TxContext): FundCap {
+public fun create_fund_cap(wrapper: &Wrapper, _admin: &AdminCap, ctx: &mut TxContext): FundCap {
     FundCap {
         id: object::new(ctx),
         wrapper_id: wrapper.id.to_inner(),
@@ -85,7 +86,7 @@ public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
 }
 
 /// Withdraw collected deep reserves coverage fees for a specific coin type using fund capability
-public fun withdraw_deep_reserves_coverage_fee_v2<CoinType>(
+public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     wrapper: &mut Wrapper,
     fund_cap: &FundCap,
     ctx: &mut TxContext,
@@ -96,7 +97,7 @@ public fun withdraw_deep_reserves_coverage_fee_v2<CoinType>(
 }
 
 /// Withdraw collected deep reserves coverage fees for a specific coin type using admin capability
-public fun admin_withdraw_deep_reserves_coverage_fee_v2<CoinType>(
+public fun admin_withdraw_deep_reserves_coverage_fee<CoinType>(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
     ctx: &mut TxContext,
@@ -106,7 +107,7 @@ public fun admin_withdraw_deep_reserves_coverage_fee_v2<CoinType>(
 }
 
 /// Withdraw collected protocol fees for a specific coin type using admin capability
-public fun admin_withdraw_protocol_fee_v2<CoinType>(
+public fun admin_withdraw_protocol_fee<CoinType>(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
     ctx: &mut TxContext,
@@ -124,7 +125,7 @@ public fun admin_withdraw_protocol_fee_v2<CoinType>(
 }
 
 /// Withdraw DEEP coins from the wrapper's reserves
-public fun withdraw_deep_reserves_v2(
+public fun withdraw_deep_reserves(
     wrapper: &mut Wrapper,
     _admin: &AdminCap,
     amount: u64,
@@ -271,77 +272,4 @@ fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
     } else {
         coin::zero(ctx)
     }
-}
-
-// === Deprecated Functions ===
-#[deprecated(note = b"This function is deprecated. Please use `create_fund_cap_v2` instead.")]
-public fun create_fund_cap(_admin: &AdminCap, _wrapper: &Wrapper, _ctx: &mut TxContext): FundCap {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `withdraw_deep_reserves_coverage_fee_v2` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun withdraw_deep_reserves_coverage_fee<CoinType>(
-    _fund_cap: &FundCap,
-    _wrapper: &mut Wrapper,
-    _ctx: &mut TxContext,
-): Coin<CoinType> {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `admin_withdraw_deep_reserves_coverage_fee_v2` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun admin_withdraw_deep_reserves_coverage_fee<CoinType>(
-    _admin: &AdminCap,
-    _wrapper: &mut Wrapper,
-    _ctx: &mut TxContext,
-): Coin<CoinType> {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `admin_withdraw_protocol_fee_v2` instead.",
-    ),
-    allow(
-        unused_type_parameter,
-    ),
-]
-public fun admin_withdraw_protocol_fee<CoinType>(
-    _admin: &AdminCap,
-    _wrapper: &mut Wrapper,
-    _ctx: &mut TxContext,
-): Coin<CoinType> {
-    abort EFunctionDeprecated
-}
-
-#[
-    deprecated(
-        note = b"This function is deprecated. Please use `withdraw_deep_reserves_v2` instead.",
-    ),
-]
-public fun withdraw_deep_reserves(
-    _admin: &AdminCap,
-    _wrapper: &mut Wrapper,
-    _amount: u64,
-    _ctx: &mut TxContext,
-): Coin<DEEP> {
-    abort EFunctionDeprecated
-}
-
-#[deprecated(note = b"This function is deprecated. Please use `deep_reserves` instead.")]
-public fun get_deep_reserves_value(_wrapper: &Wrapper): u64 {
-    abort EFunctionDeprecated
 }
