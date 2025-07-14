@@ -5,6 +5,7 @@ use deepbook_wrapper::helper::current_version;
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
+use sui::event;
 use sui::vec_set::{Self, VecSet};
 use token::deep::DEEP;
 
@@ -32,6 +33,11 @@ const EFunctionDeprecated: u64 = 1000;
 
 // === Structs ===
 /// Wrapper struct for DeepBook V3
+/// - `allowed_versions`: Versions that are allowed to interact with the wrapper
+/// - `disabled_versions`: Versions that have been permanently disabled
+/// - `deep_reserves`: The DEEP reserves in the wrapper
+/// - `deep_reserves_coverage_fees`: The DEEP reserves coverage fees in the wrapper
+/// - `protocol_fees`: The protocol fees in the wrapper
 public struct Wrapper has key, store {
     id: UID,
     allowed_versions: VecSet<u16>,
@@ -49,6 +55,18 @@ public struct FundCap has key, store {
 
 /// Key struct for storing charged fees by coin type
 public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {}
+
+/// Event emitted when a new version is enabled for the wrapper
+public struct VersionEnabled has copy, drop, store {
+    wrapper_id: ID,
+    version: u16,
+}
+
+/// Event emitted when a version is permanently disabled for the wrapper
+public struct VersionDisabled has copy, drop, store {
+    wrapper_id: ID,
+    version: u16,
+}
 
 // === Public-Mutative Functions ===
 /// Create a new fund capability for the wrapper
@@ -124,6 +142,11 @@ public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16
     assert!(!wrapper.allowed_versions.contains(&version), EVersionAlreadyEnabled);
 
     wrapper.allowed_versions.insert(version);
+
+    event::emit(VersionEnabled {
+        wrapper_id: wrapper.id.to_inner(),
+        version: version,
+    });
 }
 
 /// Permanently disable the specified package version for the wrapper
@@ -134,6 +157,11 @@ public fun disable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u1
     // Remove from allowed and add to disabled
     wrapper.allowed_versions.remove(&version);
     wrapper.disabled_versions.insert(version);
+
+    event::emit(VersionDisabled {
+        wrapper_id: wrapper.id.to_inner(),
+        version: version,
+    });
 }
 
 // === Public-View Functions ===
