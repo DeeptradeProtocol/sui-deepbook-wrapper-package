@@ -9,5 +9,5 @@ deepbook = { local = "../deepbook", address = "0xcaf6ba059d539a97646d47f0b9ddf84
 Pyth = { local = "../pyth", address = "0x04e20ddf36af412a4096f9014f4a565af9e812db9a05cc40254846cf6ed0ad91" }
 
 [addresses]
-deepbook_wrapper = "0x2356885eae212599c0c7a42d648cc2100dedfa4698f8fc58fc6b9f67806f2bfc"
+deepbook_wrapper = "0x03aafc54af513d592bcb91136d61b94ea40b0f9b50477f24a3a9a38fca625174"
 # deepbook_wrapper = "0x0"

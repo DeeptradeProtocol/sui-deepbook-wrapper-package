@@ -44,9 +44,7 @@ public struct FundCap has key, store {
 }
 
 /// Key struct for storing charged fees by coin type
-public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
-    dummy_field: bool,
-}
+public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {}
 
 // === Public-Mutative Functions ===
 /// Create a new fund capability for the wrapper
@@ -92,7 +90,7 @@ public fun admin_withdraw_protocol_fee_v2<CoinType>(
 ): Coin<CoinType> {
     wrapper.verify_version();
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
 
     if (wrapper.protocol_fees.contains(key)) {
         let balance = wrapper.protocol_fees.borrow_mut(key);
@@ -145,7 +143,7 @@ public(package) fun join_deep_reserves_coverage_fee<CoinType>(
         return
     };
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
     if (wrapper.deep_reserves_coverage_fees.contains(key)) {
         let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
         balance::join(balance, fee);
@@ -163,7 +161,7 @@ public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Bala
         return
     };
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
     if (wrapper.protocol_fees.contains(key)) {
         let balance = wrapper.protocol_fees.borrow_mut(key);
         balance::join(balance, fee);
@@ -223,7 +221,7 @@ fun withdraw_deep_reserves_coverage_fee_internal<CoinType>(
 ): Coin<CoinType> {
     wrapper.verify_version();
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
 
     if (wrapper.deep_reserves_coverage_fees.contains(key)) {
         let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
