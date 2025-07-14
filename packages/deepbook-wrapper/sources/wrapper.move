@@ -33,11 +33,11 @@ const EFunctionDeprecated: u64 = 1000;
 
 // === Structs ===
 /// Wrapper struct for DeepBook V3
-/// - `allowed_versions`: Versions that are allowed to interact with the wrapper
-/// - `disabled_versions`: Versions that have been permanently disabled
-/// - `deep_reserves`: The DEEP reserves in the wrapper
-/// - `deep_reserves_coverage_fees`: The DEEP reserves coverage fees in the wrapper
-/// - `protocol_fees`: The protocol fees in the wrapper
+/// - allowed_versions: Versions that are allowed to interact with the wrapper
+/// - disabled_versions: Versions that have been permanently disabled
+/// - deep_reserves: The DEEP reserves in the wrapper
+/// - deep_reserves_coverage_fees: The DEEP reserves coverage fees in the wrapper
+/// - protocol_fees: The protocol fees in the wrapper
 public struct Wrapper has key, store {
     id: UID,
     allowed_versions: VecSet<u16>,
