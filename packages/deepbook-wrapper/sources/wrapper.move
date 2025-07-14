@@ -23,6 +23,9 @@ const EVersionNotEnabled: u64 = 5;
 /// Error when trying to use shared object in a package whose version is not enabled
 const EPackageVersionNotEnabled: u64 = 6;
 
+/// Error when trying to enable a version that has been permanently disabled
+const EVersionPermanentlyDisabled: u64 = 7;
+
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
 const EFunctionDeprecated: u64 = 1000;
@@ -32,6 +35,7 @@ const EFunctionDeprecated: u64 = 1000;
 public struct Wrapper has key, store {
     id: UID,
     allowed_versions: VecSet<u16>,
+    disabled_versions: VecSet<u16>,
     deep_reserves: Balance<DEEP>,
     deep_reserves_coverage_fees: Bag,
     protocol_fees: Bag,
@@ -113,7 +117,12 @@ public fun withdraw_deep_reserves_v2(
 
 /// Enable the specified package version for the wrapper
 public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
+    // Check if the version has been permanently disabled
+    assert!(!wrapper.disabled_versions.contains(&version), EVersionPermanentlyDisabled);
+
+    // Check if the version is already enabled
     assert!(!wrapper.allowed_versions.contains(&version), EVersionAlreadyEnabled);
+
     wrapper.allowed_versions.insert(version);
 }
 
@@ -121,7 +130,10 @@ public fun enable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16
 public fun disable_version(wrapper: &mut Wrapper, _admin: &AdminCap, version: u16) {
     assert!(version != current_version(), ECannotDisableCurrentVersion);
     assert!(wrapper.allowed_versions.contains(&version), EVersionNotEnabled);
+
+    // Remove from allowed and add to disabled
     wrapper.allowed_versions.remove(&version);
+    wrapper.disabled_versions.insert(version);
 }
 
 // === Public-View Functions ===
@@ -196,6 +208,7 @@ fun init(ctx: &mut TxContext) {
     let wrapper = Wrapper {
         id: object::new(ctx),
         allowed_versions: vec_set::singleton(current_version()),
+        disabled_versions: vec_set::empty(),
         deep_reserves: balance::zero(),
         deep_reserves_coverage_fees: bag::new(ctx),
         protocol_fees: bag::new(ctx),
