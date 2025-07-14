@@ -1612,18 +1612,13 @@ fun execute_coverage_fee_plan(
     };
 }
 
-/// Executes the protocol fee charging plan by taking input coins from specified sources
+/// Executes a `ProtocolFeePlan` to collect wrapper service fees from the user's
+/// wallet and balance manager.
 ///
-/// Parameters:
-/// - wrapper: Main wrapper object that will receive the fees
-/// - balance_manager: User's balance manager to withdraw fees from
-/// - coin: User's coin from wallet
-/// - order_info: Order info returned by DeepBook order placement function
-/// - fee_plan: Plan that specifies how much to take from each source
-/// - ctx: Transaction context
+/// Taker fees are collected immediately into the wrapper's protocol fees. Maker
+/// fees are added to an unsettled list for future settlement by the user or protocol.
 ///
-/// Aborts:
-/// - EInsufficientFee: If user cannot cover the fees
+/// Aborts if the plan indicates the user has insufficient funds.
 fun execute_protocol_fee_plan<CoinType>(
     wrapper: &mut Wrapper,
     balance_manager: &mut BalanceManager,
