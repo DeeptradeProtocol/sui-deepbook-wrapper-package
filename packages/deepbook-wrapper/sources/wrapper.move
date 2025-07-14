@@ -254,12 +254,13 @@ public fun settle_protocol_fee_and_record<BaseToken, QuoteToken, FeeCoinType>(
     balance_manager: &BalanceManager,
     order_id: u128,
 ) {
+    wrapper.verify_version();
+
     let open_orders = pool.account_open_orders(balance_manager);
 
     // Don't settle fees to protocol while the order is live
     if (open_orders.contains(&order_id)) return;
 
-    // We settle the fees to protocol if the order is not live, meaning it's cancelled/filled
     let unsettled_fee_key = UnsettledFeeKey {
         pool_id: object::id(pool),
         balance_manager_id: object::id(balance_manager),
@@ -510,6 +511,8 @@ public(package) fun settle_user_fees<BaseToken, QuoteToken, FeeCoinType>(
     order_id: u128,
     ctx: &mut TxContext,
 ): Coin<FeeCoinType> {
+    wrapper.verify_version();
+
     // Verify the caller owns the balance manager
     assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 

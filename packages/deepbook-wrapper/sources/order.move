@@ -769,6 +769,11 @@ public fun cancel_order_and_settle_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinT
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<UnsettledFeeCoinType> {
+    wrapper.verify_version();
+
+    // Verify the caller owns the balance manager
+    assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
+
     let settled_fees = wrapper.settle_user_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinType>(
         pool,
         balance_manager,
@@ -1211,6 +1216,8 @@ public(package) fun charge_protocol_fees<BaseToken, QuoteToken>(
     deep_fee_type: bool,
     ctx: &mut TxContext,
 ) {
+    wrapper.verify_version();
+
     // Get the protocol fee rates for the pool
     let pool_protocol_fee_config = trading_fee_config.get_pool_fee_config(pool);
     let (protocol_taker_fee_rate, protocol_maker_fee_rate) = if (deep_fee_type) {
