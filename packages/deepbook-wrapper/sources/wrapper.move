@@ -14,15 +14,15 @@ use token::deep::DEEP;
 const EInsufficientDeepReserves: u64 = 1;
 
 /// Allowed versions management errors
-const EVersionAlreadyEnabled: u64 = 3;
-const ECannotDisableCurrentVersion: u64 = 4;
-const EVersionNotEnabled: u64 = 5;
+const EVersionAlreadyEnabled: u64 = 2;
+const ECannotDisableCurrentVersion: u64 = 3;
+const EVersionNotEnabled: u64 = 4;
 
 /// Error when trying to use shared object in a package whose version is not enabled
-const EPackageVersionNotEnabled: u64 = 6;
+const EPackageVersionNotEnabled: u64 = 5;
 
 /// Error when trying to enable a version that has been permanently disabled
-const EVersionPermanentlyDisabled: u64 = 7;
+const EVersionPermanentlyDisabled: u64 = 6;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
