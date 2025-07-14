@@ -208,13 +208,9 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
     let (protocol_taker_fee_rate, _) = pool_fee_config.deep_fee_type_rates();
     let max_discount_rate = pool_fee_config.max_deep_fee_discount_rate();
 
-    // Get DEEP required for the order
     let deep_required = calculate_deep_required(pool, quantity, price);
-
-    // Calculate the order amount
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    // Call the core logic function to get fee components
     let (
         total_fee,
         deep_reserves_coverage_fee,
@@ -281,7 +277,6 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     let (protocol_taker_fee_rate, _) = pool_fee_config.deep_fee_type_rates();
     let max_discount_rate = pool_fee_config.max_deep_fee_discount_rate();
 
-    // Get DEEP required for the order
     let (_, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
         order_amount,
@@ -289,7 +284,6 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
         clock,
     );
 
-    // Call the core logic function to get fee components
     let (
         total_fee,
         deep_reserves_coverage_fee,
@@ -340,13 +334,11 @@ public(package) fun estimate_full_order_fee_core(
     let deep_from_reserves = if (balance_manager_deep + deep_in_wallet < deep_required)
         deep_required - balance_manager_deep - deep_in_wallet else 0;
 
-    // Calculate the deep reserves coverage fee
     let deep_reserves_coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
 
-    // Calculate the discount rate
     let discount_rate = calculate_discount_rate(
         max_discount_rate,
         deep_from_reserves,
@@ -373,7 +365,7 @@ public(package) fun estimate_full_order_fee_core(
 /// This fee represents the SUI equivalent value of the borrowed DEEP
 ///
 /// Parameters:
-/// - sui_per_deep: Current DEEP/SUI price from reference pool
+/// - sui_per_deep: Best DEEP/SUI price either from oracle or from reference pool
 /// - deep_from_reserves: Amount of DEEP taken from wrapper reserves
 ///
 /// Returns:
@@ -433,12 +425,12 @@ public(package) fun calculate_protocol_fees(
 /// The fee is calculated by first applying the fee penalty multiplier to the taker fee rate,
 /// then calculating the fee based on the resulting rate
 ///
-/// # Parameters
-/// * `amount` - The amount to calculate fee on
-/// * `taker_fee` - DeepBook's taker fee rate in billionths
+/// Parameters:
+/// - amount: The amount to calculate fee on
+/// - taker_fee: DeepBook's taker fee rate in billionths
 ///
-/// # Returns
-/// * `u64` - The calculated DeepBook fee amount with penalty multiplier applied
+/// Returns:
+/// - u64: The calculated DeepBook fee amount with penalty multiplier applied
 public(package) fun calculate_input_coin_deepbook_fee(amount: u64, taker_fee: u64): u64 {
     let fee_penalty_multiplier = fee_penalty_multiplier();
     let input_coin_fee_rate = math::mul(taker_fee, fee_penalty_multiplier);
@@ -449,12 +441,12 @@ public(package) fun calculate_input_coin_deepbook_fee(amount: u64, taker_fee: u6
 
 /// Calculates fee by applying a rate to an amount
 ///
-/// # Parameters
-/// * `amount` - The amount to calculate fee on
-/// * `fee_rate` - The fee rate in billionths (e.g., 1,000,000 = 0.1%)
+/// Parameters:
+/// - amount: The amount to calculate fee on
+/// - fee_rate: The fee rate in billionths (e.g., 1,000,000 = 0.1%)
 ///
-/// # Returns
-/// * `u64` - The calculated fee amount
+/// Returns:
+/// - u64: The calculated fee amount
 public(package) fun calculate_fee_by_rate(amount: u64, fee_rate: u64): u64 {
     math::mul(amount, fee_rate)
 }
@@ -462,12 +454,12 @@ public(package) fun calculate_fee_by_rate(amount: u64, fee_rate: u64): u64 {
 /// Charges a swap fee on a coin and returns the fee amount as a Balance.
 /// Allows collecting fees directly from a coin during swap operations.
 ///
-/// # Returns
-/// * `Balance<CoinType>` - The fee amount as a Balance object
+/// Parameters:
+/// - coin: The coin to charge fee from
+/// - fee_bps: The fee rate in billionths
 ///
-/// # Parameters
-/// * `coin` - The coin to charge fee from
-/// * `fee_bps` - The fee rate in billionths
+/// Returns:
+/// - Balance<CoinType>: The fee amount as a Balance object
 public(package) fun charge_swap_fee<CoinType>(
     coin: &mut Coin<CoinType>,
     fee_bps: u64,
