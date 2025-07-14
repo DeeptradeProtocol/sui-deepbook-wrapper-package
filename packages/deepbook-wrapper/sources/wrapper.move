@@ -67,6 +67,12 @@ public struct ProtocolFeeWithdrawn<phantom CoinType> has copy, drop {
     amount: u64,
 }
 
+/// Event emitted when DEEP coins are deposited into the wrapper's reserves
+public struct DeepReservesDeposited has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
 /// Event emitted when a new version is enabled for the wrapper
 public struct VersionEnabled has copy, drop {
     wrapper_id: ID,
@@ -80,9 +86,15 @@ public struct VersionDisabled has copy, drop {
 }
 
 // === Public-Mutative Functions ===
-/// Join DEEP coins into the wrapper's reserves
-public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
+/// Deposit DEEP coins into the wrapper's reserves
+public fun deposit_into_reserves(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     wrapper.verify_version();
+
+    event::emit(DeepReservesDeposited {
+        wrapper_id: wrapper.id.to_inner(),
+        amount: deep_coin.value(),
+    });
+
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
