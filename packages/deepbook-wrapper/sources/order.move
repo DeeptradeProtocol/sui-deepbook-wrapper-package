@@ -769,7 +769,6 @@ public fun cancel_order_and_settle_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinT
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<UnsettledFeeCoinType> {
-    // Settle the fees
     let settled_fees = wrapper.settle_user_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinType>(
         pool,
         balance_manager,
@@ -777,7 +776,6 @@ public fun cancel_order_and_settle_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinT
         ctx,
     );
 
-    // Cancel the order
     let trade_proof = balance_manager.generate_proof_as_owner(ctx);
     pool.cancel_order(balance_manager, &trade_proof, order_id, clock, ctx);
 
