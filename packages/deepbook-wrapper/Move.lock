@@ -72,7 +72,7 @@ dependencies = [
 
 [[move.package]]
 id = "token"
-source = { local = "../token" }
+source = { git = "https://github.com/MystenLabs/deepbookv3.git", rev = "main", subdir = "packages/token" }
 
 dependencies = [
   { id = "Sui", name = "Sui" },
