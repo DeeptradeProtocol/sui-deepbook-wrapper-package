@@ -33,6 +33,7 @@ public struct FundCap has key, store {
     wrapper_id: ID,
 }
 
+// === Events ===
 /// Event emitted when DEEP coins are withdrawn from the wrapper's reserves
 public struct DeepReservesWithdrawn has copy, drop {
     wrapper_id: ID,
