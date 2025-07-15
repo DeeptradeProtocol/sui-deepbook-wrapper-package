@@ -123,6 +123,8 @@ public fun update_pool_specific_fees<BaseToken, QuoteToken>(
 }
 
 /// Creates a new PoolFeeConfig after validating the provided rates.
+/// This function is safe to be public because all mutative functions that require
+/// a PoolFeeConfig also require a ticket, which can only be created by the admin.
 public fun new_pool_fee_config(
     deep_fee_type_taker_rate: u64,
     deep_fee_type_maker_rate: u64,
