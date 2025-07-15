@@ -216,7 +216,6 @@ public fun max_deep_fee_discount_rate(config: PoolFeeConfig): u64 {
 /// - clock: System clock for timestamp verification
 ///
 /// Returns:
-/// - total_fee: Combined coverage fee and protocol fee
 /// - deep_reserves_coverage_fee: SUI cost of borrowed DEEP from reserves
 /// - protocol_fee: Protocol fee after discount applied
 /// - deep_required: Total amount of DEEP required for the order
@@ -233,7 +232,7 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
     price: u64,
     is_bid: bool,
     clock: &Clock,
-): (u64, u64, u64, u64, u64) {
+): (u64, u64, u64, u64) {
     // Get the best DEEP/SUI price
     let sui_per_deep = get_sui_per_deep(
         deep_usd_price_info,
@@ -250,12 +249,7 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
     let deep_required = calculate_deep_required(pool, quantity, price);
     let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    let (
-        total_fee,
-        deep_reserves_coverage_fee,
-        protocol_fee,
-        discount_rate,
-    ) = estimate_full_order_fee_core(
+    let (deep_reserves_coverage_fee, protocol_fee, discount_rate) = estimate_full_order_fee_core(
         deep_in_balance_manager,
         deep_in_wallet,
         deep_required,
@@ -265,7 +259,7 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
         max_discount_rate,
     );
 
-    (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required, discount_rate)
+    (deep_reserves_coverage_fee, protocol_fee, deep_required, discount_rate)
 }
 
 /// Estimate the total fee for a market order using DEEP fee type
@@ -286,7 +280,6 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
 /// - clock: System clock for timestamp verification
 ///
 /// Returns:
-/// - total_fee: Combined coverage fee and protocol fee
 /// - deep_reserves_coverage_fee: SUI cost of borrowed DEEP from reserves
 /// - protocol_fee: Protocol fee after discount applied
 /// - deep_required: Total amount of DEEP required for the order
@@ -302,7 +295,7 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     order_amount: u64,
     is_bid: bool,
     clock: &Clock,
-): (u64, u64, u64, u64, u64) {
+): (u64, u64, u64, u64) {
     // Get the best DEEP/SUI price
     let sui_per_deep = get_sui_per_deep(
         deep_usd_price_info,
@@ -323,12 +316,7 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
         clock,
     );
 
-    let (
-        total_fee,
-        deep_reserves_coverage_fee,
-        protocol_fee,
-        discount_rate,
-    ) = estimate_full_order_fee_core(
+    let (deep_reserves_coverage_fee, protocol_fee, discount_rate) = estimate_full_order_fee_core(
         deep_in_balance_manager,
         deep_in_wallet,
         deep_required,
@@ -338,7 +326,7 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
         max_discount_rate,
     );
 
-    (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required, discount_rate)
+    (deep_reserves_coverage_fee, protocol_fee, deep_required, discount_rate)
 }
 
 // === Public-Package Functions ===
@@ -357,7 +345,6 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
 /// - max_discount_rate: Maximum discount rate available (in billionths)
 ///
 /// Returns:
-/// - total_fee: Combined coverage fee and protocol fee
 /// - deep_reserves_coverage_fee: SUI cost of borrowed DEEP from reserves
 /// - protocol_fee: Protocol fee after discount applied
 /// - discount_rate: Actual discount rate applied to protocol fee
@@ -395,9 +382,7 @@ public(package) fun estimate_full_order_fee_core(
         discount_rate,
     );
 
-    let total_fee = deep_reserves_coverage_fee + protocol_fee;
-
-    (total_fee, deep_reserves_coverage_fee, protocol_fee, discount_rate)
+    (deep_reserves_coverage_fee, protocol_fee, discount_rate)
 }
 
 /// Calculates the fee for using DEEP from wrapper reserves
