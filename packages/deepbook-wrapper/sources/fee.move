@@ -122,6 +122,29 @@ public fun update_pool_specific_fees<BaseToken, QuoteToken>(
     event::emit(PoolFeesUpdated { pool_id, new_fees });
 }
 
+/// Creates a new PoolFeeConfig after validating the provided rates.
+/// This function is safe to be public because all mutative functions that require
+/// a PoolFeeConfig also require a ticket, which can only be created by the admin.
+public fun new_pool_fee_config(
+    deep_fee_type_taker_rate: u64,
+    deep_fee_type_maker_rate: u64,
+    input_coin_fee_type_taker_rate: u64,
+    input_coin_fee_type_maker_rate: u64,
+    max_deep_fee_discount_rate: u64,
+): PoolFeeConfig {
+    let config = PoolFeeConfig {
+        deep_fee_type_taker_rate,
+        deep_fee_type_maker_rate,
+        input_coin_fee_type_taker_rate,
+        input_coin_fee_type_maker_rate,
+        max_deep_fee_discount_rate,
+    };
+
+    validate_pool_fee_config(&config);
+
+    config
+}
+
 // === Public-View Functions ===
 /// Get pool-specific fee config if configured, otherwise default fee config.
 public fun get_pool_fee_config<BaseToken, QuoteToken>(
