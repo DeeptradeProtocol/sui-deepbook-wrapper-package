@@ -356,7 +356,7 @@ public(package) fun estimate_full_order_fee_core(
     protocol_taker_fee_rate: u64,
     order_amount: u64,
     max_discount_rate: u64,
-): (u64, u64, u64, u64) {
+): (u64, u64, u64) {
     let deep_from_reserves = if (balance_manager_deep + deep_in_wallet < deep_required)
         deep_required - balance_manager_deep - deep_in_wallet else 0;
 
