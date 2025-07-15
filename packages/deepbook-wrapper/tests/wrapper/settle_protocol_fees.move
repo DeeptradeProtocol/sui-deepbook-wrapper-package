@@ -584,3 +584,73 @@ fun protocol_settles_batch_of_fees_correctly() {
 
     end(scenario);
 }
+
+#[test]
+/// Test that the protocol ignores orders with no unsettled fees.
+fun protocol_ignores_order_with_no_unsettled_fees() {
+    let (mut scenario, pool_id, balance_manager_id) = setup_test_environment();
+
+    // Step 1: Alice places an order but NO unsettled fee is added.
+    scenario.next_tx(ALICE);
+    let order_id = {
+        let order_info = place_limit_order<SUI, USDC>(
+            ALICE,
+            pool_id,
+            balance_manager_id,
+            1,
+            constants::no_restriction(),
+            constants::self_matching_allowed(),
+            2 * constants::float_scaling(),
+            100 * constants::float_scaling(),
+            true,
+            true,
+            constants::max_u64(),
+            &mut scenario,
+        );
+        // Note: No unsettled fee is added here
+        order_info.order_id()
+    };
+
+    // Step 2: Cancel the order to make it non-live.
+    scenario.next_tx(ALICE);
+    {
+        let mut pool = scenario.take_shared_by_id<Pool<SUI, USDC>>(pool_id);
+        let mut balance_manager = scenario.take_shared_by_id<BalanceManager>(balance_manager_id);
+        let clock = scenario.take_shared<Clock>();
+        let trade_proof = balance_manager.generate_proof_as_owner(scenario.ctx());
+
+        pool.cancel_order(&mut balance_manager, &trade_proof, order_id, &clock, scenario.ctx());
+
+        return_shared(pool);
+        return_shared(balance_manager);
+        return_shared(clock);
+    };
+
+    // Step 3: Try to settle protocol fees for the order with no unsettled fees.
+    scenario.next_tx(OWNER);
+    {
+        let mut wrapper = scenario.take_shared<Wrapper>();
+        let pool = scenario.take_shared_by_id<Pool<SUI, USDC>>(pool_id);
+        let balance_manager = scenario.take_shared_by_id<BalanceManager>(balance_manager_id);
+        let mut receipt = start_protocol_fee_settlement<SUI>();
+
+        // This should do nothing because there are no unsettled fees for this order.
+        wrapper.settle_protocol_fee_and_record(&mut receipt, &pool, &balance_manager, order_id);
+
+        let (orders_count, total_settled) = receipt.finish_protocol_fee_settlement_for_testing();
+        assert_eq!(orders_count, 0);
+        assert_eq!(total_settled, 0);
+
+        // Verify no unsettled fee exists for this order.
+        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id, balance_manager_id, order_id), false);
+
+        // Verify no protocol fees were collected.
+        assert_eq!(wrapper.get_protocol_fee_balance<SUI>(), 0);
+
+        return_shared(wrapper);
+        return_shared(pool);
+        return_shared(balance_manager);
+    };
+
+    end(scenario);
+}

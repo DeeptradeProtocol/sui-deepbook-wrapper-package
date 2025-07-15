@@ -1,7 +1,12 @@
 #[test_only]
 module deepbook_wrapper::get_pyth_price_tests;
 
-use deepbook_wrapper::oracle::{get_pyth_price, EPriceConfidenceExceedsThreshold, EStalePrice};
+use deepbook_wrapper::oracle::{
+    get_pyth_price,
+    EPriceConfidenceExceedsThreshold,
+    EStalePrice,
+    EZeroPriceMagnitude
+};
 use pyth::i64;
 use pyth::price;
 use pyth::price_feed;
@@ -156,6 +161,40 @@ fun price_magnitude_is_negative() {
                 example_price_identifier(),
                 price::new(
                     i64::new(8, true), // negative magnitude
+                    0,
+                    i64::new(4, true),
+                    0,
+                ),
+                price::new(
+                    i64::new(100, false),
+                    0,
+                    i64::new(5, false),
+                    0,
+                ),
+            ),
+        ),
+        test_scenario::ctx(&mut scenario),
+    );
+
+    get_pyth_price(&price_info_object, &clock);
+
+    abort
+}
+
+#[test, expected_failure(abort_code = EZeroPriceMagnitude)]
+fun price_magnitude_is_zero() {
+    let owner = @0x26;
+    let mut scenario = test_scenario::begin(owner);
+    let clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
+
+    let price_info_object = price_info::new_price_info_object_for_testing(
+        price_info::new_price_info(
+            0,
+            0,
+            price_feed::new(
+                example_price_identifier(),
+                price::new(
+                    i64::new(0, false), // zero magnitude
                     0,
                     i64::new(4, true),
                     0,
