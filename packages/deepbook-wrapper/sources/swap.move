@@ -19,7 +19,7 @@ use sui::event;
 const EInsufficientOutputAmount: u64 = 1;
 
 // === Events ===
-public struct SwapPerformed<phantom BaseAsset, phantom QuoteAsset> has copy, drop {
+public struct SwapExecuted<phantom BaseAsset, phantom QuoteAsset> has copy, drop {
     wrapper_id: ID,
     pool_id: ID,
     base_to_quote: bool,
@@ -94,7 +94,7 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
     // Verify that the final output after wrapper fees still meets the user's minimum requirement
     validate_minimum_output(&result_quote, min_quote_out);
 
-    event::emit(SwapPerformed<BaseToken, QuoteToken> {
+    event::emit(SwapExecuted<BaseToken, QuoteToken> {
         wrapper_id: object::id(wrapper),
         pool_id: object::id(pool),
         base_to_quote: true,
@@ -171,7 +171,7 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
     // Verify that the final output after wrapper fees still meets the user's minimum requirement
     validate_minimum_output(&result_base, min_base_out);
 
-    event::emit(SwapPerformed<BaseToken, QuoteToken> {
+    event::emit(SwapExecuted<BaseToken, QuoteToken> {
         wrapper_id: object::id(wrapper),
         pool_id: object::id(pool),
         base_to_quote: false,
@@ -240,7 +240,7 @@ public fun swap_exact_base_for_quote_input_fee<BaseToken, QuoteToken>(
     // Verify that the final output after wrapper fees still meets the user's minimum requirement
     validate_minimum_output(&result_quote, min_quote_out);
 
-    event::emit(SwapPerformed<BaseToken, QuoteToken> {
+    event::emit(SwapExecuted<BaseToken, QuoteToken> {
         wrapper_id: object::id(wrapper),
         pool_id: object::id(pool),
         base_to_quote: true,
@@ -309,7 +309,7 @@ public fun swap_exact_quote_for_base_input_fee<BaseToken, QuoteToken>(
     // Verify that the final output after wrapper fees still meets the user's minimum requirement
     validate_minimum_output(&result_base, min_base_out);
 
-    event::emit(SwapPerformed<BaseToken, QuoteToken> {
+    event::emit(SwapExecuted<BaseToken, QuoteToken> {
         wrapper_id: object::id(wrapper),
         pool_id: object::id(pool),
         base_to_quote: false,
