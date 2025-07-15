@@ -1,8 +1,7 @@
 import { Transaction } from "@mysten/sui/transactions";
 import { provider } from "../../common";
 import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../../constants";
-import { base64ToBytes } from "../../utils";
-import { miltisigSignersBase64Pubkeys, weights, threshold, multisigAddress } from "../../multisig";
+import { MULTISIG_CONFIG } from "../../multisig";
 
 // Set the version to enable here
 const VERSION = 2;
@@ -11,7 +10,6 @@ const VERSION = 2;
 (async () => {
   const tx = new Transaction();
 
-  const pks = miltisigSignersBase64Pubkeys.map((pubkey) => base64ToBytes(pubkey));
 
   tx.moveCall({
     target: `${WRAPPER_PACKAGE_ID}::wrapper::enable_version`,
@@ -19,16 +17,16 @@ const VERSION = 2;
       tx.object(WRAPPER_OBJECT_ID),
       tx.object(ADMIN_CAP_OBJECT_ID),
       tx.pure.u16(VERSION),
-      tx.pure.vector("vector<u8>", pks),
-      tx.pure.vector("u8", weights),
-      tx.pure.u16(threshold),
+      tx.pure.vector("vector<u8>", MULTISIG_CONFIG.pks),
+      tx.pure.vector("u8", MULTISIG_CONFIG.weights),
+      tx.pure.u16(MULTISIG_CONFIG.threshold),
     ],
   });
 
   console.warn(`Building transaction to enable version ${VERSION}`);
 
   // Set sender for the transaction
-  tx.setSender(multisigAddress);
+  tx.setSender(MULTISIG_CONFIG.address);
 
   // Build transaction bytes for signing
   const transactionBytes = await tx.build({ client: provider });

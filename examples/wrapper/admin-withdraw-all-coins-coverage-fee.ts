@@ -1,11 +1,10 @@
 import { Transaction } from "@mysten/sui/transactions";
 import { provider } from "../common";
 import { ADMIN_CAP_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
-import { base64ToBytes } from "../utils";
+import { MULTISIG_CONFIG } from "../multisig";
 import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 import { getWrapperBags } from "./utils/getWrapperBags";
 import { processFeesBag } from "./utils/processFeeBag";
-import { miltisigSignersBase64Pubkeys, multisigAddress, weights, threshold } from "../multisig";
 
 
 // yarn ts-node examples/wrapper/admin-withdraw-all-coins-coverage-fee.ts > admin-withdraw-all-coins-coverage-fee.log 2>&1
@@ -22,23 +21,22 @@ import { miltisigSignersBase64Pubkeys, multisigAddress, weights, threshold } fro
     `Building transaction to withdraw coverage fees for ${coinTypes.length} coin types: ${coinTypes.join(", ")}`,
   );
 
-  const pks = miltisigSignersBase64Pubkeys.map((pubkey) => base64ToBytes(pubkey));
 
   for (const coinType of coinTypes) {
     getWithdrawFeeTx({
-      coinType,
+      coinType, 
       target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves_coverage_fee`,
-      user: multisigAddress,
+      user: MULTISIG_CONFIG.address,
       adminCapId: ADMIN_CAP_OBJECT_ID,
       transaction: tx,
-      pks,
-      weights,
-      threshold,
+      pks: MULTISIG_CONFIG.pks,
+      weights: MULTISIG_CONFIG.weights,
+      threshold: MULTISIG_CONFIG.threshold,
     });
   }
 
   // Set sender for the transaction
-  tx.setSender(multisigAddress);
+  tx.setSender(MULTISIG_CONFIG.address);
 
   // Build transaction bytes for signing
   const transactionBytes = await tx.build({ client: provider });

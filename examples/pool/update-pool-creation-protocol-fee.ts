@@ -1,8 +1,7 @@
 import { Transaction } from "@mysten/sui/transactions";
 import { provider } from "../common";
 import { ADMIN_CAP_OBJECT_ID, POOL_CREATION_CONFIG_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
-import { base64ToBytes } from "../utils";
-import { miltisigSignersBase64Pubkeys, weights, threshold, multisigAddress } from "../multisig";
+import { MULTISIG_CONFIG } from "../multisig";
 
 // Set this value to the amount you want to set the new fee to
 const NEW_FEE = 200 * 1_000_000; // 200 DEEP
@@ -10,8 +9,6 @@ const NEW_FEE = 200 * 1_000_000; // 200 DEEP
 // yarn ts-node examples/pool/update-pool-creation-protocol-fee.ts
 (async () => {
   console.warn(`Building transaction to update pool creation protocol fee to ${NEW_FEE / 1_000_000} DEEP`);
-
-  const pks = miltisigSignersBase64Pubkeys.map((pubkey) => base64ToBytes(pubkey));
 
   const tx = new Transaction();
 
@@ -21,14 +18,14 @@ const NEW_FEE = 200 * 1_000_000; // 200 DEEP
       tx.object(POOL_CREATION_CONFIG_OBJECT_ID),
       tx.object(ADMIN_CAP_OBJECT_ID),
       tx.pure.u64(NEW_FEE),
-      tx.pure.vector("vector<u8>", pks),
-      tx.pure.vector("u8", weights),
-      tx.pure.u16(threshold),
+      tx.pure.vector("vector<u8>", MULTISIG_CONFIG.pks),
+      tx.pure.vector("u8", MULTISIG_CONFIG.weights),
+      tx.pure.u16(MULTISIG_CONFIG.threshold),
     ],
   });
 
   // Set sender for the transaction
-  tx.setSender(multisigAddress);
+  tx.setSender(MULTISIG_CONFIG.address);
 
   // Build transaction bytes for signing
   const transactionBytes = await tx.build({ client: provider });

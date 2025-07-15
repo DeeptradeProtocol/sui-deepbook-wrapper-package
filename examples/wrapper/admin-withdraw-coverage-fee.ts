@@ -1,27 +1,24 @@
 import { provider } from "../common";
 import { ADMIN_CAP_OBJECT_ID, NS_COIN_TYPE, WRAPPER_PACKAGE_ID } from "../constants";
-import { miltisigSignersBase64Pubkeys } from "../multisig";
-import { base64ToBytes } from "../utils";
+import { MULTISIG_CONFIG } from "../multisig";
 import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 
 // yarn ts-node examples/wrapper/admin-withdraw-coverage-fee.ts > admin-withdraw-coverage-fee.log 2>&1
 (async () => {
   console.warn(`Building transaction to withdraw coverage fees for ${NS_COIN_TYPE}`);
 
-  const pks = miltisigSignersBase64Pubkeys.map((pubkey) => base64ToBytes(pubkey));
-
   const tx = getWithdrawFeeTx({
     coinType: NS_COIN_TYPE,
     target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves_coverage_fee`,
-    user: multisigAddress,
+    user: MULTISIG_CONFIG.address,
     adminCapId: ADMIN_CAP_OBJECT_ID,
-    pks,
-    weights,
-    threshold,
+    pks: MULTISIG_CONFIG.pks,
+    weights: MULTISIG_CONFIG.weights,
+    threshold: MULTISIG_CONFIG.threshold,
   });
 
   // Set sender for the transaction
-  tx.setSender(multisigAddress);
+  tx.setSender(MULTISIG_CONFIG.address);
 
   // Build transaction bytes for signing
   const transactionBytes = await tx.build({ client: provider });
