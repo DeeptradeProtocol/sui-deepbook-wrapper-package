@@ -2,15 +2,11 @@ import { Transaction } from "@mysten/sui/transactions";
 import { provider } from "../../common";
 import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../../constants";
 import { base64ToBytes } from "../../utils";
+import { miltisigSignersBase64Pubkeys, weights, threshold, multisigAddress } from "../../multisig";
 
 // Set the version to disable here
 const VERSION = 1;
 
-// Paste your multisig signers base64! pubkeys, weights, threshold and hex multisig address here
-const miltisigSignersBase64Pubkeys: string[] = [];
-const weights: number[] = [];
-const threshold = 0;
-const multisigAddress = "";
 
 // Usage: yarn ts-node examples/wrapper/versions/disable-version.ts > disable-version.log 2>&1
 (async () => {

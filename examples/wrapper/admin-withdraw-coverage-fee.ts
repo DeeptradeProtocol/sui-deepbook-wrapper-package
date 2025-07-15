@@ -1,13 +1,8 @@
 import { provider } from "../common";
 import { ADMIN_CAP_OBJECT_ID, NS_COIN_TYPE, WRAPPER_PACKAGE_ID } from "../constants";
+import { miltisigSignersBase64Pubkeys } from "../multisig";
 import { base64ToBytes } from "../utils";
 import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
-
-// Paste your multisig signers base64! pubkeys, weights, threshold and hex multisig address here
-const miltisigSignersBase64Pubkeys: string[] = [];
-const weights: number[] = [];
-const threshold = 0;
-const multisigAddress = "";
 
 // yarn ts-node examples/wrapper/admin-withdraw-coverage-fee.ts > admin-withdraw-coverage-fee.log 2>&1
 (async () => {

@@ -5,12 +5,8 @@ import { base64ToBytes } from "../utils";
 import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 import { getWrapperBags } from "./utils/getWrapperBags";
 import { processFeesBag } from "./utils/processFeeBag";
+import { miltisigSignersBase64Pubkeys, multisigAddress, weights, threshold } from "../multisig";
 
-// Paste your multisig signers base64! pubkeys, weights, threshold and hex multisig address here
-const miltisigSignersBase64Pubkeys: string[] = [];
-const weights: number[] = [];
-const threshold = 0;
-const multisigAddress = "";
 
 // yarn ts-node examples/wrapper/admin-withdraw-all-coins-coverage-fee.ts > admin-withdraw-all-coins-coverage-fee.log 2>&1
 (async () => {

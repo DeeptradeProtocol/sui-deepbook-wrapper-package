@@ -2,15 +2,10 @@ import { Transaction } from "@mysten/sui/transactions";
 import { provider } from "../common";
 import { ADMIN_CAP_OBJECT_ID, POOL_CREATION_CONFIG_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
 import { base64ToBytes } from "../utils";
+import { miltisigSignersBase64Pubkeys, weights, threshold, multisigAddress } from "../multisig";
 
 // Set this value to the amount you want to set the new fee to
 const NEW_FEE = 200 * 1_000_000; // 200 DEEP
-
-// Paste your multisig signers base64! pubkeys, weights, threshold and hex multisig address here
-const miltisigSignersBase64Pubkeys: string[] = [];
-const weights: number[] = [];
-const threshold = 0;
-const multisigAddress = "";
 
 // yarn ts-node examples/pool/update-pool-creation-protocol-fee.ts
 (async () => {

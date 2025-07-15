@@ -3,12 +3,7 @@ import { provider } from "../common";
 import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
 import { base64ToBytes } from "../utils";
 import { getDeepReservesBalance } from "./utils/getDeepReservesBalance";
-
-// Paste your multisig signers base64! pubkeys, weights, threshold and hex multisig address here
-const miltisigSignersBase64Pubkeys: string[] = [];
-const weights: number[] = [];
-const threshold = 0;
-const multisigAddress = "";
+import { miltisigSignersBase64Pubkeys, weights, threshold, multisigAddress } from "../multisig";
 
 // yarn ts-node examples/wrapper/withdraw-all-deep-reserves.ts > withdraw-all-deep-reserves.log 2>&1
 (async () => {
