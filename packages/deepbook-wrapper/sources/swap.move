@@ -70,7 +70,6 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
         let (_, _, deep_required) = pool.get_quote_quantity_out(base_quantity, clock);
         split_deep_reserves(wrapper, deep_required, ctx)
     };
-
     let deep_paid = deep_payment.value();
 
     // Execute swap through DeepBook's native swap function
@@ -148,7 +147,6 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
         let (_, _, deep_required) = pool.get_base_quantity_out(quote_quantity, clock);
         split_deep_reserves(wrapper, deep_required, ctx)
     };
-
     let deep_paid = deep_payment.value();
 
     // Execute swap through DeepBook's native swap function
