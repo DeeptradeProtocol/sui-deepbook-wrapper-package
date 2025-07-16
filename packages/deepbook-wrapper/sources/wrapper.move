@@ -91,14 +91,14 @@ public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
 }
 
 // === Events ===
-public struct UnsettledFeeAdded has copy, drop {
+public struct UnsettledFeeAdded<phantom CoinType> has copy, drop {
     key: UnsettledFeeKey,
     fee_value: u64,
     order_quantity: u64,
     maker_quantity: u64,
 }
 
-public struct UserFeesSettled has copy, drop {
+public struct UserFeesSettled<phantom CoinType> has copy, drop {
     key: UnsettledFeeKey,
     fee_value: u64,
     order_quantity: u64,
@@ -489,7 +489,7 @@ public(package) fun add_unsettled_fee<CoinType>(
         wrapper.unsettled_fees.add(unsettled_fee_key, new_unsettled_fee);
     };
 
-    event::emit(UnsettledFeeAdded {
+    event::emit(UnsettledFeeAdded<CoinType> {
         key: unsettled_fee_key,
         fee_value,
         order_quantity,
@@ -568,7 +568,7 @@ public(package) fun settle_user_fees<BaseToken, QuoteToken, FeeCoinType>(
     };
 
     if (fee_value > 0) {
-        event::emit(UserFeesSettled {
+        event::emit(UserFeesSettled<FeeCoinType> {
             key: unsettled_fee_key,
             fee_value,
             order_quantity,
