@@ -99,7 +99,7 @@ public struct ProtocolFeePlan has copy, drop {
 
 /// A plan for depositing the required input coins into the balance manager.
 ///
-/// To place a DeepBook order, the necessary funds (base or quote tokens) must be
+/// To place an order on DeepBook, the necessary funds (base or quote tokens) must be
 /// available in the user's balance manager. This plan calculates how many coins
 /// to transfer from the user's wallet to the balance manager to cover the order.
 public struct InputCoinDepositPlan has copy, drop {
