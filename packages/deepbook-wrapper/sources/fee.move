@@ -375,7 +375,8 @@ public(package) fun estimate_full_order_fee_core(
         deep_required,
     );
 
-    // Calculate protocol fee assuming order is fully taker to show fee upper limit
+    // Calculate protocol fee assuming order is fully taker to show fee upper limit.
+    // This prevents users from paying more than the displayed amount.
     // Apply user's discount to the calculated fee
     let (protocol_fee, _, _) = calculate_protocol_fees(
         hundred_percent(), // 100% taker ratio
