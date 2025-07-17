@@ -111,6 +111,9 @@ public(package) fun calculate_discount_rate(
     deep_from_reserves: u64,
     deep_required: u64,
 ): u64 {
+    // Sanity check: amount of DEEP to be taken from reserves must not exceed the total
+    // amount of DEEP required for the order creation. If it fails, the DEEP planning
+    // mechanism is flawed.
     assert!(deep_from_reserves <= deep_required, EInvalidDeepFromReserves);
 
     // If deep_required is 0, give maximum discount
