@@ -358,6 +358,9 @@ public(package) fun estimate_full_order_fee_core(
     order_amount: u64,
     max_discount_rate: u64,
 ): (u64, u64, u64) {
+    // Calculate the amount of DEEP to be taken from wrapper's reserves.
+    // If the user doesn't have enough DEEP, reserves will cover the difference between
+    // the total DEEP required and the user's available DEEP (balance manager + wallet).
     let deep_from_reserves = if (balance_manager_deep + deep_in_wallet < deep_required)
         deep_required - balance_manager_deep - deep_in_wallet else 0;
 
