@@ -40,16 +40,14 @@ const EOrderNotLiveOrPartiallyFilled: u64 = 8;
 const EOrderFullyExecuted: u64 = 9;
 /// Error when trying to add an unsettled fee with zero value
 const EZeroUnsettledFee: u64 = 10;
-/// Error when the order params mismatch on joining unsettled fee
-const EOrderParamsMismatch: u64 = 11;
+/// Error when the order already has an unsettled fee
+const EUnsettledFeeAlreadyExists: u64 = 11;
 /// Error when the maker quantity is zero on settling user fees
 const EZeroMakerQuantity: u64 = 12;
 /// Error when the filled quantity is greater than the original order quantity on settling user fees
 const EFilledQuantityGreaterThanOrderQuantity: u64 = 13;
 /// Error when the unsettled fee is not empty to be destroyed
 const EUnsettledFeeNotEmpty: u64 = 14;
-/// Error when trying to join unsettled fee with different coin type
-const EUnsettledFeeCoinTypeMismatch: u64 = 15;
 
 // === Structs ===
 /// Wrapper struct for DeepBook V3
@@ -413,13 +411,13 @@ public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Bala
 /// Add unsettled fee for a specific order
 ///
 /// This function stores fees that will be settled later based on order execution outcome.
-/// It validates the order state and either creates a new unsettled fee or joins to an existing one.
+/// It validates the order state and creates a new unsettled fee for the order.
 ///
 /// Key validations:
 /// - Order must be live or partially filled (not cancelled/filled/expired)
 /// - Order must not be fully executed (must have remaining maker quantity)
 /// - Fee amount must be greater than zero
-/// - For existing unsettled fees: order parameters must match (prevents tampering)
+/// - Order must not already have an unsettled fee (one-time addition only)
 ///
 /// See `docs/unsettled-fees.md` for detailed explanation of the unsettled fees system.
 public(package) fun add_unsettled_fee<CoinType>(
@@ -452,42 +450,16 @@ public(package) fun add_unsettled_fee<CoinType>(
     };
     let maker_quantity = order_quantity - executed_quantity;
 
-    let has_same_coin_type_fee = wrapper
-        .unsettled_fees
-        .contains_with_type<UnsettledFeeKey, UnsettledFee<CoinType>>(unsettled_fee_key);
+    // Verify the order doesn't have an unsettled fee yet
+    assert!(!wrapper.unsettled_fees.contains(unsettled_fee_key), EUnsettledFeeAlreadyExists);
 
-    if (has_same_coin_type_fee) {
-        // If the order already has an unsettled fee with the same coin type
-        let existing_unsettled_fee: &mut UnsettledFee<CoinType> = wrapper
-            .unsettled_fees
-            .borrow_mut(unsettled_fee_key);
-
-        // Verify order has the same params. Since we join the unsettled fees only on order creation,
-        // the order params should not change
-        let existing_order_quantity = existing_unsettled_fee.order_quantity;
-        let existing_maker_quantity = existing_unsettled_fee.maker_quantity;
-        assert!(
-            existing_order_quantity == order_quantity && existing_maker_quantity == maker_quantity,
-            EOrderParamsMismatch,
-        );
-
-        // Add the balance to the existing unsettled fee
-        existing_unsettled_fee.balance.join(fee);
-    } else {
-        // Fees are always charged in the order's input coin. Before adding a new fee,
-        // ensure no fee with a different coin type already exists for this order.
-        // If one does, the attempt is rejected to prevent a mismatch.
-        let has_fee_with_different_coin_type = wrapper.unsettled_fees.contains(unsettled_fee_key);
-        assert!(!has_fee_with_different_coin_type, EUnsettledFeeCoinTypeMismatch);
-
-        // Create a new unsettled fee
-        let new_unsettled_fee = UnsettledFee<CoinType> {
-            balance: fee,
-            order_quantity,
-            maker_quantity,
-        };
-        wrapper.unsettled_fees.add(unsettled_fee_key, new_unsettled_fee);
+    // Create the unsettled fee
+    let unsettled_fee = UnsettledFee<CoinType> {
+        balance: fee,
+        order_quantity,
+        maker_quantity,
     };
+    wrapper.unsettled_fees.add(unsettled_fee_key, unsettled_fee);
 
     event::emit(UnsettledFeeAdded<CoinType> {
         key: unsettled_fee_key,
@@ -558,7 +530,6 @@ public(package) fun settle_user_fees<BaseToken, QuoteToken, FeeCoinType>(
     };
 
     let fee_to_settle = unsettled_fee.balance.split(amount_to_settle);
-    let fee_value = fee_to_settle.value();
 
     if (unsettled_fee.balance.value() == 0) {
         let unsettled_fee: UnsettledFee<FeeCoinType> = wrapper
@@ -567,15 +538,13 @@ public(package) fun settle_user_fees<BaseToken, QuoteToken, FeeCoinType>(
         unsettled_fee.destroy_empty();
     };
 
-    if (fee_value > 0) {
-        event::emit(UserFeesSettled<FeeCoinType> {
-            key: unsettled_fee_key,
-            fee_value,
-            order_quantity,
-            maker_quantity,
-            filled_quantity,
-        });
-    };
+    event::emit(UserFeesSettled<FeeCoinType> {
+        key: unsettled_fee_key,
+        fee_value: amount_to_settle,
+        order_quantity,
+        maker_quantity,
+        filled_quantity,
+    });
 
     fee_to_settle.into_coin(ctx)
 }
