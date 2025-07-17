@@ -47,6 +47,10 @@ Protocol fees are calculated dynamically based on order execution status:
 - **Immediately executed portions**: Charged at the taker fee rate
 - **Live/unfilled portions**: Charged at the maker fee rate and added to unsettled fees
 
+### Fee Estimation Strategy
+
+When estimating fees for users, the wrapper calculates the protocol fee assuming the order will be fully executed as a taker order, then applies the user's discount rate to this estimated amount. This approach provides users with a fee upper limit, preventing scenarios where they would have to pay more than the displayed amount. The actual fee charged is then adjusted based on the actual execution status of their order.
+
 ### Fee Configuration
 
 - Fee rates (both taker and maker for both fee types) are specified per pool in the `TradingFeeConfig`
