@@ -18,7 +18,7 @@ When a user places an order, we follow this process:
 
 The system offers protocol fee discounts when using the DEEP fee type, designed to incentivize DEEP holders:
 
-- **Discount calculation**: The more DeepBook fees you cover with your own DEEP tokens, the higher your discount
+- **Discount calculation**: The more DeepBook fees the user covers with their own DEEP tokens, the higher their discount
 - **Maximum discount**: Achieved when the user fully covers the DeepBook fees themselves
 - **Whitelisted pools**: Automatically receive the maximum protocol fee discount rate for each order
 - **Configuration**: Maximum discount rates are specified for each pool in the `TradingFeeConfig`, alongside the standard fee rates
@@ -46,9 +46,27 @@ Anyone can call `settle_protocol_fee_and_record` for orders (this is a permissio
 
 The system supports various order types:
 
-- **IOC (including market orders) and FOK orders**: Charged as taker fees since they execute immediately
-- **Post-only orders**: Charged as maker fees for the entire order (0 taker fee)
-- **General no-restriction orders**: Dynamic fee calculation as described above
+- **IOC (including market orders) and FOK orders**: Pay taker fees only - execute immediately with nothing remaining in order book
+- **Post-only orders**: Pay maker fees only - no immediate execution, entire order stays in order book
+- **GTC orders**: Dynamic fee calculation as described above
+
+### Examples
+
+**Market Order (IOC)**:
+
+If 75% of the order executes, the user pays taker fees only for the executed 75% portion. The remaining 25% is automatically cancelled due to the IOC order type.
+
+**FOK Order**:
+
+The order is either 100% filled or completely aborted. If filled, the user pays taker fees only for the executed 100% portion. No maker fees are charged because nothing remains in the order book.
+
+**Post-Only Order**:
+
+The order either remains entirely in the order book (no executed portion) or is completely aborted. If placed, the user pays only maker fees for the 100% portion that remains in the order book. These fees are added to unsettled fees.
+
+**GTC Order**:
+
+If 10% of the order executes immediately, the user pays taker fees for the executed 10% portion. The remaining 90% stays in the order book, and the user pays maker fees for this remaining portion. These maker fees are added to unsettled fees.
 
 ## Design Limitations
 
@@ -74,4 +92,4 @@ The system supports various order types:
 
 ## Key Security Feature
 
-The protocol collection mechanism includes a crucial security check: fees can only be claimed from orders that are confirmed as finalized by the DeepBook pool. This prevents premature fee collection and ensures system correctness.
+The protocol collection mechanism includes a crucial security check: fees can only be claimed from orders that are confirmed as finalized (cancelled or filled) by the DeepBook pool. This prevents premature fee collection and ensures system correctness.
