@@ -1,6 +1,6 @@
 module deepbook_wrapper::helper;
 
-use deepbook::constants::{Self, live, partially_filled};
+use deepbook::constants::{live, partially_filled};
 use deepbook::pool::Pool;
 use deepbook_wrapper::math;
 use deepbook_wrapper::oracle;
@@ -39,11 +39,13 @@ const EExecutedQuantityExceedsOriginal: u64 = 10;
 const CURRENT_VERSION: u16 = 1;
 /// The maximum power of 10 that doesn't overflow u64. 10^20 overflows u64
 const MAX_SAFE_U64_POWER_OF_TEN: u64 = 19;
+/// 100% in billionths format
+const HUNDRED_PERCENT: u64 = 1_000_000_000;
 
 // === Public-View Functions ===
-public fun current_version(): u16 {
-    CURRENT_VERSION
-}
+public fun current_version(): u16 { CURRENT_VERSION }
+
+public fun hundred_percent(): u64 { HUNDRED_PERCENT }
 
 // === Public-Package Functions ===
 /// Get fee basis points from pool parameters
@@ -97,9 +99,9 @@ public(package) fun apply_slippage(value: u64, slippage: u64): u64 {
 /// The discount rate is in billionths format (e.g., 50_000_000 = 5%)
 public(package) fun apply_discount(value: u64, discount_rate: u64): u64 {
     // Verify that the discount is not greater than 100%
-    assert!(discount_rate <= 1_000_000_000, EInvalidDiscountRate);
+    assert!(discount_rate <= HUNDRED_PERCENT, EInvalidDiscountRate);
 
-    let discount_multiplier = 1_000_000_000 - discount_rate;
+    let discount_multiplier = HUNDRED_PERCENT - discount_rate;
     math::mul(value, discount_multiplier)
 }
 
@@ -134,7 +136,9 @@ public(package) fun calculate_order_taker_maker_ratio(
     executed_quantity: u64,
     order_status: u8,
 ): (u64, u64) {
-    // Validate inputs
+    // Sanity checks: order quantity must be greater than 0, and executed quantity must not exceed
+    // the total order quantity. This should be guaranteed by DeepBook. If it fails, the order
+    // creation mechanism is flawed.
     assert!(original_quantity > 0, EZeroOriginalQuantity);
     assert!(executed_quantity <= original_quantity, EExecutedQuantityExceedsOriginal);
 
@@ -144,7 +148,7 @@ public(package) fun calculate_order_taker_maker_ratio(
         (order_status == live() || order_status == partially_filled());
 
     let taker_ratio = math::div(executed_quantity, original_quantity);
-    let maker_ratio = if (order_has_maker_part) 1_000_000_000 - taker_ratio else 0;
+    let maker_ratio = if (order_has_maker_part) HUNDRED_PERCENT - taker_ratio else 0;
 
     (taker_ratio, maker_ratio)
 }
@@ -393,19 +397,10 @@ public(package) fun calculate_market_order_params<BaseToken, QuoteToken>(
 /// Parameters:
 /// - slippage: The slippage value in billionths format (e.g., 10_000_000 = 1%)
 ///
-/// Format explanation:
-/// - Slippage is expressed in billionths (10^9)
-/// - 1% = 1/100 * 10^9 = 10_000_000
-/// - 100% = 1_000_000_000 (float_scaling)
-///
-/// Requirements:
-/// - Slippage must not exceed float_scaling (1_000_000_000), which represents 100%
-///
 /// Aborts with EInvalidSlippage if:
-/// - Slippage value is greater than float_scaling (100%)
+/// - Slippage value is greater than 100%
 public(package) fun validate_slippage(slippage: u64) {
-    let float_scaling = constants::float_scaling();
-    assert!(slippage <= float_scaling, EInvalidSlippage);
+    assert!(slippage <= HUNDRED_PERCENT, EInvalidSlippage);
 }
 
 /// Gets the first (best) ask price from the order book

@@ -8,6 +8,7 @@ use deepbook_wrapper::helper::{
     calculate_discount_rate,
     get_sui_per_deep,
     calculate_market_order_params,
+    hundred_percent,
     apply_discount
 };
 use deepbook_wrapper::math;
@@ -374,7 +375,7 @@ public(package) fun estimate_full_order_fee_core(
     // Calculate protocol fee assuming order is fully taker to show fee upper limit
     // Apply user's discount to the calculated fee
     let (protocol_fee, _, _) = calculate_protocol_fees(
-        1_000_000_000, // 100% taker ratio
+        hundred_percent(), // 100% taker ratio
         0, // 0% maker ratio
         protocol_taker_fee_rate,
         0, // no need to specify maker fee rate for 0% maker ratio
@@ -427,7 +428,7 @@ public(package) fun calculate_protocol_fees(
     discount_rate: u64,
 ): (u64, u64, u64) {
     // Validate input parameters
-    assert!(taker_ratio + maker_ratio <= 1_000_000_000, EInvalidRatioSum);
+    assert!(taker_ratio + maker_ratio <= hundred_percent(), EInvalidRatioSum);
     assert!(order_amount > 0, EZeroOrderAmount);
 
     let taker_amount = math::mul(order_amount, taker_ratio);
