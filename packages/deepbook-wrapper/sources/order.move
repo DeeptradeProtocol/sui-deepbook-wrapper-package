@@ -30,6 +30,7 @@ use deepbook_wrapper::wrapper::{
     split_deep_reserves
 };
 use pyth::price_info::PriceInfoObject;
+use sui::balance;
 use sui::clock::Clock;
 use sui::coin::Coin;
 use sui::sui::SUI;
@@ -1653,28 +1654,34 @@ fun execute_protocol_fee_plan<CoinType>(
         join_protocol_fee(wrapper, fee.into_balance());
     };
 
-    // Add maker fee from wallet to unsettled fees if needed
+    let mut maker_fee = balance::zero<CoinType>();
+
+    // Join maker fee from wallet to total maker fee if needed
     if (fee_plan.maker_fee_from_wallet > 0) {
         let fee = coin.balance_mut().split(fee_plan.maker_fee_from_wallet);
-        add_unsettled_fee(
-            wrapper,
-            fee,
-            order_info,
-        );
+        maker_fee.join(fee);
     };
 
-    // Add maker fee from balance manager to unsettled fees if needed
+    // Join maker fee from balance manager to total maker fee if needed
     if (fee_plan.maker_fee_from_balance_manager > 0) {
         let fee = balance_manager.withdraw<CoinType>(
             fee_plan.maker_fee_from_balance_manager,
             ctx,
         );
+        maker_fee.join(fee.into_balance());
+    };
+
+    if (maker_fee.value() > 0) {
         add_unsettled_fee(
             wrapper,
-            fee.into_balance(),
+            maker_fee,
             order_info,
         );
-    };
+    } else {
+        // Maker fee can be zero for IOC/FOK orders (which don't act as makers), when maker fee rate is zero or
+        // the order is filled on creation
+        maker_fee.destroy_zero();
+    }
 }
 
 /// Executes the input coin deposit plan by transferring coins to the balance manager
