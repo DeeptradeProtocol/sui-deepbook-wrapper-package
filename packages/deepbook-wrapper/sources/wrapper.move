@@ -506,7 +506,8 @@ public(package) fun settle_user_fees<BaseToken, QuoteToken, FeeCoinType>(
     let maker_quantity = unsettled_fee.maker_quantity;
     let filled_quantity = order.filled_quantity();
 
-    // Clean up unsettled fee if it doesn't have any value
+    // Clean up unsettled fee if it has zero value. This should never happen because we don't
+    // add zero-value fees and we clean them up when they are fully settled.
     if (unsettled_fee_value == 0) {
         let unsettled_fee: UnsettledFee<FeeCoinType> = wrapper
             .unsettled_fees
@@ -515,8 +516,14 @@ public(package) fun settle_user_fees<BaseToken, QuoteToken, FeeCoinType>(
         return coin::zero(ctx)
     };
 
+    // Sanity check: maker quantity must be greater than zero. If it's zero, the unsettled fee
+    // should not have been added. We validate this during fee addition, so this should never occur.
     assert!(maker_quantity > 0, EZeroMakerQuantity);
-    assert!(filled_quantity <= order_quantity, EFilledQuantityGreaterThanOrderQuantity);
+    // Sanity check: filled quantity must be less than total order quantity. If they are equal,
+    // the order is fully executed and the `pool.get_order` call above should abort. If filled
+    // quantity exceeds total order quantity, there's an error in either the unsettled fees
+    // mechanism or DeepBook's order filling logic.
+    assert!(filled_quantity < order_quantity, EFilledQuantityGreaterThanOrderQuantity);
 
     let amount_to_settle = if (filled_quantity == 0) {
         // If the order is completely unfilled, return all fees
