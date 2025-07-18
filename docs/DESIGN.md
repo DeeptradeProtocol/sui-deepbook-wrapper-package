@@ -42,6 +42,41 @@ The process works like this:
 4. Calculate the SUI equivalent of the borrowed DEEP
 5. Charge this amount from the user as a **DEEP Reserve Coverage Fee**
 
+#### Slippage Validation System
+
+The DEEP fee type includes a **protective slippage validation system** to handle the inherent volatility of its fee calculation parameters. This system is necessary because DEEP-based fees depend on two unstable market conditions:
+
+1. **DeepBook's DEEP price points** - The DEEP required for an order is calculated based on DeepBook's internal DEEP price points, which **change constantly over time**. This makes the exact DEEP requirement unpredictable between fee estimation and order execution.
+
+2. **DEEP/SUI price for coverage fee calculation** - This affects the SUI equivalent charged when the wrapper borrows DEEP from its reserves
+
+**How the validation works:**
+
+Users provide estimated fees and slippage tolerances when creating orders:
+
+- `estimated_deep_required` - User's estimate of DEEP tokens needed for an order creation
+- `estimated_deep_required_slippage` - Maximum acceptable slippage (e.g., 10% = `100_000_000` in billionths)
+- `estimated_sui_fee` - User's estimate of SUI coverage fee
+- `estimated_sui_fee_slippage` - Maximum acceptable slippage for the coverage fee
+
+The system validates two components:
+
+1. **DEEP Fee Validation**: Ensures actual DEEP required doesn't exceed `estimated_deep_required + slippage`
+2. **Coverage Fee Validation**: Ensures actual SUI coverage fee doesn't exceed `estimated_sui_fee + slippage`
+
+**Benefits:**
+
+- **User Protection**: Users get predictable fee upper bounds, preventing unexpected charges
+- **Market Volatility Handling**: Protects against rapid price movements between estimation and execution
+
+**Why Input Coin Fee Type Doesn't Need This:**
+
+Input coin fees are stable and predictable because:
+
+- Fees are calculated as a fixed percentage of the input amount
+- No external price dependencies (like DEEP/SUI price)
+- The calculation is deterministic and doesn't vary with market conditions
+
 ### Input Coin Fees
 
 DeepBook v3.1 introduced an alternative fee mechanism based on the input coin rather than DEEP tokens. Under this model, users pay fees in the same token they're using to create the order.
