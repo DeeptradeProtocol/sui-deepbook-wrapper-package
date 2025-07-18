@@ -136,7 +136,7 @@ The Deepbook Wrapper's order fee structure has minimal economic risk. By collect
 
 When creating a new trading pool, there are two separate fees:
 
-DeepBook protocol requires 500 DEEP coins as a fee for each new pool creation. Additionally, the Wrapper charges 100 DEEP coins as its pool creation fee.
+DeepBook protocol requires 500 DEEP coins as a fee for each new pool creation. Additionally, the Wrapper charges a configurable protocol fee (currently set to 100 DEEP coins) stored in the `PoolCreationConfig` object.
 
 ## Development Tools
 
