@@ -80,8 +80,9 @@ Several approaches could address this economic risk:
 
 1. **Token Whitelisting**: Limit wrapper usage to specific tokens with sufficient value and liquidity
 2. **SUI-based Fees**: Collect swap fees in SUI instead of output tokens, matching the order fee model
+3. **Input coin fee mode**: Restrict wrapper swaps to input coin fee type only, disabling DEEP fee type swaps and eliminating the need for DEEP wrapper reserves.
 
-However, this would only become necessary if DeepBook transitions to permissionless pool creation AND the ecosystem grows to support thousands of token types with active trading. Given that DeepBook pools are currently permissioned, this is not an immediate concern.
+However, this would only become necessary if DeepBook's ecosystem grows to support thousands of token types with active trading.
 
 #### Order Fees
 
