@@ -52,26 +52,18 @@ Deepbook Wrapper charge fee in `output coin`, so it remains the same as it was b
 ### Order Fees
 
 DeepBook protocol requires DEEP coins as fees for order placement, with fees calculated based on order price and size.
-The Deepbook Wrapper handles these fees in two ways:
+The Deepbook Wrapper handles these fees through a unified system:
 
-1. **If user has enough DEEP to cover the order fees**: No additional fees are charged. DEEP coins are provided from the user's wallet balance.
+**Protocol Fee**: Always charged, calculated dynamically based on order execution status and fee rates specified in `TradingFeeConfig`.
 
-2. **If user needs DEEP to cover the order fees**: Two fees apply when borrowing DEEP from Wrapper reserves:
-   - **DEEP Reserve Coverage Fee**: Equal to the required DEEP amount converted to SUI value; paid in SUI coins
-   - **Protocol Fee**: Calculated dynamically based on order execution status and fee rates specified in `TradingFeeConfig`
+**DEEP Reserve Coverage Fee**: Only charged when the user needs to borrow DEEP from Wrapper reserves to cover DeepBook fees. This fee equals the required DEEP amount converted to SUI value and is paid in SUI coins.
 
-**Protocol Fee Calculation**:
-
-- **Immediately executed portions**: Charged at the taker fee rate
-- **Live/unfilled portions**: Charged at the maker fee rate
-
-**Protocol Fee Discounts**: When using DEEP fee type, users can receive discounts:
-
-- The more DeepBook fees you cover with your own DEEP tokens, the higher your discount
-- Maximum discount is achieved when the user fully covers the DeepBook fees themselves
+**Protocol Fee Discounts**: When using DEEP fee type, users can receive discounts on protocol fees based on how much DeepBook fees they cover with their own DEEP tokens. The more DEEP the user provides, the higher their discount on protocol fees.
 
 This structure incentivizes users to hold DEEP coins while ensuring trading accessibility for everyone.
-For whitelisted pools, there are no DEEP fees, so no coverage fees are required. However, protocol fees are still charged, with whitelisted pools receiving the maximum protocol fee discount rate for each order.
+For whitelisted pools, there are no DEEP fees, so no coverage fees are required. However, protocol fees are still charged, with whitelisted pools receiving the maximum protocol fee discount rate for each order. Maximum discount rates for pools are specified in `TradingFeeConfig`, with a default rate of 25% used if not specified.
+
+For detailed information about dynamic protocol fee calculation, and the unsettled fees mechanism, see the [Unsettled Fees](docs/unsettled-fees.md) documentation.
 
 ## Economic Considerations
 
