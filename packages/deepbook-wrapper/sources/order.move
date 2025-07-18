@@ -463,7 +463,7 @@ public fun create_limit_order_whitelisted<BaseToken, QuoteToken>(
         quote_coin,
         &order_info,
         order_amount,
-        max_discount_rate,
+        max_discount_rate, // intentional: whitelisted pools get maximum protocol fee discount by design
         true, // is DEEP fee type
         ctx,
     );
@@ -557,7 +557,7 @@ public fun create_market_order_whitelisted<BaseToken, QuoteToken>(
         quote_coin,
         &order_info,
         order_amount,
-        max_discount_rate,
+        max_discount_rate, // intentional: whitelisted pools get maximum protocol fee discount by design
         true, // is DEEP fee type
         ctx,
     );
@@ -1026,6 +1026,8 @@ public(package) fun get_protocol_fee_plan(
     );
 
     // If no fee, return early
+    // This can occur for IOC orders that don't find matching orders, resulting in zero execution
+    // and thus zero taker fee (no execution) and zero maker fee (no remaining in order book)
     if (total_fee == 0) {
         return zero_protocol_fee_plan()
     };
