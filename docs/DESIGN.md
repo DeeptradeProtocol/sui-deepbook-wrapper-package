@@ -1,5 +1,26 @@
 # DeepBook Wrapper Design
 
+## Overview
+
+The DeepBook Wrapper charges additional fees on top of the standard DeepBook fees. These wrapper fees are calculated using protocol fee configuration system and are applied regardless of which fee type is used for the underlying DeepBook order.
+
+## Fee Configuration
+
+The wrapper uses a unified protocol fee calculation system with configurable rates and discounts. Fee rates and discount configurations are specified per pool in the `TradingFeeConfig`:
+
+- Taker and maker fee rates for both fee types
+- Maximum discount rates for DEEP fee type
+
+### Protocol Fee Discounts
+
+The system incentivizes DEEP holders by offering protocol fee discounts based on how much DeepBook fees users cover with their own DEEP tokens. Whitelisted pools automatically receive the maximum discount rate.
+
+### Dynamic Fee Calculation and Fee Estimation Strategy
+
+When estimating fees for users, the wrapper calculates the protocol fee assuming the order will be fully executed as a taker order, then applies the user's discount rate to this estimated amount. This approach provides users with a fee upper limit, preventing scenarios where they would have to pay more than the displayed amount. The actual fee charged is then adjusted based on the actual execution status of their order.
+
+For detailed information about dynamic fee calculation based on order execution status and the unsettled fees mechanism, see the [unsettled-fees.md](./unsettled-fees.md) documentation.
+
 ## Fee Structure
 
 The wrapper supports two fee types for order creation, with a unified protocol fee calculation system for both:
@@ -17,7 +38,7 @@ The process works like this:
 
 1. Calculate how much DEEP the user needs for DeepBook fees
 2. Provide this DEEP from our reserves
-3. Get the best current DEEP/SUI price either from oracle or from the reference pool
+3. Get the best DEEP/SUI price for the wrapper either from oracle or from the reference pool (read more in [Oracle Pricing Security](docs/oracle-pricing-security.md) documentation)
 4. Calculate the SUI equivalent of the borrowed DEEP
 5. Charge this amount from the user as a **DEEP Reserve Coverage Fee**
 
@@ -35,40 +56,6 @@ The contract provides dedicated functions in the order module for handling input
 - `create_market_order_input_fee`
 
 These functions handle the fee calculation and ensure the user's balance manager has sufficient input coins to cover both the order amount and the DeepBook fee. If needed, they automatically source additional input coins from the user's wallet.
-
-## Protocol Fee System
-
-The wrapper uses a unified protocol fee calculation system regardless of the fee type (DEEP-based or Input coin):
-
-### Dynamic Fee Calculation
-
-Protocol fees are calculated dynamically based on order execution status:
-
-- **Immediately executed portions**: Charged at the taker fee rate
-- **Live/unfilled portions**: Charged at the maker fee rate and added to unsettled fees
-
-### Fee Estimation Strategy
-
-When estimating fees for users, the wrapper calculates the protocol fee assuming the order will be fully executed as a taker order, then applies the user's discount rate to this estimated amount. This approach provides users with a fee upper limit, preventing scenarios where they would have to pay more than the displayed amount. The actual fee charged is then adjusted based on the actual execution status of their order.
-
-### Fee Configuration
-
-- Fee rates (both taker and maker for both fee types) are specified per pool in the `TradingFeeConfig`
-- Maximum discount rates for DEEP fee type are also configured in `TradingFeeConfig`
-
-### Protocol Fee Discounts
-
-When using DEEP fee type, users can receive protocol fee discounts:
-
-- The more DeepBook fees you cover with your own DEEP tokens, the higher your discount
-- Maximum discount is achieved when the user fully covers the DeepBook fees themselves
-- Whitelisted pools automatically receive the maximum protocol fee discount rate for each order
-
-### Unsettled Fees
-
-For orders that remain live in the order book, the wrapper uses an "unsettled fees" system to handle the maker portion of protocol fees. This ensures fees are only charged for actual execution, not just order placement.
-
-For detailed information about the unsettled fees mechanism, see the [unsettled-fees.md](./unsettled-fees.md) documentation.
 
 ## Separate Functions for Different Pool Types
 
