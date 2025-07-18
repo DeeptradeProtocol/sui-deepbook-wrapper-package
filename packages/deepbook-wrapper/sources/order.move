@@ -1522,7 +1522,8 @@ fun prepare_input_fee_order_execution<BaseToken, QuoteToken>(
     let quote_in_wallet = quote_coin.value();
     let wallet_input_coin = if (is_bid) quote_in_wallet else base_in_wallet;
 
-    // Calculate DeepBook fee
+    // Calculate DeepBook fee. It's safe and intentional to overestimate by using the taker fee rate,
+    // since DeepBook will return any unused portion
     let (deepbook_taker_fee, _, _) = pool.pool_trade_params();
     let deepbook_fee = calculate_input_coin_deepbook_fee(order_amount, deepbook_taker_fee);
 
