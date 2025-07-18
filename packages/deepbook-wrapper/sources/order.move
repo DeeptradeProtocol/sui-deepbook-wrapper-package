@@ -1604,6 +1604,7 @@ fun execute_coverage_fee_plan(
 ) {
     wrapper.verify_version();
 
+    // Verify that the user has enough funds to cover the coverage fee
     assert!(fee_plan.user_covers_fee, EInsufficientFee);
 
     // Collect coverage fee from wallet if needed
@@ -1639,6 +1640,7 @@ fun execute_protocol_fee_plan<CoinType>(
 ) {
     wrapper.verify_version();
 
+    // Verify that the user has enough funds to cover the protocol fees
     assert!(fee_plan.user_covers_fee, EInsufficientFee);
 
     // Collect taker fee from wallet if needed
