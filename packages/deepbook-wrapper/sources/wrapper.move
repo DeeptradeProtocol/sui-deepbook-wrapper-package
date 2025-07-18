@@ -434,7 +434,8 @@ public(package) fun add_unsettled_fee<CoinType>(
         EOrderNotLiveOrPartiallyFilled,
     );
 
-    // Order must be not fully executed to have unsettled fee
+    // Sanity check: order must not be fully executed to have an unsettled fee. If the order is
+    // fully executed but still has live or partially filled status, there's an error in DeepBook logic.
     let order_quantity = order_info.original_quantity();
     let executed_quantity = order_info.executed_quantity();
     assert!(executed_quantity < order_quantity, EOrderFullyExecuted);
