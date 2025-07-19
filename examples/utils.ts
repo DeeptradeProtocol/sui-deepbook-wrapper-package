@@ -1,5 +1,3 @@
-import { fromBase64 } from "@mysten/sui/utils";
-
 /**
  * Add two numbers.
  * @param {string} hexStr String as an input.
@@ -35,15 +33,4 @@ export function normalizeMnemonic(mnemonic: string): string {
     .split(/\s+/)
     .map((part) => part.toLowerCase())
     .join(" ");
-}
-
-/**
- * Converts a base64 encoded public key to a byte array
- * Used for multisig operations where public keys are provided in base64 format
- *
- * @param base64 - Base64 encoded public key string
- * @returns Array of numbers representing the public key bytes
- */
-export function base64ToBytes(base64: string): number[] {
-  return Array.from(fromBase64(base64));
 }

@@ -11,6 +11,10 @@ import { printFeeSummary } from "./utils/printFeeSummary";
   const protocolFees = await processFeesBag(protocolFeesBagId);
 
   // Print summaries
-  printFeeSummary("Deep Reserves Coverage Fees", deepReservesFees.coinsMapByCoinType, deepReservesFees.coinsMetadataMapByCoinType);
+  printFeeSummary(
+    "Deep Reserves Coverage Fees",
+    deepReservesFees.coinsMapByCoinType,
+    deepReservesFees.coinsMetadataMapByCoinType,
+  );
   printFeeSummary("Protocol Fees", protocolFees.coinsMapByCoinType, protocolFees.coinsMetadataMapByCoinType);
 })();
