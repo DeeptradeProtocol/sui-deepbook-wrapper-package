@@ -5,8 +5,15 @@ use deepbook::pool;
 use deepbook::registry::Registry;
 use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::transfer_if_nonzero;
-use deepbook_wrapper::wrapper::{Wrapper, join_protocol_fee};
+use deepbook_wrapper::wrapper::{
+    Self,
+    Wrapper,
+    AdminTicket,
+    update_pool_creation_protocol_fee_ticket_type,
+    join_protocol_fee
+};
 use multisig::multisig;
+use sui::clock::Clock;
 use sui::coin::Coin;
 use sui::event;
 use token::deep::DEEP;
@@ -142,33 +149,43 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     pool_id
 }
 
-/// Updates the protocol fee for creating a pool with multi-signature verification
-/// Verifies sender matches the multi-sig address, then updates the protocol fee
+/// Update the protocol fee for creating a pool
+/// Performs timelock validation using an admin ticket
 ///
 /// Parameters:
-/// - config: Mutable reference to the pool creation configuration
+/// - config: Pool creation configuration object
+/// - ticket: Admin ticket for timelock validation (consumed on execution)
 /// - _admin: Admin capability
 /// - new_fee: New protocol fee amount in DEEP tokens
-/// - pks: Vector of public keys of the signers
+/// - pks: Vector of public keys of the multi-sig signers
 /// - weights: Vector of weights for each corresponding signer (must match pks length)
-/// - threshold: Minimum sum of weights required to authorize transactions (must be > 0 and <= sum of weights)
+/// - threshold: Minimum sum of weights required to authorize transactions
+/// - clock: Clock for timestamp validation
+/// - ctx: Mutable transaction context for sender verification
 ///
 /// Aborts:
 /// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
 ///   derived from the provided pks, weights, and threshold parameters
+/// - With ticket-related errors if ticket is invalid, expired, not ready, or wrong type
 public fun update_pool_creation_protocol_fee(
     config: &mut PoolCreationConfig,
+    ticket: AdminTicket,
     _admin: &AdminCap,
     new_fee: u64,
     pks: vector<vector<u8>>,
     weights: vector<u8>,
     threshold: u16,
+    clock: &Clock,
     ctx: &mut TxContext,
 ) {
     assert!(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
     );
+    wrapper::validate_ticket(&ticket, update_pool_creation_protocol_fee_ticket_type(), clock, ctx);
+
+    // Consume ticket after successful validation
+    wrapper::destroy_ticket(ticket);
 
     assert!(
         new_fee >= MIN_POOL_CREATION_PROTOCOL_FEE && new_fee <= MAX_POOL_CREATION_PROTOCOL_FEE,
