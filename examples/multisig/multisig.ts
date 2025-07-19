@@ -115,6 +115,8 @@ export const MULTISIG_CONFIG: MultisigConfig = {
 
 console.debug("Multisig Config Loaded and Verified:");
 console.debug(`- Multisig Address: ${MULTISIG_CONFIG.address}`);
+console.debug(`- Weights: ${JSON.stringify(MULTISIG_CONFIG.weights)}`);
+console.debug(`- Threshold: ${JSON.stringify(MULTISIG_CONFIG.threshold)}`);
 console.debug("- Signer Details:");
 MULTISIG_CONFIG.publicKeys.forEach((pk, i) => {
   const scheme = SIGNATURE_FLAG_TO_SCHEME[pk.flag() as keyof typeof SIGNATURE_FLAG_TO_SCHEME];
@@ -123,5 +125,3 @@ MULTISIG_CONFIG.publicKeys.forEach((pk, i) => {
   );
 });
 console.debug(`- Sui Public Key Bytes (for transactions): `, MULTISIG_CONFIG.publicKeysSuiBytes);
-console.debug(`- Weights: ${JSON.stringify(MULTISIG_CONFIG.weights)}`);
-console.debug(`- Threshold: ${JSON.stringify(MULTISIG_CONFIG.threshold)}`);
