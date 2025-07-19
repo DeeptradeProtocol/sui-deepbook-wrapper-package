@@ -48,5 +48,5 @@ public fun update_pool_creation_protocol_fee(
 
 We recognize that this approach comes with a primary trade-off:
 
--   **Operational Security Exposure:** The full list of public keys participating in the multi-sig is made public with every administrative transaction. We believe this is an acceptable trade-off for the absolute on-chain transparency and security it provides.
--   **Not a Silver Bullet:** This on-chain mechanism does not, and cannot, replace the need for robust internal key management processes. The ultimate security of the system still relies on the signers protecting their individual keys and verifying the transactions they sign.
+- **Operational Security Exposure:** The full list of public keys participating in the multi-sig is made public with every administrative transaction. We believe this is an acceptable trade-off for the absolute on-chain transparency and security it provides.
+- **Not a Silver Bullet:** This on-chain mechanism does not, and cannot, replace the need for robust internal key management processes. The ultimate security of the system still relies on the signers protecting their individual keys and verifying the transactions they sign.
