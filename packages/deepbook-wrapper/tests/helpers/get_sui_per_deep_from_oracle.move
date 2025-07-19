@@ -4,7 +4,8 @@ module deepbook_wrapper::get_sui_per_deep_from_oracle_tests;
 use deepbook_wrapper::helper::{
     get_sui_per_deep_from_oracle,
     EInvalidPriceFeedIdentifier,
-    EDecimalAdjustmentTooLarge
+    EDecimalAdjustmentTooLarge,
+    EUnexpectedPositiveExponent
 };
 use deepbook_wrapper::oracle::{
     Self,
@@ -512,7 +513,7 @@ fun stale_sui_price_and_deep_price_out_of_confidence() {
     abort
 }
 
-#[test, expected_failure]
+#[test, expected_failure(abort_code = EUnexpectedPositiveExponent)]
 fun deep_price_expo_is_positive() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -548,7 +549,7 @@ fun deep_price_expo_is_positive() {
     abort
 }
 
-#[test, expected_failure]
+#[test, expected_failure(abort_code = EUnexpectedPositiveExponent)]
 fun sui_price_expo_is_positive() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -584,7 +585,7 @@ fun sui_price_expo_is_positive() {
     abort
 }
 
-#[test, expected_failure]
+#[test, expected_failure(abort_code = EUnexpectedPositiveExponent)]
 fun both_price_expos_are_positive() {
     let owner = @0x26;
     let mut scenario = test_scenario::begin(owner);
@@ -614,7 +615,7 @@ fun both_price_expos_are_positive() {
         current_time, // use current time to ensure price is fresh
     );
 
-    // Function should abort because both price exponents are positive
+    // Function should abort because DEEP price exponent is positive (checked first)
     get_sui_per_deep_from_oracle(&deep_price, &sui_price, &clock);
 
     abort

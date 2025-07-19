@@ -4,8 +4,12 @@ use deepbook::constants::fee_penalty_multiplier;
 use deepbook::pool::Pool;
 use deepbook_wrapper::helper::{
     calculate_deep_required,
+    calculate_order_amount,
+    calculate_discount_rate,
     get_sui_per_deep,
-    calculate_market_order_params
+    calculate_market_order_params,
+    hundred_percent,
+    apply_discount
 };
 use deepbook_wrapper::math;
 use deepbook_wrapper::ticket::{
@@ -28,6 +32,8 @@ const EFeeOutOfRange: u64 = 2;
 const EInvalidFeeHierarchy: u64 = 3;
 const EInvalidDiscountPrecision: u64 = 4;
 const EDiscountOutOfRange: u64 = 5;
+const EInvalidRatioSum: u64 = 6;
+const EZeroOrderAmount: u64 = 7;
 
 // === Constants ===
 /// The multiple that fee rates must adhere to, aligned with DeepBook (0.01 bps = 0.0001%)
@@ -77,6 +83,24 @@ public struct DefaultFeesUpdated has copy, drop {
 public struct PoolFeesUpdated has copy, drop {
     pool_id: ID,
     new_fees: PoolFeeConfig,
+}
+
+/// Initialize trading fee config object
+fun init(ctx: &mut TxContext) {
+    let trading_fee_config = TradingFeeConfig {
+        id: object::new(ctx),
+        default_fees: PoolFeeConfig {
+            deep_fee_type_taker_rate: DEFAULT_DEEP_TAKER_FEE_BPS,
+            deep_fee_type_maker_rate: DEFAULT_DEEP_MAKER_FEE_BPS,
+            input_coin_fee_type_taker_rate: DEFAULT_INPUT_COIN_TAKER_FEE_BPS,
+            input_coin_fee_type_maker_rate: DEFAULT_INPUT_COIN_MAKER_FEE_BPS,
+            max_deep_fee_discount_rate: DEFAULT_DEEP_FEE_DISCOUNT_RATE,
+        },
+        pool_specific_fees: table::new(ctx),
+    };
+
+    // Share the trading fee config object
+    transfer::share_object(trading_fee_config);
 }
 
 // === Public-Mutative Functions ===
@@ -163,25 +187,27 @@ public fun get_pool_fee_config<BaseToken, QuoteToken>(
 /// Get the deep fee type rates from a pool fee config.
 /// Returns (taker_fee_rate, maker_fee_rate) in billionths.
 public fun deep_fee_type_rates(config: PoolFeeConfig): (u64, u64) {
-    let PoolFeeConfig { deep_fee_type_taker_rate, deep_fee_type_maker_rate, .. } = config;
-    (deep_fee_type_taker_rate, deep_fee_type_maker_rate)
+    (config.deep_fee_type_taker_rate, config.deep_fee_type_maker_rate)
 }
 
 /// Get the input coin fee type rates from a pool fee config.
 /// Returns (taker_fee_rate, maker_fee_rate) in billionths.
 public fun input_coin_fee_type_rates(config: PoolFeeConfig): (u64, u64) {
-    let PoolFeeConfig { input_coin_fee_type_taker_rate, input_coin_fee_type_maker_rate, .. } =
-        config;
-    (input_coin_fee_type_taker_rate, input_coin_fee_type_maker_rate)
+    (config.input_coin_fee_type_taker_rate, config.input_coin_fee_type_maker_rate)
 }
 
-/// Calculates the total fee estimate for a limit order in SUI coins
-/// Uses oracle price feeds and reference pool to calculate the best DEEP/SUI price.
-/// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
+public fun max_deep_fee_discount_rate(config: PoolFeeConfig): u64 {
+    config.max_deep_fee_discount_rate
+}
+
+/// Estimate the total fee for a limit order using DEEP fee type
+///
+/// This function uses oracle price feeds and reference pool to get the best DEEP/SUI price,
+/// then calculates fees including coverage fees and protocol fees with discount applied.
 ///
 /// Parameters:
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool for price calculation
+/// - reference_pool: Reference pool for DEEP/SUI price calculation
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - trading_fee_config: Trading fee configuration object
@@ -189,14 +215,14 @@ public fun input_coin_fee_type_rates(config: PoolFeeConfig): (u64, u64) {
 /// - deep_in_wallet: Amount of DEEP in user's wallet
 /// - quantity: Order quantity in base tokens
 /// - price: Order price in quote tokens per base token
+/// - is_bid: True for buy orders, false for sell orders
 /// - clock: System clock for timestamp verification
 ///
 /// Returns:
-/// - u64: The estimated total fee in SUI coins
-/// - u64: Deep reserves coverage fee
-/// - u64: Protocol fee
-/// - u64: DEEP required for the order
-///   Returns (0, 0, 0, deep_required) for whitelisted pools or when user provides all required DEEP
+/// - deep_reserves_coverage_fee: SUI cost of borrowed DEEP from reserves
+/// - protocol_fee: Protocol fee after discount applied
+/// - deep_required: Total amount of DEEP required for the order
+/// - discount_rate: Actual discount rate applied to protocol fee
 public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -207,11 +233,9 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
     deep_in_wallet: u64,
     quantity: u64,
     price: u64,
+    is_bid: bool,
     clock: &Clock,
 ): (u64, u64, u64, u64) {
-    // Check if pool is whitelisted
-    let is_pool_whitelisted = pool.whitelisted();
-
     // Get the best DEEP/SUI price
     let sui_per_deep = get_sui_per_deep(
         deep_usd_price_info,
@@ -220,32 +244,35 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
         clock,
     );
 
-    // Get the protocol fee rate
-    let protocol_fee_rate = trading_fee_config.deep_fee_type_rate;
+    // Get the protocol fee rates for the pool and max discount rate
+    let pool_fee_config = trading_fee_config.get_pool_fee_config(pool);
+    let (protocol_taker_fee_rate, _) = pool_fee_config.deep_fee_type_rates();
+    let max_discount_rate = pool_fee_config.max_deep_fee_discount_rate();
 
-    // Get DEEP required for the order
     let deep_required = calculate_deep_required(pool, quantity, price);
+    let order_amount = calculate_order_amount(quantity, price, is_bid);
 
-    // Call the core logic function to get fee components
-    let (total_fee, deep_reserves_coverage_fee, protocol_fee) = estimate_full_order_fee_core(
-        protocol_fee_rate,
-        is_pool_whitelisted,
+    let (deep_reserves_coverage_fee, protocol_fee, discount_rate) = estimate_full_order_fee_core(
         deep_in_balance_manager,
         deep_in_wallet,
         deep_required,
         sui_per_deep,
+        protocol_taker_fee_rate,
+        order_amount,
+        max_discount_rate,
     );
 
-    (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
+    (deep_reserves_coverage_fee, protocol_fee, deep_required, discount_rate)
 }
 
-/// Calculates the total fee estimate for a market order in SUI coins
-/// Uses oracle price feeds and reference pool to calculate the best DEEP/SUI price.
-/// Fee is only charged when using DEEP from wrapper reserves for non-whitelisted pools
+/// Estimate the total fee for a market order using DEEP fee type
+///
+/// This function uses oracle price feeds and reference pool to get the best DEEP/SUI price,
+/// then calculates fees including coverage fees and protocol fees with discount applied.
 ///
 /// Parameters:
 /// - pool: The trading pool where the order will be placed
-/// - reference_pool: Reference pool for price calculation
+/// - reference_pool: Reference pool for DEEP/SUI price calculation
 /// - deep_usd_price_info: Pyth price info object for DEEP/USD price
 /// - sui_usd_price_info: Pyth price info object for SUI/USD price
 /// - trading_fee_config: Trading fee configuration object
@@ -256,11 +283,10 @@ public fun estimate_full_fee_limit<BaseToken, QuoteToken, ReferenceBaseAsset, Re
 /// - clock: System clock for timestamp verification
 ///
 /// Returns:
-/// - u64: The estimated total fee in SUI coins
-/// - u64: Deep reserves coverage fee
-/// - u64: Protocol fee
-/// - u64: DEEP required for the order
-///   Returns (0, 0, 0, deep_required) for whitelisted pools or when user provides all required DEEP
+/// - deep_reserves_coverage_fee: SUI cost of borrowed DEEP from reserves
+/// - protocol_fee: Protocol fee after discount applied
+/// - deep_required: Total amount of DEEP required for the order
+/// - discount_rate: Actual discount rate applied to protocol fee
 public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, ReferenceQuoteAsset>(
     pool: &Pool<BaseToken, QuoteToken>,
     reference_pool: &Pool<ReferenceBaseAsset, ReferenceQuoteAsset>,
@@ -273,9 +299,6 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
     is_bid: bool,
     clock: &Clock,
 ): (u64, u64, u64, u64) {
-    // Check if pool is whitelisted
-    let is_pool_whitelisted = pool.whitelisted();
-
     // Get the best DEEP/SUI price
     let sui_per_deep = get_sui_per_deep(
         deep_usd_price_info,
@@ -284,10 +307,11 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
         clock,
     );
 
-    // Get the protocol fee rate
-    let protocol_fee_rate = trading_fee_config.deep_fee_type_rate;
+    // Get the protocol fee rates for the pool and max discount rate
+    let pool_fee_config = trading_fee_config.get_pool_fee_config(pool);
+    let (protocol_taker_fee_rate, _) = pool_fee_config.deep_fee_type_rates();
+    let max_discount_rate = pool_fee_config.max_deep_fee_discount_rate();
 
-    // Get DEEP required for the order
     let (_, deep_required) = calculate_market_order_params<BaseToken, QuoteToken>(
         pool,
         order_amount,
@@ -295,107 +319,84 @@ public fun estimate_full_fee_market<BaseToken, QuoteToken, ReferenceBaseAsset, R
         clock,
     );
 
-    // Call the core logic function to get fee components
-    let (total_fee, deep_reserves_coverage_fee, protocol_fee) = estimate_full_order_fee_core(
-        protocol_fee_rate,
-        is_pool_whitelisted,
+    let (deep_reserves_coverage_fee, protocol_fee, discount_rate) = estimate_full_order_fee_core(
         deep_in_balance_manager,
         deep_in_wallet,
         deep_required,
         sui_per_deep,
+        protocol_taker_fee_rate,
+        order_amount,
+        max_discount_rate,
     );
 
-    (total_fee, deep_reserves_coverage_fee, protocol_fee, deep_required)
+    (deep_reserves_coverage_fee, protocol_fee, deep_required, discount_rate)
 }
 
 // === Public-Package Functions ===
-/// Core logic for calculating the total fee for an order in SUI coins
-/// Determines if user needs to use wrapper DEEP reserves and calculates
-/// the appropriate fee based on the DEEP/SUI price
+/// Calculate the total fee for an order using DEEP fee type
+///
+/// This function determines if the user needs to borrow DEEP from wrapper reserves and calculates
+/// the appropriate fees including coverage fees and protocol fees with discount applied.
 ///
 /// Parameters:
-/// - protocol_fee_rate: Protocol fee rate in billionths
-/// - is_pool_whitelisted: Whether the pool is whitelisted by DeepBook
 /// - balance_manager_deep: Amount of DEEP in user's balance manager
 /// - deep_in_wallet: Amount of DEEP in user's wallet
 /// - deep_required: Total amount of DEEP required for the order
-/// - sui_per_deep: Current DEEP/SUI price from reference pool
+/// - sui_per_deep: Current DEEP/SUI price for coverage fee calculation
+/// - protocol_taker_fee_rate: Protocol fee rate for taker portion (in billionths)
+/// - order_amount: Total order amount to calculate protocol fees on
+/// - max_discount_rate: Maximum discount rate available (in billionths)
 ///
 /// Returns:
-/// - u64: The total fee in SUI coins
-/// - u64: Deep reserves coverage fee
-/// - u64: Protocol fee
-///   Returns (0, 0, 0) for whitelisted pools or when user provides all required DEEP
-///
-/// Fee consists of two components when using wrapper DEEP reserves:
-/// 1. Deep reserves coverage fee: Cost of DEEP being borrowed
-/// 2. Protocol fee: Additional fee based on protocol_fee_rate
+/// - deep_reserves_coverage_fee: SUI cost of borrowed DEEP from reserves
+/// - protocol_fee: Protocol fee after discount applied
+/// - discount_rate: Actual discount rate applied to protocol fee
 public(package) fun estimate_full_order_fee_core(
-    protocol_fee_rate: u64,
-    is_pool_whitelisted: bool,
     balance_manager_deep: u64,
     deep_in_wallet: u64,
     deep_required: u64,
     sui_per_deep: u64,
+    protocol_taker_fee_rate: u64,
+    order_amount: u64,
+    max_discount_rate: u64,
 ): (u64, u64, u64) {
-    // Determine if user needs to use wrapper DEEP reserves
-    let will_use_wrapper_deep = balance_manager_deep + deep_in_wallet < deep_required;
+    // Calculate the amount of DEEP to be taken from wrapper's reserves.
+    // If the user doesn't have enough DEEP, reserves will cover the difference between
+    // the total DEEP required and the user's available DEEP (balance manager + wallet).
+    let deep_from_reserves = if (balance_manager_deep + deep_in_wallet < deep_required)
+        deep_required - balance_manager_deep - deep_in_wallet else 0;
 
-    if (is_pool_whitelisted || !will_use_wrapper_deep) {
-        (0, 0, 0) // No fee for whitelisted pools or when user provides all DEEP
-    } else {
-        // Calculate the amount of DEEP to take from reserves
-        let deep_from_reserves = deep_required - balance_manager_deep - deep_in_wallet;
-
-        // Calculate fee based on order amount, including both protocol fee and deep reserves coverage fee
-        calculate_full_order_fee(protocol_fee_rate, sui_per_deep, deep_from_reserves)
-    }
-}
-
-/// Calculates the total fee amount in SUI coins for an order using DEEP from reserves
-/// Combines both the deep reserves coverage fee and protocol fee
-///
-/// Parameters:
-/// - protocol_fee_rate: Protocol fee rate in billionths
-/// - sui_per_deep: Current DEEP/SUI price from reference pool
-/// - deep_from_reserves: Amount of DEEP taken from wrapper reserves
-///
-/// Returns:
-/// - u64: Total fee amount in SUI coins (reserves coverage fee + protocol fee)
-/// - u64: Deep reserves coverage fee
-/// - u64: Protocol fee
-///
-/// The total fee consists of:
-/// 1. Deep reserves coverage fee: SUI equivalent of borrowed DEEP
-/// 2. Protocol fee: Additional fee calculated as percentage of borrowed DEEP
-public(package) fun calculate_full_order_fee(
-    protocol_fee_rate: u64,
-    sui_per_deep: u64,
-    deep_from_reserves: u64,
-): (u64, u64, u64) {
-    // Calculate the deep reserves coverage fee
     let deep_reserves_coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
 
-    // Calculate the protocol fee
-    let protocol_fee = calculate_protocol_fee(
-        protocol_fee_rate,
-        sui_per_deep,
+    let discount_rate = calculate_discount_rate(
+        max_discount_rate,
         deep_from_reserves,
+        deep_required,
     );
 
-    let total_fee = deep_reserves_coverage_fee + protocol_fee;
+    // Calculate protocol fee assuming order is fully taker to show fee upper limit.
+    // This prevents users from paying more than the displayed amount.
+    // Apply user's discount to the calculated fee
+    let (protocol_fee, _, _) = calculate_protocol_fees(
+        hundred_percent(), // 100% taker ratio
+        0, // 0% maker ratio
+        protocol_taker_fee_rate,
+        0, // no need to specify maker fee rate for 0% maker ratio
+        order_amount,
+        discount_rate,
+    );
 
-    (total_fee, deep_reserves_coverage_fee, protocol_fee)
+    (deep_reserves_coverage_fee, protocol_fee, discount_rate)
 }
 
 /// Calculates the fee for using DEEP from wrapper reserves
 /// This fee represents the SUI equivalent value of the borrowed DEEP
 ///
 /// Parameters:
-/// - sui_per_deep: Current DEEP/SUI price from reference pool
+/// - sui_per_deep: Best DEEP/SUI price either from oracle or from reference pool
 /// - deep_from_reserves: Amount of DEEP taken from wrapper reserves
 ///
 /// Returns:
@@ -407,62 +408,60 @@ public(package) fun calculate_deep_reserves_coverage_order_fee(
     math::mul(deep_from_reserves, sui_per_deep)
 }
 
-/// Calculates the protocol fee for using DEEP from wrapper reserves
-/// Fee is calculated as a percentage (protocol_fee_rate) of the borrowed DEEP value in SUI
+/// Calculate protocol fees for orders with both taker and maker portions
+///
+/// This function splits the order amount by taker/maker ratios, applies respective fee rates,
+/// and applies discount to both fee components.
 ///
 /// Parameters:
-/// - protocol_fee_rate: Protocol fee rate in billionths
-/// - sui_per_deep: Current DEEP/SUI price from reference pool
-/// - deep_from_reserves: Amount of DEEP taken from wrapper reserves
+/// - taker_ratio: Proportion of order acting as taker (in billionths, e.g., 1_000_000_000 = 100%)
+/// - maker_ratio: Proportion of order acting as maker (in billionths)
+/// - protocol_taker_fee_rate: Fee rate for taker portion (in billionths)
+/// - protocol_maker_fee_rate: Fee rate for maker portion (in billionths)
+/// - order_amount: Total order amount to calculate fees on
+/// - discount_rate: Discount rate to apply to calculated fees (in billionths)
 ///
 /// Returns:
-/// - u64: Protocol fee amount in SUI coins
-///
-/// The calculation is done in two steps:
-/// 1. Calculate fee amount in DEEP using protocol_fee_rate
-/// 2. Convert DEEP fee to SUI using current price
-public(package) fun calculate_protocol_fee(
-    protocol_fee_rate: u64,
-    sui_per_deep: u64,
-    deep_from_reserves: u64,
-): u64 {
-    let protocol_fee_in_deep = math::mul(deep_from_reserves, protocol_fee_rate);
-    let protocol_fee_in_sui = math::mul(protocol_fee_in_deep, sui_per_deep);
+/// - total_protocol_fee: Combined taker and maker fees after discount
+/// - protocol_taker_fee: Taker portion fee after discount
+/// - protocol_maker_fee: Maker portion fee after discount
+public(package) fun calculate_protocol_fees(
+    taker_ratio: u64,
+    maker_ratio: u64,
+    protocol_taker_fee_rate: u64,
+    protocol_maker_fee_rate: u64,
+    order_amount: u64,
+    discount_rate: u64,
+): (u64, u64, u64) {
+    // Validate input parameters
+    assert!(taker_ratio + maker_ratio <= hundred_percent(), EInvalidRatioSum);
+    assert!(order_amount > 0, EZeroOrderAmount);
 
-    protocol_fee_in_sui
-}
+    let taker_amount = math::mul(order_amount, taker_ratio);
+    let maker_amount = math::mul(order_amount, maker_ratio);
 
-/// Calculates protocol fee based on DeepBook's taker fee when paid in input coins
-/// Protocol fee is calculated as protocol_fee_multiplier of the DeepBook fee
-///
-/// # Parameters
-/// * `protocol_fee_multiplier` - Protocol fee multiplier in billionths
-/// * `amount` - The amount to calculate fee on
-/// * `taker_fee` - DeepBook's taker fee rate in billionths
-///
-/// # Returns
-/// * `u64` - The calculated protocol fee amount
-public(package) fun calculate_input_coin_protocol_fee(
-    protocol_fee_multiplier: u64,
-    amount: u64,
-    taker_fee: u64,
-): u64 {
-    let deepbook_fee = calculate_fee_by_rate(amount, taker_fee);
-    let protocol_fee = math::mul(deepbook_fee, protocol_fee_multiplier);
+    let mut protocol_taker_fee = calculate_fee_by_rate(taker_amount, protocol_taker_fee_rate);
+    let mut protocol_maker_fee = calculate_fee_by_rate(maker_amount, protocol_maker_fee_rate);
 
-    protocol_fee
+    // Apply discount to the protocol fees
+    protocol_taker_fee = apply_discount(protocol_taker_fee, discount_rate);
+    protocol_maker_fee = apply_discount(protocol_maker_fee, discount_rate);
+
+    let total_protocol_fee = protocol_taker_fee + protocol_maker_fee;
+
+    (total_protocol_fee, protocol_taker_fee, protocol_maker_fee)
 }
 
 /// Calculates DeepBook's fee when paid in input coins, applying the fee penalty multiplier
 /// The fee is calculated by first applying the fee penalty multiplier to the taker fee rate,
 /// then calculating the fee based on the resulting rate
 ///
-/// # Parameters
-/// * `amount` - The amount to calculate fee on
-/// * `taker_fee` - DeepBook's taker fee rate in billionths
+/// Parameters:
+/// - amount: The amount to calculate fee on
+/// - taker_fee: DeepBook's taker fee rate in billionths
 ///
-/// # Returns
-/// * `u64` - The calculated DeepBook fee amount with penalty multiplier applied
+/// Returns:
+/// - u64: The calculated DeepBook fee amount with penalty multiplier applied
 public(package) fun calculate_input_coin_deepbook_fee(amount: u64, taker_fee: u64): u64 {
     let fee_penalty_multiplier = fee_penalty_multiplier();
     let input_coin_fee_rate = math::mul(taker_fee, fee_penalty_multiplier);
@@ -473,12 +472,12 @@ public(package) fun calculate_input_coin_deepbook_fee(amount: u64, taker_fee: u6
 
 /// Calculates fee by applying a rate to an amount
 ///
-/// # Parameters
-/// * `amount` - The amount to calculate fee on
-/// * `fee_rate` - The fee rate in billionths (e.g., 1,000,000 = 0.1%)
+/// Parameters:
+/// - amount: The amount to calculate fee on
+/// - fee_rate: The fee rate in billionths (e.g., 1,000,000 = 0.1%)
 ///
-/// # Returns
-/// * `u64` - The calculated fee amount
+/// Returns:
+/// - u64: The calculated fee amount
 public(package) fun calculate_fee_by_rate(amount: u64, fee_rate: u64): u64 {
     math::mul(amount, fee_rate)
 }
@@ -486,12 +485,12 @@ public(package) fun calculate_fee_by_rate(amount: u64, fee_rate: u64): u64 {
 /// Charges a swap fee on a coin and returns the fee amount as a Balance.
 /// Allows collecting fees directly from a coin during swap operations.
 ///
-/// # Returns
-/// * `Balance<CoinType>` - The fee amount as a Balance object
+/// Parameters:
+/// - coin: The coin to charge fee from
+/// - fee_bps: The fee rate in billionths
 ///
-/// # Parameters
-/// * `coin` - The coin to charge fee from
-/// * `fee_bps` - The fee rate in billionths
+/// Returns:
+/// - Balance<CoinType>: The fee amount as a Balance object
 public(package) fun charge_swap_fee<CoinType>(
     coin: &mut Coin<CoinType>,
     fee_bps: u64,
@@ -538,21 +537,4 @@ fun validate_discount_rate(discount_rate: u64) {
         discount_rate >= MIN_DISCOUNT_RATE && discount_rate <= MAX_DISCOUNT_RATE,
         EDiscountOutOfRange,
     );
-}
-
-fun init(ctx: &mut TxContext) {
-    let trading_fee_config = TradingFeeConfig {
-        id: object::new(ctx),
-        default_fees: PoolFeeConfig {
-            deep_fee_type_taker_rate: DEFAULT_DEEP_TAKER_FEE_BPS,
-            deep_fee_type_maker_rate: DEFAULT_DEEP_MAKER_FEE_BPS,
-            input_coin_fee_type_taker_rate: DEFAULT_INPUT_COIN_TAKER_FEE_BPS,
-            input_coin_fee_type_maker_rate: DEFAULT_INPUT_COIN_MAKER_FEE_BPS,
-            max_deep_fee_discount_rate: DEFAULT_DEEP_FEE_DISCOUNT_RATE,
-        },
-        pool_specific_fees: table::new(ctx),
-    };
-
-    // Share the trading fee config object
-    transfer::share_object(trading_fee_config);
 }

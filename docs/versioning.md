@@ -16,7 +16,7 @@ Key scenarios where versioning is crucial include:
 
 The `deepbook-wrapper` package contains two shared objects: `Wrapper` and `CreatePoolConfig`. The versioning mechanism described in this document applies **only** to the `Wrapper` object.
 
-The `CreatePoolConfig` object is not versioned. This is because it can only be modified by an administrator, and there are no functions available for users to create new `CreatePoolConfig` objects.
+The `CreatePoolConfig` and `TradingFeeConfig` objects are not versioned. This is because they can only be modified by an administrator, and there are no functions available for users to create new `CreatePoolConfig` or `TradingFeeConfig` object.
 
 ## Core Concepts
 
@@ -45,6 +45,7 @@ The typical process for rolling out a new version follows these steps:
 5.  **Disable Old Version**: To complete the upgrade, an administrator calls `disable_version` to remove the old version number. It is crucial that this call is also made from the **new package**. This is an irreversible action that moves the version to the `disabled_versions` denylist and emits a `VersionDisabled` event.
 
 ### Motivation for Irreversible Disabling
+
 The decision to make disabling a version permanent is intentional and serves as a critical security measure to prevent human error.
 A version might be disabled because it contains a vulnerability.
 Over time, the specific reasons might be forgotten. To prevent a bad actor, who could somehow gain access to the `AdminCap`, from re-enabling a vulnerable version and exploiting it, we make it impossible to re-enable it again.
@@ -52,13 +53,15 @@ Over time, the specific reasons might be forgotten. To prevent a bad actor, who 
 This security measure does not reduce flexibility. In case we need to use an old implementation for some reason, we can still take the code from an old commit, deploy it as a new package with a new `CURRENT_VERSION`, and enable that new version.
 
 ### Safety Constraints
+
 - A version can **never** be re-enabled once it has been disabled.
 - An administrator cannot disable the currently executing version of the package. An attempt to do so will cause the transaction to revert.
 
 ### Example Scripts
 
 The repository provides example scripts that demonstrate how to perform these administrative actions:
--   `examples/wrapper/versions/enable-version.ts`
--   `examples/wrapper/versions/disable-version.ts`
+
+- `examples/wrapper/versions/enable-version.ts`
+- `examples/wrapper/versions/disable-version.ts`
 
 These scripts show how to construct and send the transactions to call the `enable_version` and `disable_version` functions.

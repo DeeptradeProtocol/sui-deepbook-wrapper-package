@@ -22,16 +22,12 @@ use token::deep::DEEP;
 // === Errors ===
 /// Error when trying to use deep from reserves but there is not enough available
 const EInsufficientDeepReserves: u64 = 1;
-
 /// Allowed versions management errors
 const EVersionAlreadyEnabled: u64 = 2;
 const ECannotDisableCurrentVersion: u64 = 3;
 const EVersionNotEnabled: u64 = 4;
-
 /// Error when trying to use shared object in a package whose version is not enabled
 const EPackageVersionNotEnabled: u64 = 5;
-
-/// Error when the sender is not a multisig address
 const ESenderIsNotMultisig: u64 = 6;
 
 /// Error when trying to enable a version that has been permanently disabled
@@ -39,18 +35,15 @@ const EVersionPermanentlyDisabled: u64 = 7;
 
 // === Structs ===
 /// Wrapper struct for DeepBook V3
-/// - allowed_versions: Versions that are allowed to interact with the wrapper
-/// - disabled_versions: Versions that have been permanently disabled
-/// - deep_reserves: The DEEP reserves in the wrapper
-/// - deep_reserves_coverage_fees: The DEEP reserves coverage fees collected by the wrapper
-/// - protocol_fees: The protocol fees collected by the wrapper
 public struct Wrapper has key, store {
     id: UID,
     allowed_versions: VecSet<u16>,
+    // Permanently disabled package versions
     disabled_versions: VecSet<u16>,
     deep_reserves: Balance<DEEP>,
     deep_reserves_coverage_fees: Bag,
     protocol_fees: Bag,
+    unsettled_fees: Bag,
 }
 
 /// Key struct for storing charged fees by coin type
@@ -91,6 +84,20 @@ public struct VersionEnabled has copy, drop {
 public struct VersionDisabled has copy, drop {
     wrapper_id: ID,
     version: u16,
+}
+
+fun init(ctx: &mut TxContext) {
+    let wrapper = Wrapper {
+        id: object::new(ctx),
+        allowed_versions: vec_set::singleton(current_version()),
+        disabled_versions: vec_set::empty(),
+        deep_reserves: balance::zero(),
+        deep_reserves_coverage_fees: bag::new(ctx),
+        protocol_fees: bag::new(ctx),
+        unsettled_fees: bag::new(ctx),
+    };
+
+    transfer::share_object(wrapper);
 }
 
 // === Public-Mutative Functions ===
@@ -311,9 +318,7 @@ public fun disable_version(
 
 // === Public-View Functions ===
 /// Get the value of DEEP in the reserves
-public fun deep_reserves(wrapper: &Wrapper): u64 {
-    wrapper.deep_reserves.value()
-}
+public fun deep_reserves(wrapper: &Wrapper): u64 { wrapper.deep_reserves.value() }
 
 // === Public-Package Functions ===
 /// Add collected deep reserves coverage fees to the wrapper's fee storage
@@ -375,18 +380,28 @@ public(package) fun verify_version(wrapper: &Wrapper) {
     assert!(wrapper.allowed_versions.contains(&package_version), EPackageVersionNotEnabled);
 }
 
-// === Private Functions ===
-/// Initialize the wrapper module
-fun init(ctx: &mut TxContext) {
-    let wrapper = Wrapper {
-        id: object::new(ctx),
-        allowed_versions: vec_set::singleton(current_version()),
-        disabled_versions: vec_set::empty(),
-        deep_reserves: balance::zero(),
-        deep_reserves_coverage_fees: bag::new(ctx),
-        protocol_fees: bag::new(ctx),
-    };
+public(package) fun unsettled_fees(wrapper: &Wrapper): &Bag { &wrapper.unsettled_fees }
 
-    // Share the wrapper object
-    transfer::share_object(wrapper);
+public(package) fun unsettled_fees_mut(wrapper: &mut Wrapper): &mut Bag {
+    wrapper.verify_version();
+    &mut wrapper.unsettled_fees
+}
+
+// === Test Functions ===
+/// Get the protocol fee balance for a specific coin type.
+#[test_only]
+public fun get_protocol_fee_balance<CoinType>(wrapper: &Wrapper): u64 {
+    let key = ChargedFeeKey<CoinType> {};
+    if (wrapper.protocol_fees.contains(key)) {
+        let balance: &Balance<CoinType> = wrapper.protocol_fees.borrow(key);
+        balance.value()
+    } else {
+        0
+    }
+}
+
+/// Initialize the wrapper module for testing
+#[test_only]
+public fun init_for_testing(ctx: &mut TxContext) {
+    init(ctx);
 }

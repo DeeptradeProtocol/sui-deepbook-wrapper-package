@@ -8,7 +8,7 @@ module deepbook::order_info;
 use deepbook::{
     balances::{Self, Balances},
     constants,
-    deep_price::OrderDeepPrice,
+    deep_price::{Self, OrderDeepPrice},
     fill::Fill,
     math,
     order::{Self, Order}
@@ -595,4 +595,46 @@ fun emit_order_canceled_maker_from_fill(self: &OrderInfo, fill: &Fill, timestamp
         fill.base_quantity(),
         timestamp,
     )
+}
+
+// === Test Functions ===
+#[test_only]
+public fun create_order_info_for_tests(
+    pool_id: ID,
+    balance_manager_id: ID,
+    order_id: u128,
+    trader: address,
+    price: u64,
+    original_quantity: u64,
+    executed_quantity: u64,
+    status: u8,
+): OrderInfo {
+    let order_deep_price = deep_price::new_order_deep_price(true, constants::deep_multiplier());
+    let mut order_info = OrderInfo {
+        pool_id,
+        order_id,
+        balance_manager_id,
+        client_order_id: 1,
+        trader,
+        order_type: constants::no_restriction(),
+        self_matching_option: constants::self_matching_allowed(),
+        price,
+        is_bid: true,
+        original_quantity,
+        order_deep_price,
+        expire_timestamp: constants::max_u64(),
+        executed_quantity,
+        cumulative_quote_quantity: 0,
+        fills: vector[],
+        fee_is_deep: true,
+        paid_fees: 0,
+        maker_fees: 0,
+        epoch: 0,
+        status,
+        market_order: false,
+        fill_limit_reached: false,
+        order_inserted: true,
+        timestamp: 0,
+    };
+    order_info
 }
