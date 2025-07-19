@@ -54,6 +54,8 @@ const ESuiFeeExceedsMax: u64 = 6;
 const ENotSupportedExpireTimestamp: u64 = 7;
 const ENotSupportedSelfMatchingOption: u64 = 8;
 
+const EInvalidSuiPerDeep: u64 = 9;
+
 // === Structs ===
 /// A plan for allocating DEEP tokens for an order's DeepBook fees.
 ///
@@ -952,21 +954,22 @@ public(package) fun get_coverage_fee_plan(
     sui_in_wallet: u64,
     balance_manager_sui: u64,
 ): CoverageFeePlan {
-    // No fee for whitelisted pools or when not using wrapper DEEP
-    if (is_pool_whitelisted || !use_wrapper_deep_reserves) {
+    let wrapper_has_not_enough_deep = use_wrapper_deep_reserves && deep_from_reserves == 0;
+
+    // No fee for whitelisted pools, or when not using wrapper DEEP, or when wrapper has not enough DEEP.
+    // Not enough DEEP case is handled with specific error in `execute_deep_plan` function.
+    if (is_pool_whitelisted || !use_wrapper_deep_reserves || wrapper_has_not_enough_deep) {
         return zero_coverage_fee_plan()
     };
+
+    // Sanity check: SUI per DEEP must be greater than zero. Otherwise, the price retrieving process is flawed.
+    assert!(sui_per_deep > 0, EInvalidSuiPerDeep);
 
     // Calculate coverage fee based on order amount
     let coverage_fee = calculate_deep_reserves_coverage_order_fee(
         sui_per_deep,
         deep_from_reserves,
     );
-
-    // If no fee, return early
-    if (coverage_fee == 0) {
-        return zero_coverage_fee_plan()
-    };
 
     // Check if user has enough total coins
     let total_available = sui_in_wallet + balance_manager_sui;
