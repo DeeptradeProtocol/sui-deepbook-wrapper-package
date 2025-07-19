@@ -165,7 +165,10 @@ public fun create_ticket(
     clock: &Clock,
     ctx: &mut TxContext,
 ): AdminTicket {
-    assert!(multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx), ESenderIsNotMultisig);
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
 
     let ticket_id = object::new(ctx);
     let created_at = clock.timestamp_ms() / 1000;
@@ -221,7 +224,10 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
-    assert!(multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx), ESenderIsNotMultisig);
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     wrapper.verify_version();
     validate_ticket(&ticket, WITHDRAW_COVERAGE_FEE, clock, ctx);
 
@@ -275,7 +281,10 @@ public fun withdraw_protocol_fee<CoinType>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<CoinType> {
-    assert!(multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx), ESenderIsNotMultisig);
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     wrapper.verify_version();
     validate_ticket(&ticket, WITHDRAW_PROTOCOL_FEE, clock, ctx);
 
@@ -331,7 +340,10 @@ public fun withdraw_deep_reserves(
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<DEEP> {
-    assert!(multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx), ESenderIsNotMultisig);
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     wrapper.verify_version();
     validate_ticket(&ticket, WITHDRAW_DEEP_RESERVES, clock, ctx);
 
@@ -372,7 +384,10 @@ public fun enable_version(
     threshold: u16,
     ctx: &mut TxContext,
 ) {
-    assert!(multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx), ESenderIsNotMultisig);
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
 
     // Check if the version has been permanently disabled
     assert!(!wrapper.disabled_versions.contains(&version), EVersionPermanentlyDisabled);
@@ -413,7 +428,10 @@ public fun disable_version(
     threshold: u16,
     ctx: &mut TxContext,
 ) {
-    assert!(multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx), ESenderIsNotMultisig);
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     assert!(version != current_version(), ECannotDisableCurrentVersion);
     assert!(wrapper.allowed_versions.contains(&version), EVersionNotEnabled);
 
@@ -443,7 +461,10 @@ public fun update_pool_creation_protocol_fee_ticket_type(): u8 { UPDATE_POOL_CRE
 
 // === Public-Package Functions ===
 /// Add collected deep reserves coverage fees to the wrapper's fee storage
-public(package) fun join_deep_reserves_coverage_fee<CoinType>(wrapper: &mut Wrapper, fee: Balance<CoinType>) {
+public(package) fun join_deep_reserves_coverage_fee<CoinType>(
+    wrapper: &mut Wrapper,
+    fee: Balance<CoinType>,
+) {
     wrapper.verify_version();
 
     if (fee.value() == 0) {
@@ -479,7 +500,11 @@ public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Bala
 }
 
 /// Get the splitted DEEP coin from the reserves
-public(package) fun split_deep_reserves(wrapper: &mut Wrapper, amount: u64, ctx: &mut TxContext): Coin<DEEP> {
+public(package) fun split_deep_reserves(
+    wrapper: &mut Wrapper,
+    amount: u64,
+    ctx: &mut TxContext,
+): Coin<DEEP> {
     wrapper.verify_version();
 
     let available_deep_reserves = wrapper.deep_reserves.value();
@@ -495,7 +520,12 @@ public(package) fun verify_version(wrapper: &Wrapper) {
 }
 
 /// Validate ticket for execution
-public(package) fun validate_ticket(ticket: &AdminTicket, expected_type: u8, clock: &Clock, ctx: &TxContext) {
+public(package) fun validate_ticket(
+    ticket: &AdminTicket,
+    expected_type: u8,
+    clock: &Clock,
+    ctx: &TxContext,
+) {
     // Check ownership
     assert!(ticket.owner == ctx.sender(), ETicketOwnerMismatch);
 

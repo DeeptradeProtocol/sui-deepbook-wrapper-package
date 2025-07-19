@@ -178,7 +178,10 @@ public fun update_pool_creation_protocol_fee(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx), ESenderIsNotMultisig);
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
     wrapper::validate_ticket(&ticket, update_pool_creation_protocol_fee_ticket_type(), clock, ctx);
 
     // Consume ticket after successful validation
