@@ -1,7 +1,7 @@
 import { Transaction } from "@mysten/sui/transactions";
-import { provider } from "../common";
 import { ADMIN_CAP_OBJECT_ID, DEEP_DECIMALS, POOL_CREATION_CONFIG_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
-import { buildAndLogMultisigTransaction, MULTISIG_CONFIG } from "../multisig";
+import { MULTISIG_CONFIG } from "../multisig/multisig";
+import { buildAndLogMultisigTransaction } from "../multisig/buildAndLogMultisigTransaction";
 
 // Set this value to the amount you want to set the new fee to
 const NEW_FEE = 200 * 10 ** DEEP_DECIMALS; // 200 DEEP

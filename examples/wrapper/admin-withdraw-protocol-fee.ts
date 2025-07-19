@@ -1,6 +1,6 @@
-import { provider } from "../common";
 import { ADMIN_CAP_OBJECT_ID, DEEP_COIN_TYPE, SUI_COIN_TYPE, WRAPPER_PACKAGE_ID } from "../constants";
-import { buildAndLogMultisigTransaction, MULTISIG_CONFIG } from "../multisig";
+import { MULTISIG_CONFIG } from "../multisig/multisig";
+import { buildAndLogMultisigTransaction } from "../multisig/buildAndLogMultisigTransaction";
 import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 
 // yarn ts-node examples/wrapper/admin-withdraw-protocol-fee.ts > admin-withdraw-protocol-fee.log 2>&1

@@ -1,7 +1,7 @@
 import { Transaction } from "@mysten/sui/transactions";
-import { provider } from "../../common";
 import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../../constants";
-import { buildAndLogMultisigTransaction, MULTISIG_CONFIG } from "../../multisig";
+import {  MULTISIG_CONFIG } from "../../multisig/multisig";
+import { buildAndLogMultisigTransaction } from "../../multisig/buildAndLogMultisigTransaction";
 
 // Set the version to disable here
 const VERSION = 1;

@@ -1,8 +1,8 @@
 import { Transaction } from "@mysten/sui/transactions";
-import { provider } from "../common";
 import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
 import { getDeepReservesBalance } from "./utils/getDeepReservesBalance";
-import { buildAndLogMultisigTransaction, MULTISIG_CONFIG } from "../multisig";
+import { MULTISIG_CONFIG } from "../multisig/multisig";
+import { buildAndLogMultisigTransaction } from "../multisig/buildAndLogMultisigTransaction";
 
 // yarn ts-node examples/wrapper/withdraw-all-deep-reserves.ts > withdraw-all-deep-reserves.log 2>&1
 (async () => {

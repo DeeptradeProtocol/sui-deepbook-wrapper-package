@@ -1,7 +1,7 @@
 import { Transaction } from "@mysten/sui/transactions";
-import { provider } from "../../common";
 import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../../constants";
-import { buildAndLogMultisigTransaction, MULTISIG_CONFIG } from "../../multisig";
+import { MULTISIG_CONFIG } from "../../multisig/multisig";
+import { buildAndLogMultisigTransaction } from "../../multisig/buildAndLogMultisigTransaction";
 
 // Set the version to enable here
 const VERSION = 2;
@@ -9,7 +9,6 @@ const VERSION = 2;
 // Usage: yarn ts-node examples/wrapper/versions/enable-version.ts > enable-version.log 2>&1
 (async () => {
   const tx = new Transaction();
-
 
   tx.moveCall({
     target: `${WRAPPER_PACKAGE_ID}::wrapper::enable_version`,
