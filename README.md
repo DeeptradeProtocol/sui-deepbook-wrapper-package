@@ -15,7 +15,7 @@ The wrapper acts as an intermediary, managing all DEEP-related fee operations.
 
 For detailed technical specifications and implementation details, please refer to:
 
-- [DeepBook Wrapper Design](docs/DESIGN.md)
+- [DeepBook Wrapper Design](docs/design.md)
 - [Oracle Price Calculation](docs/oracle-price-calculation.md)
 - [Oracle Pricing Security](docs/oracle-pricing-security.md)
 - [Unsettled Fees](docs/unsettled-fees.md)
