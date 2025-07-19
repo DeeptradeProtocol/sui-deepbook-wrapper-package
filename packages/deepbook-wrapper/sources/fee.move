@@ -91,7 +91,7 @@ public fun update_default_fees(
     validate_pool_fee_config(&new_fees);
 
     validate_ticket(&ticket, update_default_fees_ticket_type(), clock, ctx);
-    destroy_ticket(ticket);
+    destroy_ticket(ticket, clock);
 
     config.default_fees = new_fees;
 
@@ -110,7 +110,7 @@ public fun update_pool_specific_fees<BaseToken, QuoteToken>(
     validate_pool_fee_config(&new_fees);
 
     validate_ticket(&ticket, update_pool_specific_fees_ticket_type(), clock, ctx);
-    destroy_ticket(ticket);
+    destroy_ticket(ticket, clock);
 
     let pool_id = object::id(pool);
 

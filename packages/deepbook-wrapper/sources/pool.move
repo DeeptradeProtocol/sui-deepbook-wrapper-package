@@ -165,7 +165,7 @@ public fun update_pool_creation_protocol_fee(
     );
 
     validate_ticket(&ticket, update_pool_creation_protocol_fee_ticket_type(), clock, ctx);
-    destroy_ticket(ticket);
+    destroy_ticket(ticket, clock);
 
     let old_fee = config.protocol_fee;
     config.protocol_fee = protocol_fee;
