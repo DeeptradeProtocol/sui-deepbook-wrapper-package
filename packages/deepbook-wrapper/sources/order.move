@@ -54,9 +54,6 @@ const ESuiFeeExceedsMax: u64 = 6;
 const ENotSupportedExpireTimestamp: u64 = 7;
 const ENotSupportedSelfMatchingOption: u64 = 8;
 
-/// Error when the coverage fee is zero
-const EUnexpectedZeroCoverageFee: u64 = 9;
-
 // === Structs ===
 /// A plan for allocating DEEP tokens for an order's DeepBook fees.
 ///
@@ -966,11 +963,10 @@ public(package) fun get_coverage_fee_plan(
         deep_from_reserves,
     );
 
-    // If coverage fee is zero, that means at least one of the following:
-    // 1. SUI per DEEP is zero - something really flawed in DEEP/SUI price retrieving process.
-    // 2. DEEP from reserves are zero, but the pool is not whitelisted and wrapper DEEP reserves
-    // shouldn't be used (due to if above) - something flawed in DEEP planning process.
-    assert!(coverage_fee > 0, EUnexpectedZeroCoverageFee);
+    // If no fee, return early
+    if (coverage_fee == 0) {
+        return zero_coverage_fee_plan()
+    };
 
     // Check if user has enough total coins
     let total_available = sui_in_wallet + balance_manager_sui;
