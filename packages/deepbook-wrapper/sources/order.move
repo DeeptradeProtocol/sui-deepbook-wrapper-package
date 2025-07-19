@@ -21,11 +21,11 @@ use deepbook_wrapper::helper::{
     apply_slippage,
     calculate_discount_rate
 };
+use deepbook_wrapper::unsettled_fees::{add_unsettled_fee, settle_user_fees};
 use deepbook_wrapper::wrapper::{
     Wrapper,
     join_deep_reserves_coverage_fee,
     join_protocol_fee,
-    add_unsettled_fee,
     deep_reserves,
     split_deep_reserves
 };
@@ -775,7 +775,8 @@ public fun cancel_order_and_settle_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinT
     // Verify the caller owns the balance manager
     assert!(balance_manager.owner() == ctx.sender(), EInvalidOwner);
 
-    let settled_fees = wrapper.settle_user_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinType>(
+    let settled_fees = settle_user_fees<BaseAsset, QuoteAsset, UnsettledFeeCoinType>(
+        wrapper,
         pool,
         balance_manager,
         order_id,

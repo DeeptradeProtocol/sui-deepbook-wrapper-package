@@ -3,6 +3,13 @@ module deepbook_wrapper::add_unsettled_fee_tests;
 
 use deepbook::constants;
 use deepbook::order_info;
+use deepbook_wrapper::unsettled_fees::{
+    Self,
+    add_unsettled_fee,
+    has_unsettled_fee,
+    get_unsettled_fee_balance,
+    get_unsettled_fee_order_params
+};
 use deepbook_wrapper::wrapper::{Self, Wrapper};
 use std::unit_test::assert_eq;
 use sui::balance;
@@ -41,22 +48,25 @@ fun live_order_success() {
         );
 
         // Verify fee doesn't exist before adding
-        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id, balance_manager_id, order_id), false);
+        assert_eq!(has_unsettled_fee<SUI>(&wrapper, pool_id, balance_manager_id, order_id), false);
 
         // Should succeed for live order with remaining quantity
-        wrapper.add_unsettled_fee(fee_balance, &order_info);
+        add_unsettled_fee(&mut wrapper, fee_balance, &order_info);
 
         // Verify fee was stored correctly
-        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id, balance_manager_id, order_id), true);
+        assert_eq!(has_unsettled_fee<SUI>(&wrapper, pool_id, balance_manager_id, order_id), true);
         assert_eq!(
-            wrapper.get_unsettled_fee_balance<SUI>(pool_id, balance_manager_id, order_id),
+            get_unsettled_fee_balance<SUI>(&wrapper, pool_id, balance_manager_id, order_id),
             fee_amount,
         );
 
         // Verify order parameters were stored correctly
-        let (stored_order_quantity, stored_maker_quantity) = wrapper.get_unsettled_fee_order_params<
-            SUI,
-        >(pool_id, balance_manager_id, order_id);
+        let (stored_order_quantity, stored_maker_quantity) = get_unsettled_fee_order_params<SUI>(
+            &wrapper,
+            pool_id,
+            balance_manager_id,
+            order_id,
+        );
         assert_eq!(stored_order_quantity, original_quantity);
         assert_eq!(stored_maker_quantity, expected_maker_quantity);
 
@@ -92,22 +102,25 @@ fun partially_filled_order_success() {
         );
 
         // Verify fee doesn't exist before adding
-        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id, balance_manager_id, order_id), false);
+        assert_eq!(has_unsettled_fee<SUI>(&wrapper, pool_id, balance_manager_id, order_id), false);
 
         // Should succeed for partially filled order with remaining quantity
-        wrapper.add_unsettled_fee(fee_balance, &order_info);
+        add_unsettled_fee(&mut wrapper, fee_balance, &order_info);
 
         // Verify fee was stored correctly
-        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id, balance_manager_id, order_id), true);
+        assert_eq!(has_unsettled_fee<SUI>(&wrapper, pool_id, balance_manager_id, order_id), true);
         assert_eq!(
-            wrapper.get_unsettled_fee_balance<SUI>(pool_id, balance_manager_id, order_id),
+            get_unsettled_fee_balance<SUI>(&wrapper, pool_id, balance_manager_id, order_id),
             fee_amount,
         );
 
         // Verify order parameters were stored correctly
-        let (stored_order_quantity, stored_maker_quantity) = wrapper.get_unsettled_fee_order_params<
-            SUI,
-        >(pool_id, balance_manager_id, order_id);
+        let (stored_order_quantity, stored_maker_quantity) = get_unsettled_fee_order_params<SUI>(
+            &wrapper,
+            pool_id,
+            balance_manager_id,
+            order_id,
+        );
         assert_eq!(stored_order_quantity, original_quantity);
         assert_eq!(stored_maker_quantity, expected_maker_quantity);
 
@@ -117,7 +130,7 @@ fun partially_filled_order_success() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = wrapper::EUnsettledFeeAlreadyExists)]
+#[test, expected_failure(abort_code = unsettled_fees::EUnsettledFeeAlreadyExists)]
 fun join_existing_fee_fails() {
     let mut scenario = setup_wrapper_test(OWNER);
     let pool_id = id_from_address(@0x1);
@@ -143,18 +156,18 @@ fun join_existing_fee_fails() {
 
         // Add first fee
         let fee_balance_1 = balance::create_for_testing<SUI>(fee_amount_1);
-        wrapper.add_unsettled_fee(fee_balance_1, &order_info);
+        add_unsettled_fee(&mut wrapper, fee_balance_1, &order_info);
 
         // Verify first fee was stored correctly
-        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id, balance_manager_id, order_id), true);
+        assert_eq!(has_unsettled_fee<SUI>(&wrapper, pool_id, balance_manager_id, order_id), true);
         assert_eq!(
-            wrapper.get_unsettled_fee_balance<SUI>(pool_id, balance_manager_id, order_id),
+            get_unsettled_fee_balance<SUI>(&wrapper, pool_id, balance_manager_id, order_id),
             fee_amount_1,
         );
 
         // Add second fee to same order - should fail
         let fee_balance_2 = balance::create_for_testing<SUI>(fee_amount_2);
-        wrapper.add_unsettled_fee(fee_balance_2, &order_info);
+        add_unsettled_fee(&mut wrapper, fee_balance_2, &order_info);
 
         return_shared(wrapper);
     };
@@ -162,7 +175,7 @@ fun join_existing_fee_fails() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = wrapper::EOrderNotLiveOrPartiallyFilled)]
+#[test, expected_failure(abort_code = unsettled_fees::EOrderNotLiveOrPartiallyFilled)]
 fun cancelled_order_fails() {
     let mut scenario = setup_wrapper_test(OWNER);
     let pool_id = id_from_address(@0x1);
@@ -185,7 +198,7 @@ fun cancelled_order_fails() {
         );
 
         // Should fail for cancelled order
-        wrapper.add_unsettled_fee(fee_balance, &order_info);
+        add_unsettled_fee(&mut wrapper, fee_balance, &order_info);
 
         return_shared(wrapper);
     };
@@ -193,7 +206,7 @@ fun cancelled_order_fails() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = wrapper::EOrderFullyExecuted)]
+#[test, expected_failure(abort_code = unsettled_fees::EOrderFullyExecuted)]
 fun fully_executed_order_fails() {
     let mut scenario = setup_wrapper_test(OWNER);
     let pool_id = id_from_address(@0x1);
@@ -216,7 +229,7 @@ fun fully_executed_order_fails() {
         );
 
         // Should fail for fully executed order
-        wrapper.add_unsettled_fee(fee_balance, &order_info);
+        add_unsettled_fee(&mut wrapper, fee_balance, &order_info);
 
         return_shared(wrapper);
     };
@@ -224,7 +237,7 @@ fun fully_executed_order_fails() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = wrapper::EZeroUnsettledFee)]
+#[test, expected_failure(abort_code = unsettled_fees::EZeroUnsettledFee)]
 fun zero_fee_fails() {
     let mut scenario = setup_wrapper_test(OWNER);
     let pool_id = id_from_address(@0x1);
@@ -246,7 +259,7 @@ fun zero_fee_fails() {
         );
 
         // Should fail for zero fee amount
-        wrapper.add_unsettled_fee(fee_balance, &order_info);
+        add_unsettled_fee(&mut wrapper, fee_balance, &order_info);
 
         return_shared(wrapper);
     };
@@ -291,48 +304,55 @@ fun different_coin_types() {
 
         // Verify no fees exist initially
         assert_eq!(
-            wrapper.has_unsettled_fee<SUI>(pool_id, balance_manager_id, sui_order_id),
+            has_unsettled_fee<SUI>(&wrapper, pool_id, balance_manager_id, sui_order_id),
             false,
         );
         assert_eq!(
-            wrapper.has_unsettled_fee<DEEP>(pool_id, balance_manager_id, deep_order_id),
+            has_unsettled_fee<DEEP>(&wrapper, pool_id, balance_manager_id, deep_order_id),
             false,
         );
 
         // Add SUI fee to first order
         let sui_fee = balance::create_for_testing<SUI>(1000);
-        wrapper.add_unsettled_fee(sui_fee, &sui_order_info);
+        add_unsettled_fee(&mut wrapper, sui_fee, &sui_order_info);
 
         // Add DEEP fee to second order
         let deep_fee = balance::create_for_testing<DEEP>(2000);
-        wrapper.add_unsettled_fee(deep_fee, &deep_order_info);
+        add_unsettled_fee(&mut wrapper, deep_fee, &deep_order_info);
 
         // Verify both fees exist and are stored separately
-        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id, balance_manager_id, sui_order_id), true);
         assert_eq!(
-            wrapper.has_unsettled_fee<DEEP>(pool_id, balance_manager_id, deep_order_id),
+            has_unsettled_fee<SUI>(&wrapper, pool_id, balance_manager_id, sui_order_id),
+            true,
+        );
+        assert_eq!(
+            has_unsettled_fee<DEEP>(&wrapper, pool_id, balance_manager_id, deep_order_id),
             true,
         );
 
         // Verify correct amounts
         assert_eq!(
-            wrapper.get_unsettled_fee_balance<SUI>(pool_id, balance_manager_id, sui_order_id),
+            get_unsettled_fee_balance<SUI>(&wrapper, pool_id, balance_manager_id, sui_order_id),
             1000,
         );
         assert_eq!(
-            wrapper.get_unsettled_fee_balance<DEEP>(pool_id, balance_manager_id, deep_order_id),
+            get_unsettled_fee_balance<DEEP>(&wrapper, pool_id, balance_manager_id, deep_order_id),
             2000,
         );
 
         // Verify order params are correct for both types
-        let (order_quantity_sui, maker_quantity_sui) = wrapper.get_unsettled_fee_order_params<SUI>(
+        let (order_quantity_sui, maker_quantity_sui) = get_unsettled_fee_order_params<SUI>(
+            &wrapper,
             pool_id,
             balance_manager_id,
             sui_order_id,
         );
-        let (order_quantity_deep, maker_quantity_deep) = wrapper.get_unsettled_fee_order_params<
-            DEEP,
-        >(pool_id, balance_manager_id, deep_order_id);
+        let (order_quantity_deep, maker_quantity_deep) = get_unsettled_fee_order_params<DEEP>(
+            &wrapper,
+            pool_id,
+            balance_manager_id,
+            deep_order_id,
+        );
 
         assert_eq!(order_quantity_sui, 5000);
         assert_eq!(maker_quantity_sui, 3000); // 5000 - 2000
@@ -381,38 +401,46 @@ fun cross_pool_scenarios() {
         );
 
         // Verify no fees exist initially
-        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id_1, balance_manager_id, order_id), false);
-        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id_2, balance_manager_id, order_id), false);
+        assert_eq!(
+            has_unsettled_fee<SUI>(&wrapper, pool_id_1, balance_manager_id, order_id),
+            false,
+        );
+        assert_eq!(
+            has_unsettled_fee<SUI>(&wrapper, pool_id_2, balance_manager_id, order_id),
+            false,
+        );
 
         // Add fee to first pool
         let fee_1 = balance::create_for_testing<SUI>(1000);
-        wrapper.add_unsettled_fee(fee_1, &order_info_1);
+        add_unsettled_fee(&mut wrapper, fee_1, &order_info_1);
 
         // Add fee to second pool
         let fee_2 = balance::create_for_testing<SUI>(1500);
-        wrapper.add_unsettled_fee(fee_2, &order_info_2);
+        add_unsettled_fee(&mut wrapper, fee_2, &order_info_2);
 
         // Verify both fees exist and are stored separately
-        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id_1, balance_manager_id, order_id), true);
-        assert_eq!(wrapper.has_unsettled_fee<SUI>(pool_id_2, balance_manager_id, order_id), true);
+        assert_eq!(has_unsettled_fee<SUI>(&wrapper, pool_id_1, balance_manager_id, order_id), true);
+        assert_eq!(has_unsettled_fee<SUI>(&wrapper, pool_id_2, balance_manager_id, order_id), true);
 
         // Verify correct amounts for each pool
         assert_eq!(
-            wrapper.get_unsettled_fee_balance<SUI>(pool_id_1, balance_manager_id, order_id),
+            get_unsettled_fee_balance<SUI>(&wrapper, pool_id_1, balance_manager_id, order_id),
             1000,
         );
         assert_eq!(
-            wrapper.get_unsettled_fee_balance<SUI>(pool_id_2, balance_manager_id, order_id),
+            get_unsettled_fee_balance<SUI>(&wrapper, pool_id_2, balance_manager_id, order_id),
             1500,
         );
 
         // Verify order params are different for each pool
-        let (order_quantity_1, maker_quantity_1) = wrapper.get_unsettled_fee_order_params<SUI>(
+        let (order_quantity_1, maker_quantity_1) = get_unsettled_fee_order_params<SUI>(
+            &wrapper,
             pool_id_1,
             balance_manager_id,
             order_id,
         );
-        let (order_quantity_2, maker_quantity_2) = wrapper.get_unsettled_fee_order_params<SUI>(
+        let (order_quantity_2, maker_quantity_2) = get_unsettled_fee_order_params<SUI>(
+            &wrapper,
             pool_id_2,
             balance_manager_id,
             order_id,
@@ -428,11 +456,11 @@ fun cross_pool_scenarios() {
 
         // Verify fees remain unchanged
         assert_eq!(
-            wrapper.get_unsettled_fee_balance<SUI>(pool_id_1, balance_manager_id, order_id),
+            get_unsettled_fee_balance<SUI>(&wrapper, pool_id_1, balance_manager_id, order_id),
             1000,
         );
         assert_eq!(
-            wrapper.get_unsettled_fee_balance<SUI>(pool_id_2, balance_manager_id, order_id),
+            get_unsettled_fee_balance<SUI>(&wrapper, pool_id_2, balance_manager_id, order_id),
             1500,
         );
 
@@ -442,7 +470,7 @@ fun cross_pool_scenarios() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = wrapper::EOrderNotLiveOrPartiallyFilled)]
+#[test, expected_failure(abort_code = unsettled_fees::EOrderNotLiveOrPartiallyFilled)]
 fun filled_order_fails() {
     let mut scenario = setup_wrapper_test(OWNER);
     let pool_id = id_from_address(@0x1);
@@ -465,7 +493,7 @@ fun filled_order_fails() {
         );
 
         // Should fail for filled order
-        wrapper.add_unsettled_fee(fee_balance, &order_info);
+        add_unsettled_fee(&mut wrapper, fee_balance, &order_info);
 
         return_shared(wrapper);
     };
@@ -473,7 +501,7 @@ fun filled_order_fails() {
     scenario.end();
 }
 
-#[test, expected_failure(abort_code = wrapper::EOrderNotLiveOrPartiallyFilled)]
+#[test, expected_failure(abort_code = unsettled_fees::EOrderNotLiveOrPartiallyFilled)]
 fun expired_order_fails() {
     let mut scenario = setup_wrapper_test(OWNER);
     let pool_id = id_from_address(@0x1);
@@ -496,7 +524,7 @@ fun expired_order_fails() {
         );
 
         // Should fail for expired order
-        wrapper.add_unsettled_fee(fee_balance, &order_info);
+        add_unsettled_fee(&mut wrapper, fee_balance, &order_info);
 
         return_shared(wrapper);
     };
