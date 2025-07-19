@@ -87,7 +87,7 @@ If 10% of the order executes immediately, the user pays taker fees for the execu
 
 ### 4. External Order Cancellation
 
-- **Risk**: If a user places an order through our platform but cancels it externally, they lose the unsettled fees
+- **Risk**: If a user places an order through our platform but cancels it externally (e.g., on another platform that doesn't integrate the Deepbook Wrapper), they lose the ability to claim unsettled fees.
 - **Reason**: Once an order ceases to exist in the order book, there's no way to retrieve information about it
 
 ## Key Security Feature
