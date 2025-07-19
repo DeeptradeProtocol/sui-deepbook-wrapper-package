@@ -6,12 +6,10 @@ use sui::clock::Clock;
 use sui::event;
 
 // === Errors ===
-/// Ticket-related errors
 const ETicketOwnerMismatch: u64 = 1;
 const ETicketTypeMismatch: u64 = 2;
 const ETicketExpired: u64 = 3;
 const ETicketNotReady: u64 = 4;
-
 /// Error when the sender is not a multisig address
 const ESenderIsNotMultisig: u64 = 5;
 /// Error when the ticket is not expired
