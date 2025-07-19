@@ -1,13 +1,12 @@
 export interface CoinMetadata {
-    symbol: string;
-    decimals: number;
+  symbol: string;
+  decimals: number;
 }
-  
+
 export interface CoinsMapByCoinType {
-    [coinType: string]: bigint;
+  [coinType: string]: bigint;
 }
 
 export interface CoinsMetadataMapByCoinType {
-    [coinType: string]: CoinMetadata;
+  [coinType: string]: CoinMetadata;
 }
-  

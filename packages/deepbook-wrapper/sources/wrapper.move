@@ -15,6 +15,7 @@ use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
+use sui::event;
 use sui::vec_set::{Self, VecSet};
 use token::deep::DEEP;
 
@@ -29,11 +30,21 @@ const EVersionNotEnabled: u64 = 4;
 const EPackageVersionNotEnabled: u64 = 5;
 const ESenderIsNotMultisig: u64 = 6;
 
+/// Error when trying to enable a version that has been permanently disabled
+const EVersionPermanentlyDisabled: u64 = 7;
+
 // === Structs ===
 /// Wrapper struct for DeepBook V3
+/// - allowed_versions: Package versions that are allowed to interact with the wrapper
+/// - disabled_versions: Package versions that have been permanently disabled
+/// - deep_reserves: The DEEP reserves in the wrapper
+/// - deep_reserves_coverage_fees: The DEEP reserves coverage fees collected by the wrapper
+/// - protocol_fees: The protocol fees collected by the wrapper
+/// - unsettled_fees: Fees that have been collected but not yet settled by either the user or the protocol.
 public struct Wrapper has key, store {
     id: UID,
     allowed_versions: VecSet<u16>,
+    disabled_versions: VecSet<u16>,
     deep_reserves: Balance<DEEP>,
     deep_reserves_coverage_fees: Bag,
     protocol_fees: Bag,
@@ -41,14 +52,50 @@ public struct Wrapper has key, store {
 }
 
 /// Key struct for storing charged fees by coin type
-public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {
-    dummy_field: bool,
+public struct ChargedFeeKey<phantom CoinType> has copy, drop, store {}
+
+// === Events ===
+/// Event emitted when DEEP coins are withdrawn from the wrapper's reserves
+public struct DeepReservesWithdrawn<phantom DEEP> has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
+/// Event emitted when deep reserves coverage fees are withdrawn for a specific coin type
+public struct CoverageFeeWithdrawn<phantom CoinType> has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
+/// Event emitted when protocol fees are withdrawn for a specific coin type
+public struct ProtocolFeeWithdrawn<phantom CoinType> has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
+/// Event emitted when DEEP coins are deposited into the wrapper's reserves
+public struct DeepReservesDeposited has copy, drop {
+    wrapper_id: ID,
+    amount: u64,
+}
+
+/// Event emitted when a new version is enabled for the wrapper
+public struct VersionEnabled has copy, drop {
+    wrapper_id: ID,
+    version: u16,
+}
+
+/// Event emitted when a version is permanently disabled for the wrapper
+public struct VersionDisabled has copy, drop {
+    wrapper_id: ID,
+    version: u16,
 }
 
 fun init(ctx: &mut TxContext) {
     let wrapper = Wrapper {
         id: object::new(ctx),
         allowed_versions: vec_set::singleton(current_version()),
+        disabled_versions: vec_set::empty(),
         deep_reserves: balance::zero(),
         deep_reserves_coverage_fees: bag::new(ctx),
         protocol_fees: bag::new(ctx),
@@ -59,13 +106,20 @@ fun init(ctx: &mut TxContext) {
 }
 
 // === Public-Mutative Functions ===
-/// Join DEEP coins into the wrapper's reserves
-public fun join(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
+/// Deposit DEEP coins into the wrapper's reserves
+public fun deposit_into_reserves(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     wrapper.verify_version();
+
+    event::emit(DeepReservesDeposited {
+        wrapper_id: wrapper.id.to_inner(),
+        amount: deep_coin.value(),
+    });
+
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
-/// Withdraw deep reserves coverage fees for a specific coin type. Performs timelock validation using an admin ticket.
+/// Withdraw deep reserves coverage fees for a specific coin type
+/// Performs timelock validation using an admin ticket
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
@@ -86,21 +140,27 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
 ): Coin<CoinType> {
     wrapper.verify_version();
     validate_ticket(&ticket, withdraw_coverage_fee_ticket_type(), clock, ctx);
+    destroy_ticket(ticket, clock);
 
-    // Consume ticket after successful validation
-    destroy_ticket(ticket);
-
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
 
     if (wrapper.deep_reserves_coverage_fees.contains(key)) {
         let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
-        balance::withdraw_all(balance).into_coin(ctx)
+        let coin = balance::withdraw_all(balance).into_coin(ctx);
+
+        event::emit(CoverageFeeWithdrawn<CoinType> {
+            wrapper_id: wrapper.id.to_inner(),
+            amount: coin.value(),
+        });
+
+        coin
     } else {
         coin::zero(ctx)
     }
 }
 
-/// Withdraw protocol fees for a specific coin type. Performs timelock validation using an admin ticket.
+/// Withdraw protocol fees for a specific coin type
+/// Performs timelock validation using an admin ticket
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
@@ -121,21 +181,26 @@ public fun withdraw_protocol_fee<CoinType>(
 ): Coin<CoinType> {
     wrapper.verify_version();
     validate_ticket(&ticket, withdraw_protocol_fee_ticket_type(), clock, ctx);
+    destroy_ticket(ticket, clock);
 
-    // Consume ticket after successful validation
-    destroy_ticket(ticket);
-
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
 
     if (wrapper.protocol_fees.contains(key)) {
         let balance = wrapper.protocol_fees.borrow_mut(key);
-        balance::withdraw_all(balance).into_coin(ctx)
+        let coin = balance::withdraw_all(balance).into_coin(ctx);
+
+        event::emit(ProtocolFeeWithdrawn<CoinType> {
+            wrapper_id: wrapper.id.to_inner(),
+            amount: coin.value(),
+        });
+
+        coin
     } else {
         coin::zero(ctx)
     }
 }
 
-/// Withdraw a specified amount of DEEP coins from the wrapper's reserves.
+/// Withdraw a specified amount of DEEP coins from the wrapper's reserves
 /// Performs timelock validation using an admin ticket
 ///
 /// Parameters:
@@ -159,14 +224,19 @@ public fun withdraw_deep_reserves(
 ): Coin<DEEP> {
     wrapper.verify_version();
     validate_ticket(&ticket, withdraw_deep_reserves_ticket_type(), clock, ctx);
+    destroy_ticket(ticket, clock);
 
-    // Consume ticket after successful validation
-    destroy_ticket(ticket);
+    let coin = split_deep_reserves(wrapper, amount, ctx);
 
-    wrapper.deep_reserves.split(amount).into_coin(ctx)
+    event::emit(DeepReservesWithdrawn<DEEP> {
+        wrapper_id: wrapper.id.to_inner(),
+        amount,
+    });
+
+    coin
 }
 
-/// Enable the specified package version for the wrapper verifying that the sender is the expected multi-sig address
+/// Enable the specified package version for the wrapper
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
@@ -194,11 +264,22 @@ public fun enable_version(
         multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
         ESenderIsNotMultisig,
     );
+
+    // Check if the version has been permanently disabled
+    assert!(!wrapper.disabled_versions.contains(&version), EVersionPermanentlyDisabled);
+
+    // Check if the version is already enabled
     assert!(!wrapper.allowed_versions.contains(&version), EVersionAlreadyEnabled);
+
     wrapper.allowed_versions.insert(version);
+
+    event::emit(VersionEnabled {
+        wrapper_id: wrapper.id.to_inner(),
+        version,
+    });
 }
 
-/// Disable the specified package version for the wrapper verifying that the sender is the expected multi-sig address
+/// Permanently disable the specified package version for the wrapper
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
@@ -229,7 +310,15 @@ public fun disable_version(
     );
     assert!(version != current_version(), ECannotDisableCurrentVersion);
     assert!(wrapper.allowed_versions.contains(&version), EVersionNotEnabled);
+
+    // Remove from allowed and add to disabled
     wrapper.allowed_versions.remove(&version);
+    wrapper.disabled_versions.insert(version);
+
+    event::emit(VersionDisabled {
+        wrapper_id: wrapper.id.to_inner(),
+        version,
+    });
 }
 
 // === Public-View Functions ===
@@ -249,7 +338,7 @@ public(package) fun join_deep_reserves_coverage_fee<CoinType>(
         return
     };
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
     if (wrapper.deep_reserves_coverage_fees.contains(key)) {
         let balance = wrapper.deep_reserves_coverage_fees.borrow_mut(key);
         balance::join(balance, fee);
@@ -267,7 +356,7 @@ public(package) fun join_protocol_fee<CoinType>(wrapper: &mut Wrapper, fee: Bala
         return
     };
 
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
     if (wrapper.protocol_fees.contains(key)) {
         let balance = wrapper.protocol_fees.borrow_mut(key);
         balance::join(balance, fee);
@@ -307,7 +396,7 @@ public(package) fun unsettled_fees_mut(wrapper: &mut Wrapper): &mut Bag {
 /// Get the protocol fee balance for a specific coin type.
 #[test_only]
 public fun get_protocol_fee_balance<CoinType>(wrapper: &Wrapper): u64 {
-    let key = ChargedFeeKey<CoinType> { dummy_field: false };
+    let key = ChargedFeeKey<CoinType> {};
     if (wrapper.protocol_fees.contains(key)) {
         let balance: &Balance<CoinType> = wrapper.protocol_fees.borrow(key);
         balance.value()

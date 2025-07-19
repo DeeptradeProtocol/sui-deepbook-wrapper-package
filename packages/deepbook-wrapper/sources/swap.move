@@ -7,15 +7,29 @@ use deepbook_wrapper::wrapper::{
     Wrapper,
     join_deep_reserves_coverage_fee,
     join_protocol_fee,
-    join,
+    deposit_into_reserves,
     split_deep_reserves
 };
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
+use sui::event;
 
 // === Errors ===
 /// Error when the final output amount is below the user's specified minimum
 const EInsufficientOutputAmount: u64 = 1;
+
+// === Events ===
+public struct SwapExecuted<phantom BaseAsset, phantom QuoteAsset> has copy, drop {
+    wrapper_id: ID,
+    pool_id: ID,
+    base_to_quote: bool,
+    input_amount: u64,
+    output_amount: u64,
+    input_remainder: u64,
+    fee_amount: u64,
+    deep_fee_type: bool,
+    deep_paid: u64,
+}
 
 // === Public-Mutative Functions ===
 /// Swaps a specific amount of base tokens for quote tokens.
@@ -47,14 +61,16 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
     wrapper.verify_version();
 
+    let base_quantity = base_in.value();
+
     // Determine if DEEP payment is needed based on pool whitelist status
     let deep_payment = if (pool.whitelisted()) {
         coin::zero(ctx)
     } else {
-        let base_quantity = base_in.value();
         let (_, _, deep_required) = pool.get_quote_quantity_out(base_quantity, clock);
         split_deep_reserves(wrapper, deep_required, ctx)
     };
+    let deep_paid = deep_payment.value();
 
     // Execute swap through DeepBook's native swap function
     let (base_remainder, quote_out, deep_remainder) = pool.swap_exact_quantity(
@@ -68,13 +84,27 @@ public fun swap_exact_base_for_quote<BaseToken, QuoteToken>(
 
     // Apply wrapper DEEP reserves coverage fees to the output
     let mut result_quote = quote_out;
-    join(wrapper, deep_remainder);
+    deposit_into_reserves(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
-    join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
+    let fee_balance = charge_swap_fee(&mut result_quote, fee_bps);
+    let fee_amount = fee_balance.value();
+    join_deep_reserves_coverage_fee(wrapper, fee_balance);
 
     // Verify that the final output after wrapper fees still meets the user's minimum requirement
     validate_minimum_output(&result_quote, min_quote_out);
+
+    event::emit(SwapExecuted<BaseToken, QuoteToken> {
+        wrapper_id: object::id(wrapper),
+        pool_id: object::id(pool),
+        base_to_quote: true,
+        input_amount: base_quantity,
+        output_amount: result_quote.value(),
+        input_remainder: base_remainder.value(),
+        fee_amount,
+        deep_fee_type: true,
+        deep_paid,
+    });
 
     (base_remainder, result_quote)
 }
@@ -108,14 +138,16 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
     wrapper.verify_version();
 
+    let quote_quantity = quote_in.value();
+
     // Determine if DEEP payment is needed based on pool whitelist status
     let deep_payment = if (pool.whitelisted()) {
         coin::zero(ctx)
     } else {
-        let quote_quantity = quote_in.value();
         let (_, _, deep_required) = pool.get_base_quantity_out(quote_quantity, clock);
         split_deep_reserves(wrapper, deep_required, ctx)
     };
+    let deep_paid = deep_payment.value();
 
     // Execute swap through DeepBook's native swap function
     let (base_out, quote_remainder, deep_remainder) = pool.swap_exact_quantity(
@@ -129,13 +161,27 @@ public fun swap_exact_quote_for_base<BaseToken, QuoteToken>(
 
     // Apply wrapper DEEP reserves coverage fees to the output
     let mut result_base = base_out;
-    join(wrapper, deep_remainder);
+    deposit_into_reserves(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
-    join_deep_reserves_coverage_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
+    let fee_balance = charge_swap_fee(&mut result_base, fee_bps);
+    let fee_amount = fee_balance.value();
+    join_deep_reserves_coverage_fee(wrapper, fee_balance);
 
     // Verify that the final output after wrapper fees still meets the user's minimum requirement
     validate_minimum_output(&result_base, min_base_out);
+
+    event::emit(SwapExecuted<BaseToken, QuoteToken> {
+        wrapper_id: object::id(wrapper),
+        pool_id: object::id(pool),
+        base_to_quote: false,
+        input_amount: quote_quantity,
+        output_amount: result_base.value(),
+        input_remainder: quote_remainder.value(),
+        fee_amount,
+        deep_fee_type: true,
+        deep_paid,
+    });
 
     (result_base, quote_remainder)
 }
@@ -169,6 +215,8 @@ public fun swap_exact_base_for_quote_input_fee<BaseToken, QuoteToken>(
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
     wrapper.verify_version();
 
+    let base_quantity = base_in.value();
+
     // Execute swap through DeepBook's native swap function with input fee model
     let (base_remainder, quote_out, deep_remainder) = pool.swap_exact_quantity(
         base_in,
@@ -182,13 +230,27 @@ public fun swap_exact_base_for_quote_input_fee<BaseToken, QuoteToken>(
     // Apply wrapper protocol fees to the output
     let mut result_quote = quote_out;
     // The `deep_remainder` is just an empty coin, so it could be either destroyed or joined to the wrapper reserves
-    join(wrapper, deep_remainder);
+    deposit_into_reserves(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
-    join_protocol_fee(wrapper, charge_swap_fee(&mut result_quote, fee_bps));
+    let fee_balance = charge_swap_fee(&mut result_quote, fee_bps);
+    let fee_amount = fee_balance.value();
+    join_protocol_fee(wrapper, fee_balance);
 
     // Verify that the final output after wrapper fees still meets the user's minimum requirement
     validate_minimum_output(&result_quote, min_quote_out);
+
+    event::emit(SwapExecuted<BaseToken, QuoteToken> {
+        wrapper_id: object::id(wrapper),
+        pool_id: object::id(pool),
+        base_to_quote: true,
+        input_amount: base_quantity,
+        output_amount: result_quote.value(),
+        input_remainder: base_remainder.value(),
+        fee_amount,
+        deep_fee_type: false,
+        deep_paid: 0,
+    });
 
     (base_remainder, result_quote)
 }
@@ -222,6 +284,8 @@ public fun swap_exact_quote_for_base_input_fee<BaseToken, QuoteToken>(
 ): (Coin<BaseToken>, Coin<QuoteToken>) {
     wrapper.verify_version();
 
+    let quote_quantity = quote_in.value();
+
     // Execute swap through DeepBook's native swap function with input fee model
     let (base_out, quote_remainder, deep_remainder) = pool.swap_exact_quantity(
         coin::zero(ctx),
@@ -235,13 +299,27 @@ public fun swap_exact_quote_for_base_input_fee<BaseToken, QuoteToken>(
     // Apply wrapper protocol fees to the output
     let mut result_base = base_out;
     // The `deep_remainder` is just an empty coin, so it could be either destroyed or joined to the wrapper reserves
-    join(wrapper, deep_remainder);
+    deposit_into_reserves(wrapper, deep_remainder);
 
     let fee_bps = get_fee_bps(pool);
-    join_protocol_fee(wrapper, charge_swap_fee(&mut result_base, fee_bps));
+    let fee_balance = charge_swap_fee(&mut result_base, fee_bps);
+    let fee_amount = fee_balance.value();
+    join_protocol_fee(wrapper, fee_balance);
 
     // Verify that the final output after wrapper fees still meets the user's minimum requirement
     validate_minimum_output(&result_base, min_base_out);
+
+    event::emit(SwapExecuted<BaseToken, QuoteToken> {
+        wrapper_id: object::id(wrapper),
+        pool_id: object::id(pool),
+        base_to_quote: false,
+        input_amount: quote_quantity,
+        output_amount: result_base.value(),
+        input_remainder: quote_remainder.value(),
+        fee_amount,
+        deep_fee_type: false,
+        deep_paid: 0,
+    });
 
     (result_base, quote_remainder)
 }

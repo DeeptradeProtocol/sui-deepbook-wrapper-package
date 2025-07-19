@@ -46,6 +46,7 @@ public struct TicketCreated has copy, drop {
 public struct TicketDestroyed has copy, drop {
     ticket_id: ID,
     ticket_type: u8,
+    is_expired: bool,
 }
 
 // === Public Functions ===
@@ -104,7 +105,7 @@ public fun create_ticket(
 public fun cleanup_expired_ticket(ticket: AdminTicket, clock: &Clock) {
     assert!(is_ticket_expired(&ticket, clock), ETicketNotExpired);
 
-    destroy_ticket(ticket);
+    destroy_ticket(ticket, clock);
 }
 
 // === Public-View Functions ===
@@ -134,12 +135,15 @@ public fun update_pool_specific_fees_ticket_type(): u8 { UPDATE_POOL_SPECIFIC_FE
 
 // === Package Functions ===
 /// Consumes the ticket, should be called after validation.
-public(package) fun destroy_ticket(ticket: AdminTicket) {
+public(package) fun destroy_ticket(ticket: AdminTicket, clock: &Clock) {
+    let is_expired = is_ticket_expired(&ticket, clock);
+
     let AdminTicket { id, ticket_type, .. } = ticket;
 
     event::emit(TicketDestroyed {
         ticket_id: id.to_inner(),
         ticket_type,
+        is_expired,
     });
 
     id.delete();
