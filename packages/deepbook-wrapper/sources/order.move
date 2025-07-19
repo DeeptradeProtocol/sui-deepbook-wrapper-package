@@ -58,9 +58,9 @@ const ENotSupportedSelfMatchingOption: u64 = 8;
 const EUnexpectedZeroCoverageFee: u64 = 9;
 
 // === Structs ===
-/// A plan that specifies how to source DEEP tokens for an order's DeepBook fees.
+/// A plan for allocating DEEP tokens for an order's DeepBook fees.
 ///
-/// It determines how much DEEP to take from the user's wallet and how much to
+/// It specifies how much DEEP to take from the user's wallet and how much to
 /// supply from the wrapper's reserves if the user's balance is insufficient.
 public struct DeepPlan has copy, drop {
     /// Whether DEEP from wrapper reserves is needed for this order
@@ -76,7 +76,7 @@ public struct DeepPlan has copy, drop {
 /// A plan for charging a coverage fee when the wrapper's DEEP reserves are used.
 ///
 /// This fee is charged in SUI as compensation for using the wrapper's DEEP to
-/// pay for an order's DeepBook fees. This struct determines how much SUI to
+/// pay for an order's DeepBook fees. This struct specifies how much SUI to
 /// take from the user's wallet and balance manager to pay this fee.
 public struct CoverageFeePlan has copy, drop {
     from_wallet: u64,
@@ -89,8 +89,8 @@ public struct CoverageFeePlan has copy, drop {
 ///
 /// The protocol fee is an additional fee charged by the wrapper for its services,
 /// paid in the order's input coin (base or quote). This plan calculates the
-/// maker and taker portions of the fee and defines how to source the payment
-/// from the user's wallet and balance manager.
+/// maker and taker portions of the fee and specify allocation of the payment between
+/// the user's wallet and balance manager.
 public struct ProtocolFeePlan has copy, drop {
     taker_fee_from_wallet: u64,
     taker_fee_from_balance_manager: u64,
@@ -993,8 +993,8 @@ public(package) fun get_coverage_fee_plan(
 }
 
 /// Creates a protocol fee plan for order execution
-/// Calculates taker and maker fees based on order execution status and determines
-/// how to source the fees from user's wallet and balance manager
+/// Calculates taker and maker fees based on order execution status and determines the allocation
+/// of those fees between the user's wallet and balance manager.
 ///
 /// Parameters:
 /// - order_info: Information about the executed order
@@ -1071,7 +1071,7 @@ public(package) fun get_protocol_fee_plan(
 }
 
 /// Creates an input coin deposit plan for order execution - core logic
-/// Determines how to source required input coins from user wallet and balance manager
+/// Specifies the allocation of required input coins between the user's wallet and balance manager.
 /// For bid orders, calculates quote coins needed; for ask orders, calculates base coins needed
 ///
 /// Returns an InputCoinDepositPlan structure with the following information:
