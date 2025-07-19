@@ -20,7 +20,7 @@ use token::deep::DEEP;
 /// Error when the user has not enough DEEP to cover the deepbook and protocol fees
 const ENotEnoughFee: u64 = 1;
 /// Error when the new protocol fee for pool creation is out of the allowed range
-const EPoolCreationFeeOutOfRange: u64 = 3;
+const EPoolCreationFeeOutOfRange: u64 = 2;
 
 // === Constants ===
 const DEEP_SCALING_FACTOR: u64 = 1_000_000;
