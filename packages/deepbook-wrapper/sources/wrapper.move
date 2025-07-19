@@ -191,8 +191,8 @@ public fun destroy_ticket(ticket: AdminTicket) {
     id.delete();
 }
 
-/// Withdraw deep reserves coverage fees for a specific coin type while verifying that the sender is the expected
-/// multi-sig address. Performs timelock validation using an admin ticket.
+/// Withdraw deep reserves coverage fees for a specific coin type
+/// Performs timelock validation using an admin ticket
 ///
 /// Parameters:
 /// - wrapper: Wrapper object

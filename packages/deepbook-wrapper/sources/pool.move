@@ -149,8 +149,8 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     pool_id
 }
 
-/// Update the protocol fee for creating a pool while verifying that the sender is the expected multi-sig address.
-/// Performs timelock validation using an admin ticket.
+/// Update the protocol fee for creating a pool
+/// Performs timelock validation using an admin ticket
 ///
 /// Parameters:
 /// - config: Pool creation configuration object
@@ -178,10 +178,7 @@ public fun update_pool_creation_protocol_fee(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(
-        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
-        ESenderIsNotMultisig,
-    );
+    assert!(multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx), ESenderIsNotMultisig);
     wrapper::validate_ticket(&ticket, update_pool_creation_protocol_fee_ticket_type(), clock, ctx);
 
     // Consume ticket after successful validation
