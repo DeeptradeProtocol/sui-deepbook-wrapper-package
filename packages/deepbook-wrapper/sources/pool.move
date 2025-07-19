@@ -6,6 +6,7 @@ use deepbook::registry::Registry;
 use deepbook_wrapper::admin::AdminCap;
 use deepbook_wrapper::helper::transfer_if_nonzero;
 use deepbook_wrapper::wrapper::{Wrapper, join_protocol_fee};
+use multisig::multisig;
 use sui::coin::Coin;
 use sui::event;
 use token::deep::DEEP;
@@ -13,9 +14,10 @@ use token::deep::DEEP;
 // === Errors ===
 /// Error when the user has not enough DEEP to cover the deepbook and protocol fees
 const ENotEnoughFee: u64 = 1;
-
+/// Error when the sender is not a multisig address
+const ESenderIsNotMultisig: u64 = 2;
 /// Error when the new protocol fee for pool creation is out of the allowed range
-const EPoolCreationFeeOutOfRange: u64 = 2;
+const EPoolCreationFeeOutOfRange: u64 = 3;
 
 /// A generic error code for any function that is no longer supported.
 /// The value 1000 is used by convention across modules for this purpose.
@@ -140,16 +142,39 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     pool_id
 }
 
-/// Update the protocol fee for creating a pool
+/// Updates the protocol fee for creating a pool with multi-signature verification
+/// Verifies sender matches the multi-sig address, then updates the protocol fee
+///
+/// Parameters:
+/// - config: Mutable reference to the pool creation configuration
+/// - _admin: Admin capability
+/// - new_fee: New protocol fee amount in DEEP tokens
+/// - pks: Vector of public keys of the signers
+/// - weights: Vector of weights for each corresponding signer (must match pks length)
+/// - threshold: Minimum sum of weights required to authorize transactions (must be > 0 and <= sum of weights)
+///
+/// Aborts:
+/// - With ESenderIsNotMultisig if the transaction sender is not the expected multi-signature address
+///   derived from the provided pks, weights, and threshold parameters
 public fun update_pool_creation_protocol_fee(
     config: &mut PoolCreationConfig,
     _admin: &AdminCap,
     new_fee: u64,
+    pks: vector<vector<u8>>,
+    weights: vector<u8>,
+    threshold: u16,
+    ctx: &mut TxContext,
 ) {
+    assert!(
+        multisig::check_if_sender_is_multisig_address(pks, weights, threshold, ctx),
+        ESenderIsNotMultisig,
+    );
+
     assert!(
         new_fee >= MIN_POOL_CREATION_PROTOCOL_FEE && new_fee <= MAX_POOL_CREATION_PROTOCOL_FEE,
         EPoolCreationFeeOutOfRange,
     );
+
     let old_fee = config.protocol_fee;
     config.protocol_fee = new_fee;
 

@@ -1,7 +1,8 @@
 import { Transaction } from "@mysten/sui/transactions";
-import { keypair, provider, user } from "../common";
-import { ADMIN_CAP_OBJECT_ID, DEEP_DECIMALS, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
+import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../constants";
 import { getDeepReservesBalance } from "./utils/getDeepReservesBalance";
+import { MULTISIG_CONFIG } from "../multisig/multisig";
+import { buildAndLogMultisigTransaction } from "../multisig/buildAndLogMultisigTransaction";
 
 // yarn ts-node examples/wrapper/withdraw-all-deep-reserves.ts > withdraw-all-deep-reserves.log 2>&1
 (async () => {
@@ -11,13 +12,18 @@ import { getDeepReservesBalance } from "./utils/getDeepReservesBalance";
 
   const withdrawnCoin = tx.moveCall({
     target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves`,
-    arguments: [tx.object(WRAPPER_OBJECT_ID), tx.object(ADMIN_CAP_OBJECT_ID), tx.pure.u64(amountToWithdraw)],
+    arguments: [
+      tx.object(WRAPPER_OBJECT_ID),
+      tx.object(ADMIN_CAP_OBJECT_ID),
+      tx.pure.u64(amountToWithdraw),
+      tx.pure.vector("vector<u8>", MULTISIG_CONFIG.publicKeysSuiBytes),
+      tx.pure.vector("u8", MULTISIG_CONFIG.weights),
+      tx.pure.u16(MULTISIG_CONFIG.threshold),
+    ],
   });
 
-  tx.transferObjects([withdrawnCoin], tx.pure.address(user));
+  tx.transferObjects([withdrawnCoin], tx.pure.address(MULTISIG_CONFIG.address));
+  console.warn(`Building transaction to withdraw ${amountToWithdrawFormatted} DEEP`);
 
-  console.warn(`Withdrawing ${amountToWithdrawFormatted} DEEP`);
-  const res = await provider.signAndExecuteTransaction({ transaction: tx, signer: keypair });
-
-  console.log(res);
+  await buildAndLogMultisigTransaction(tx);
 })();
