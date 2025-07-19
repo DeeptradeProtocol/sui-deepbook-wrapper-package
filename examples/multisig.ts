@@ -48,6 +48,8 @@ function deriveMultisigAddress(
 interface MultisigConfig {
   /** The PublicKey instances of the signers for the multisig wallet. */
   publicKeys: PublicKey[];
+  /** The Sui-standard byte representation of each signer's public key (flag || raw_bytes). */
+  publicKeysSuiBytes: number[][];
   /** The weights of each signer in the multisig wallet. */
   weights: number[];
   /** The threshold required for a transaction to be approved. */
@@ -90,6 +92,8 @@ const publicKeys = multisigSignersBase64Pubkeys.map((pk, i) => {
   }
 });
 
+const publicKeysSuiBytes: number[][] = publicKeys.map((pk) => Array.from(pk.toSuiBytes()));
+
 const derivedAddress = deriveMultisigAddress(
   publicKeys,
   parsedWeights,
@@ -104,6 +108,7 @@ if (derivedAddress !== address) {
 
 export const MULTISIG_CONFIG: MultisigConfig = {
   publicKeys,
+  publicKeysSuiBytes,
   weights: parsedWeights,
   threshold: parsedThreshold,
   address,
@@ -118,5 +123,6 @@ MULTISIG_CONFIG.publicKeys.forEach((pk, i) => {
     `  - Signer ${i + 1} (${scheme}): ${pk.toSuiAddress()}`,
   );
 });
+console.debug(`- Sui Public Key Bytes (for transactions): `, MULTISIG_CONFIG.publicKeysSuiBytes);
 console.debug(`- Weights: ${JSON.stringify(MULTISIG_CONFIG.weights)}`);
 console.debug(`- Threshold: ${JSON.stringify(MULTISIG_CONFIG.threshold)}`);
