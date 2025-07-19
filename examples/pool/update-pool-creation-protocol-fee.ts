@@ -18,7 +18,7 @@ const NEW_FEE = 200 * 10 ** DEEP_DECIMALS; // 200 DEEP
       tx.object(POOL_CREATION_CONFIG_OBJECT_ID),
       tx.object(ADMIN_CAP_OBJECT_ID),
       tx.pure.u64(NEW_FEE),
-      tx.pure.vector("vector<u8>", MULTISIG_CONFIG.pks),
+      tx.pure.vector("vector<u8>", MULTISIG_CONFIG.publicKeysSuiBytes),
       tx.pure.vector("u8", MULTISIG_CONFIG.weights),
       tx.pure.u16(MULTISIG_CONFIG.threshold),
     ],

@@ -17,7 +17,7 @@ const VERSION = 1;
       tx.object(WRAPPER_OBJECT_ID),
       tx.object(ADMIN_CAP_OBJECT_ID),
       tx.pure.u16(VERSION),
-      tx.pure.vector("vector<u8>", MULTISIG_CONFIG.pks),
+      tx.pure.vector("vector<u8>", MULTISIG_CONFIG.publicKeysSuiBytes),
       tx.pure.vector("u8", MULTISIG_CONFIG.weights),
       tx.pure.u16(MULTISIG_CONFIG.threshold),
     ],

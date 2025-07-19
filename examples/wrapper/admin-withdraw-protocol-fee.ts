@@ -13,7 +13,7 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
     target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_protocol_fee`,
     user: MULTISIG_CONFIG.address,
     adminCapId: ADMIN_CAP_OBJECT_ID,
-    pks: MULTISIG_CONFIG.pks,
+    pks: MULTISIG_CONFIG.publicKeysSuiBytes,
     weights: MULTISIG_CONFIG.weights,
     threshold: MULTISIG_CONFIG.threshold,
   });
@@ -25,7 +25,7 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
     user: MULTISIG_CONFIG.address,
     adminCapId: ADMIN_CAP_OBJECT_ID,
     transaction: tx,
-    pks: MULTISIG_CONFIG.pks,
+    pks: MULTISIG_CONFIG.publicKeysSuiBytes,
     weights: MULTISIG_CONFIG.weights,
     threshold: MULTISIG_CONFIG.threshold,
   });

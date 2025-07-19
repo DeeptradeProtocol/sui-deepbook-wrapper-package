@@ -29,7 +29,7 @@ import { processFeesBag } from "./utils/processFeeBag";
       user: MULTISIG_CONFIG.address,
       adminCapId: ADMIN_CAP_OBJECT_ID,
       transaction: tx,
-      pks: MULTISIG_CONFIG.pks,
+      pks: MULTISIG_CONFIG.publicKeysSuiBytes,
       weights: MULTISIG_CONFIG.weights,
       threshold: MULTISIG_CONFIG.threshold,
     });
