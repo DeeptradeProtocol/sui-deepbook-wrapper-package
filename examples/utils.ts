@@ -34,3 +34,15 @@ export function normalizeMnemonic(mnemonic: string): string {
     .map((part) => part.toLowerCase())
     .join(" ");
 }
+
+/**
+ * Converts a percentage to a billionths representation
+ * @param percentage - Percentage value
+ * @returns Billionths representation of the percentage
+ *
+ * @example
+ * percentageInBillionths(1) // 10_000_000
+ */
+export function percentageInBillionths(percentage: number) {
+  return (percentage / 100) * 1_000_000_000;
+}

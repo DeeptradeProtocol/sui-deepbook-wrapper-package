@@ -10,6 +10,9 @@ use deepbook_wrapper::order::{
 };
 use std::unit_test::assert_eq;
 
+// ===== Constants =====
+const PROTOCOL_FEE_RATE: u64 = 10_000_000; // 1% in billionths
+
 #[test]
 fun both_fees_within_limits() {
     // Test case: Both DEEP fee and SUI fee are within acceptable limits
@@ -18,6 +21,7 @@ fun both_fees_within_limits() {
     let deep_required = 100_000_000; // 100 DEEP (6 decimals)
     let deep_from_reserves = 50_000_000; // 50 DEEP from wrapper reserves
     let sui_per_deep = 1_000_000_000; // 1 SUI per DEEP (SUI has 9 decimals)
+    let protocol_fee_rate = PROTOCOL_FEE_RATE; // 1% in billionths
 
     // Estimated values with some buffer
     let estimated_deep_required = 95_000_000; // 95 DEEP (slightly less than actual)
@@ -31,7 +35,11 @@ fun both_fees_within_limits() {
         estimated_deep_required_slippage,
     );
     let max_sui_fee = apply_slippage(estimated_sui_fee, estimated_sui_fee_slippage);
-    let (actual_sui_fee, _, _) = calculate_full_order_fee(sui_per_deep, deep_from_reserves);
+    let (actual_sui_fee, _, _) = calculate_full_order_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_reserves,
+    );
 
     // Ensure our test parameters are valid (fees should be within limits)
     assert!(deep_required <= max_deep_required);
@@ -41,6 +49,7 @@ fun both_fees_within_limits() {
     validate_fees_against_max(
         deep_required,
         deep_from_reserves,
+        protocol_fee_rate,
         sui_per_deep,
         estimated_deep_required,
         estimated_deep_required_slippage,
@@ -56,6 +65,7 @@ fun deep_fee_exceeds_limit() {
     let deep_required = 110_000_000; // 110 DEEP (6 decimals)
     let deep_from_reserves = 50_000_000; // 50 DEEP from wrapper reserves
     let sui_per_deep = 1_000_000_000; // 1 SUI per DEEP (SUI has 9 decimals)
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Set estimated DEEP requirement lower so actual exceeds limit
     let estimated_deep_required = 95_000_000; // 95 DEEP
@@ -74,6 +84,7 @@ fun deep_fee_exceeds_limit() {
     validate_fees_against_max(
         deep_required,
         deep_from_reserves,
+        protocol_fee_rate,
         sui_per_deep,
         estimated_deep_required,
         estimated_deep_required_slippage,
@@ -89,6 +100,7 @@ fun sui_fee_exceeds_limit() {
     let deep_required = 90_000_000; // 90 DEEP (6 decimals) - within DEEP limit
     let deep_from_reserves = 1_000_000_000; // 1000 DEEP from wrapper reserves (large amount)
     let sui_per_deep = 1_000_000_000; // 1 SUI per DEEP (9 decimals)
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Set estimated values so DEEP is within limit but SUI exceeds
     let estimated_deep_required = 95_000_000; // 95 DEEP (higher than actual)
@@ -106,6 +118,7 @@ fun sui_fee_exceeds_limit() {
     validate_fees_against_max(
         deep_required,
         deep_from_reserves,
+        protocol_fee_rate,
         sui_per_deep,
         estimated_deep_required,
         estimated_deep_required_slippage,
@@ -121,6 +134,7 @@ fun both_fees_exceed_limits() {
     let deep_required = 110_000_000; // 110 DEEP (6 decimals) - exceeds DEEP limit
     let deep_from_reserves = 50_000_000; // 50 DEEP from wrapper reserves
     let sui_per_deep = 2_000_000_000; // 2 SUI per DEEP (higher price)
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Set both estimates low so both actual fees exceed limits
     let estimated_deep_required = 90_000_000; // 90 DEEP (low estimate)
@@ -133,6 +147,7 @@ fun both_fees_exceed_limits() {
     validate_fees_against_max(
         deep_required,
         deep_from_reserves,
+        protocol_fee_rate,
         sui_per_deep,
         estimated_deep_required,
         estimated_deep_required_slippage,
@@ -148,6 +163,7 @@ fun zero_deep_from_reserves_skips_sui_validation() {
     let deep_required = 90_000_000; // 90 DEEP (6 decimals) - within DEEP limit
     let deep_from_reserves = 0; // No DEEP from reserves - this should skip SUI validation
     let sui_per_deep = 1_000_000_000; // 1 SUI per DEEP (SUI has 9 decimals)
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     let estimated_deep_required = 95_000_000; // 95 DEEP (higher than actual, so DEEP is safe)
     let estimated_deep_required_slippage = 100_000_000; // 10% slippage
@@ -168,6 +184,7 @@ fun zero_deep_from_reserves_skips_sui_validation() {
     validate_fees_against_max(
         deep_required,
         deep_from_reserves,
+        protocol_fee_rate,
         sui_per_deep,
         estimated_deep_required,
         estimated_deep_required_slippage,
@@ -195,6 +212,7 @@ fun boundary_conditions_exact_limits() {
     let deep_required = max_deep_required; // Exactly at the limit
     let sui_per_deep = 1_000_000_000; // 1 SUI per DEEP
     let deep_from_reserves = 50_000_000; // 50 DEEP from reserves
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Verify the values are exactly at limits
     assert_eq!(deep_required, max_deep_required);
@@ -203,6 +221,7 @@ fun boundary_conditions_exact_limits() {
     validate_fees_against_max(
         deep_required,
         deep_from_reserves,
+        protocol_fee_rate,
         sui_per_deep,
         estimated_deep_required,
         estimated_deep_required_slippage,
@@ -218,6 +237,7 @@ fun zero_values_edge_case() {
     let deep_required = 0; // 0 DEEP required
     let deep_from_reserves = 0; // 0 DEEP from reserves
     let sui_per_deep = 1_000_000_000; // 1 SUI per DEEP
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     let estimated_deep_required = 0; // 0 DEEP estimated
     let estimated_deep_required_slippage = 100_000_000; // 10% slippage
@@ -228,6 +248,7 @@ fun zero_values_edge_case() {
     validate_fees_against_max(
         deep_required,
         deep_from_reserves,
+        protocol_fee_rate,
         sui_per_deep,
         estimated_deep_required,
         estimated_deep_required_slippage,

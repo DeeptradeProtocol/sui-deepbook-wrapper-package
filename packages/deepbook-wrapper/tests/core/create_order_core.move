@@ -24,6 +24,9 @@ const AMOUNT_HUGE: u64 = 1_000_000_000_000; // 1 trillion
 // SUI per DEEP
 const SUI_PER_DEEP: u64 = 37_815_000_000;
 
+// Protocol fee rate
+const PROTOCOL_FEE_RATE: u64 = 10_000_000; // 1% in billionths
+
 // ===== Helper Function for Testing =====
 
 /// Helper function to assert all three plans match expected values
@@ -85,6 +88,7 @@ public fun bid_order_sufficient_resources() {
     let is_bid = true;
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances
     let deep_required = AMOUNT_SMALL;
@@ -117,6 +121,7 @@ public fun bid_order_sufficient_resources() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -150,6 +155,7 @@ public fun bid_order_with_wrapper_deep() {
     let is_bid = true;
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances - not enough DEEP in wallet or balance manager
     let deep_required = AMOUNT_MEDIUM;
@@ -167,7 +173,11 @@ public fun bid_order_with_wrapper_deep() {
 
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
-    let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // For this test case we expect:
     // 1. DEEP: All from wallet and balance manager + some from wrapper
@@ -204,6 +214,7 @@ public fun bid_order_with_wrapper_deep() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -237,6 +248,7 @@ public fun bid_order_whitelisted_pool() {
     let is_bid = true;
     let is_pool_whitelisted = true; // Whitelisted pool!
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances
     let deep_required = AMOUNT_SMALL;
@@ -269,6 +281,7 @@ public fun bid_order_whitelisted_pool() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -302,6 +315,7 @@ public fun bid_order_fee_from_both_sources() {
     let is_bid = true;
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances
     let deep_required = AMOUNT_MEDIUM;
@@ -314,6 +328,7 @@ public fun bid_order_fee_from_both_sources() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
     let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        protocol_fee_rate,
         sui_per_deep,
         deep_from_wrapper,
     );
@@ -354,6 +369,7 @@ public fun bid_order_fee_from_both_sources() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -387,6 +403,7 @@ public fun bid_order_insufficient_deep_no_wrapper() {
     let is_bid = true;
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances - not enough DEEP anywhere
     let deep_required = AMOUNT_MEDIUM;
@@ -414,6 +431,7 @@ public fun bid_order_insufficient_deep_no_wrapper() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -447,6 +465,7 @@ public fun bid_order_quote_only_in_balance_manager() {
     let is_bid = true;
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances - all resources in balance manager
     let deep_required = AMOUNT_SMALL;
@@ -474,6 +493,7 @@ public fun bid_order_quote_only_in_balance_manager() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -507,6 +527,7 @@ public fun bid_order_large_values() {
     let is_bid = true;
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Make sure we have enough resources for this large order
     let deep_required = AMOUNT_MEDIUM;
@@ -519,6 +540,7 @@ public fun bid_order_large_values() {
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
     let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        protocol_fee_rate,
         sui_per_deep,
         deep_from_wrapper,
     );
@@ -542,6 +564,7 @@ public fun bid_order_large_values() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -575,6 +598,7 @@ public fun bid_order_exact_resources() {
     let is_bid = true;
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances - exactly what's needed
     let deep_required = AMOUNT_SMALL;
@@ -602,6 +626,7 @@ public fun bid_order_exact_resources() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -637,6 +662,7 @@ public fun ask_order_sufficient_resources() {
     let is_bid = false; // Ask order
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances
     let deep_required = AMOUNT_SMALL;
@@ -671,6 +697,7 @@ public fun ask_order_sufficient_resources() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -704,6 +731,7 @@ public fun ask_order_whitelisted_pool() {
     let is_bid = false; // Ask order
     let is_pool_whitelisted = true; // Whitelisted pool!
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances
     let deep_required = AMOUNT_SMALL;
@@ -736,6 +764,7 @@ public fun ask_order_whitelisted_pool() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -769,6 +798,7 @@ public fun ask_order_insufficient_deep_and_base() {
     let is_bid = false; // Ask order
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances - not enough DEEP anywhere
     let deep_required = AMOUNT_MEDIUM;
@@ -796,6 +826,7 @@ public fun ask_order_insufficient_deep_and_base() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -829,6 +860,7 @@ public fun ask_order_base_only_in_balance_manager() {
     let is_bid = false; // Ask order
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances - base coins only in balance manager
     let deep_required = AMOUNT_SMALL;
@@ -845,7 +877,11 @@ public fun ask_order_base_only_in_balance_manager() {
     let deep_from_wrapper = deep_required - balance_manager_deep;
 
     // Calculate fee for wrapper DEEP usage
-    let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // Calculate expected values
     let order_amount = calculate_order_amount(quantity, price, is_bid);
@@ -861,6 +897,7 @@ public fun ask_order_base_only_in_balance_manager() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -894,6 +931,7 @@ public fun ask_order_large_values() {
     let is_bid = false; // Ask order
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Make sure we have enough resources for this large order
     let deep_required = AMOUNT_MEDIUM;
@@ -907,7 +945,11 @@ public fun ask_order_large_values() {
     let deep_from_wrapper = deep_required - deep_in_wallet;
 
     // Calculate fee for wrapper DEEP usage
-    let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // All resources from wallet
     let sui_in_wallet = coverage_fee + protocol_fee;
@@ -927,6 +969,7 @@ public fun ask_order_large_values() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -960,6 +1003,7 @@ public fun ask_order_exact_resources() {
     let is_bid = false; // Ask order
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Set up resources to exactly match what's needed
     let deep_required = AMOUNT_SMALL;
@@ -987,6 +1031,7 @@ public fun ask_order_exact_resources() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -1020,6 +1065,7 @@ public fun ask_order_complex_distribution() {
     let is_bid = false; // Ask order
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances - split between wallet and balance manager
     let deep_required = AMOUNT_MEDIUM;
@@ -1047,6 +1093,7 @@ public fun ask_order_complex_distribution() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -1080,6 +1127,7 @@ public fun ask_order_insufficient_base() {
     let is_bid = false; // Ask order
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances - not enough DEEP to force using wrapper DEEP
     let deep_required = AMOUNT_MEDIUM;
@@ -1092,7 +1140,11 @@ public fun ask_order_insufficient_base() {
     let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
 
     // Calculate fee for wrapper DEEP usage
-    let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // Wallet has enough for fees but not enough for the deposit
     let sui_in_wallet = coverage_fee + protocol_fee;
@@ -1112,6 +1164,7 @@ public fun ask_order_insufficient_base() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -1145,6 +1198,7 @@ public fun ask_order_with_wrapper_deep() {
     let is_bid = false; // Ask order
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances - not enough DEEP in wallet or balance manager
     let deep_required = AMOUNT_MEDIUM;
@@ -1157,7 +1211,11 @@ public fun ask_order_with_wrapper_deep() {
     let deep_from_wrapper = deep_required - balance_manager_deep - deep_in_wallet;
 
     // Calculate fee for wrapper DEEP usage
-    let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(sui_per_deep, deep_from_wrapper);
+    let (_, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        protocol_fee_rate,
+        sui_per_deep,
+        deep_from_wrapper,
+    );
 
     // Set up SUI and input coin balances
     let sui_in_wallet = coverage_fee + protocol_fee;
@@ -1177,6 +1235,7 @@ public fun ask_order_with_wrapper_deep() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -1210,6 +1269,7 @@ public fun ask_order_fee_from_both_sources() {
     let is_bid = false; // Ask order
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances - not enough DEEP to avoid using wrapper
     let deep_required = AMOUNT_MEDIUM;
@@ -1222,6 +1282,7 @@ public fun ask_order_fee_from_both_sources() {
 
     // Calculate fee for wrapper DEEP usage
     let (total_fee, coverage_fee, protocol_fee) = calculate_full_order_fee(
+        protocol_fee_rate,
         sui_per_deep,
         deep_from_wrapper,
     );
@@ -1268,6 +1329,7 @@ public fun ask_order_fee_from_both_sources() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -1303,6 +1365,7 @@ public fun zero_quantity_order() {
     let is_bid = true;
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances
     let deep_required = AMOUNT_SMALL;
@@ -1330,6 +1393,7 @@ public fun zero_quantity_order() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
@@ -1364,6 +1428,7 @@ public fun zero_price_order() {
     let is_bid = true;
     let is_pool_whitelisted = false;
     let sui_per_deep = SUI_PER_DEEP;
+    let protocol_fee_rate = PROTOCOL_FEE_RATE;
 
     // Resource balances
     let deep_required = AMOUNT_SMALL;
@@ -1391,6 +1456,7 @@ public fun zero_price_order() {
         wallet_input_coin,
         wrapper_deep_reserves,
         order_amount,
+        protocol_fee_rate,
         sui_per_deep,
     );
 
