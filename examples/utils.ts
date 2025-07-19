@@ -1,5 +1,3 @@
-import { fromBase64 } from "@mysten/sui/utils";
-
 /**
  * Add two numbers.
  * @param {string} hexStr String as an input.
