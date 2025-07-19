@@ -35,15 +35,10 @@ const EVersionPermanentlyDisabled: u64 = 7;
 
 // === Structs ===
 /// Wrapper struct for DeepBook V3
-/// - allowed_versions: Package versions that are allowed to interact with the wrapper
-/// - disabled_versions: Package versions that have been permanently disabled
-/// - deep_reserves: The DEEP reserves in the wrapper
-/// - deep_reserves_coverage_fees: The DEEP reserves coverage fees collected by the wrapper
-/// - protocol_fees: The protocol fees collected by the wrapper
-/// - unsettled_fees: Fees that have been collected but not yet settled by either the user or the protocol.
 public struct Wrapper has key, store {
     id: UID,
     allowed_versions: VecSet<u16>,
+    // Permanently disabled package versions
     disabled_versions: VecSet<u16>,
     deep_reserves: Balance<DEEP>,
     deep_reserves_coverage_fees: Bag,
