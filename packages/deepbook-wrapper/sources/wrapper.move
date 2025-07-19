@@ -128,7 +128,7 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
 ): Coin<CoinType> {
     wrapper.verify_version();
     validate_ticket(&ticket, withdraw_coverage_fee_ticket_type(), clock, ctx);
-    destroy_ticket(ticket);
+    destroy_ticket(ticket, clock);
 
     let key = ChargedFeeKey<CoinType> {};
 
@@ -169,7 +169,7 @@ public fun withdraw_protocol_fee<CoinType>(
 ): Coin<CoinType> {
     wrapper.verify_version();
     validate_ticket(&ticket, withdraw_protocol_fee_ticket_type(), clock, ctx);
-    destroy_ticket(ticket);
+    destroy_ticket(ticket, clock);
 
     let key = ChargedFeeKey<CoinType> {};
 
@@ -212,7 +212,7 @@ public fun withdraw_deep_reserves(
 ): Coin<DEEP> {
     wrapper.verify_version();
     validate_ticket(&ticket, withdraw_deep_reserves_ticket_type(), clock, ctx);
-    destroy_ticket(ticket);
+    destroy_ticket(ticket, clock);
 
     let coin = split_deep_reserves(wrapper, amount, ctx);
 
