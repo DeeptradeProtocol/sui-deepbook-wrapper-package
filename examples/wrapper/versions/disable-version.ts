@@ -1,11 +1,10 @@
 import { Transaction } from "@mysten/sui/transactions";
 import { ADMIN_CAP_OBJECT_ID, WRAPPER_OBJECT_ID, WRAPPER_PACKAGE_ID } from "../../constants";
-import {  MULTISIG_CONFIG } from "../../multisig/multisig";
+import { MULTISIG_CONFIG } from "../../multisig/multisig";
 import { buildAndLogMultisigTransaction } from "../../multisig/buildAndLogMultisigTransaction";
 
 // Set the version to disable here
 const VERSION = 1;
-
 
 // Usage: yarn ts-node examples/wrapper/versions/disable-version.ts > disable-version.log 2>&1
 (async () => {

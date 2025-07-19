@@ -2,7 +2,7 @@ import { provider } from "../../common";
 import { WRAPPER_OBJECT_ID } from "../../constants";
 
 export async function getWrapperBags() {
-      // Fetch the wrapper object using its ID
+  // Fetch the wrapper object using its ID
   const wrapperObjectResponse = await provider.getObject({
     id: WRAPPER_OBJECT_ID,
     options: { showContent: true },

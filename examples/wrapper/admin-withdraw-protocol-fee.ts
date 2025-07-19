@@ -31,5 +31,4 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
   });
 
   await buildAndLogMultisigTransaction(tx);
-
 })();

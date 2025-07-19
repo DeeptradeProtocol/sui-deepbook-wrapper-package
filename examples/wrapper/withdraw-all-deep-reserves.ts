@@ -10,7 +10,6 @@ import { buildAndLogMultisigTransaction } from "../multisig/buildAndLogMultisigT
 
   const { deepReservesRaw: amountToWithdraw, deepReserves: amountToWithdrawFormatted } = await getDeepReservesBalance();
 
-
   const withdrawnCoin = tx.moveCall({
     target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves`,
     arguments: [

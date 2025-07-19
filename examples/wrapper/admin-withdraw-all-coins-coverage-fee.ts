@@ -6,7 +6,6 @@ import { getWithdrawFeeTx } from "./getWithdrawFeeTx";
 import { getWrapperBags } from "./utils/getWrapperBags";
 import { processFeesBag } from "./utils/processFeeBag";
 
-
 // yarn ts-node examples/wrapper/admin-withdraw-all-coins-coverage-fee.ts > admin-withdraw-all-coins-coverage-fee.log 2>&1
 (async () => {
   const tx = new Transaction();
@@ -21,10 +20,9 @@ import { processFeesBag } from "./utils/processFeeBag";
     `Building transaction to withdraw coverage fees for ${coinTypes.length} coin types: ${coinTypes.join(", ")}`,
   );
 
-
   for (const coinType of coinTypes) {
     getWithdrawFeeTx({
-      coinType, 
+      coinType,
       target: `${WRAPPER_PACKAGE_ID}::wrapper::withdraw_deep_reserves_coverage_fee`,
       user: MULTISIG_CONFIG.address,
       adminCapId: ADMIN_CAP_OBJECT_ID,
@@ -36,5 +34,4 @@ import { processFeesBag } from "./utils/processFeeBag";
   }
 
   await buildAndLogMultisigTransaction(tx);
-
 })();

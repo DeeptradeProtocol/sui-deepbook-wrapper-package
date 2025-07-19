@@ -7,9 +7,7 @@ import { MULTISIG_CONFIG } from "./multisig";
  * Handles the boilerplate of building, dry running, and logging a multisig transaction.
  * @param tx - The transaction block to process.
  */
-export async function buildAndLogMultisigTransaction(
-  tx: Transaction
-): Promise<void> {
+export async function buildAndLogMultisigTransaction(tx: Transaction): Promise<void> {
   tx.setSender(MULTISIG_CONFIG.address);
 
   const transactionBytes = await tx.build({ client: provider });
@@ -27,19 +25,10 @@ export async function buildAndLogMultisigTransaction(
     console.log("✅ Transaction is valid");
     console.log("\n📋 Next steps:");
     console.log("1. Share these transaction bytes with the other signers.");
-    console.log(
-      "2. Each signer must sign the transaction bytes using `sui keytool sign`."
-    );
-    console.log(
-      "3. Combine the signatures using `sui keytool multi-sig-combine-partial-sig`."
-    );
-    console.log(
-      "4. Execute the combined transaction using `sui client execute-signed-tx`."
-    );
+    console.log("2. Each signer must sign the transaction bytes using `sui keytool sign`.");
+    console.log("3. Combine the signatures using `sui keytool multi-sig-combine-partial-sig`.");
+    console.log("4. Execute the combined transaction using `sui client execute-signed-tx`.");
   } else {
-    console.log(
-      "❌ Transaction validation failed:",
-      dryRunResult.effects.status.error
-    );
+    console.log("❌ Transaction validation failed:", dryRunResult.effects.status.error);
   }
 }

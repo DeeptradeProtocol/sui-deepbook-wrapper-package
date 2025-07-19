@@ -17,10 +17,14 @@ function getPublicKey(pk: string): PublicKey {
   const rawKeyBytes = bytes.slice(1);
 
   switch (scheme) {
-    case "ED25519": return new Ed25519PublicKey(rawKeyBytes);
-    case "Secp256k1": return new Secp256k1PublicKey(rawKeyBytes);
-    case "Secp256r1": return new Secp256r1PublicKey(rawKeyBytes);
-    default: throw new Error(`Unsupported signature scheme flag: ${bytes[0]}`);
+    case "ED25519":
+      return new Ed25519PublicKey(rawKeyBytes);
+    case "Secp256k1":
+      return new Secp256k1PublicKey(rawKeyBytes);
+    case "Secp256r1":
+      return new Secp256r1PublicKey(rawKeyBytes);
+    default:
+      throw new Error(`Unsupported signature scheme flag: ${bytes[0]}`);
   }
 }
 
@@ -28,11 +32,7 @@ function getPublicKey(pk: string): PublicKey {
  * Derives a multisig address from the provided public keys, weights, and threshold.
  * @returns The derived multisig address.
  */
-function deriveMultisigAddress(
-  publicKeys: PublicKey[],
-  weights: number[],
-  threshold: number,
-): string {
+function deriveMultisigAddress(publicKeys: PublicKey[], weights: number[], threshold: number): string {
   const multisigPublicKey = MultiSigPublicKey.fromPublicKeys({
     publicKeys: publicKeys.map((pk, i) => ({
       publicKey: pk,
@@ -72,9 +72,7 @@ const multisigSignersBase64Pubkeys = signersBase64.split(",").map((s) => s.trim(
 const parsedWeights = weights.split(",").map((w) => parseInt(w.trim(), 10));
 const parsedThreshold = parseInt(threshold, 10);
 
-if (
-  multisigSignersBase64Pubkeys.length !== parsedWeights.length
-) {
+if (multisigSignersBase64Pubkeys.length !== parsedWeights.length) {
   throw new Error("The number of public keys and weights must be the same.");
 }
 
@@ -82,22 +80,13 @@ const publicKeys = multisigSignersBase64Pubkeys.map((pk, i) => {
   try {
     return getPublicKey(pk);
   } catch (error: any) {
-    throw new Error(
-      `The public key at index ${i} ("${pk.substring(
-        0,
-        10,
-      )}...") is invalid: ${error.message}`,
-    );
+    throw new Error(`The public key at index ${i} ("${pk.substring(0, 10)}...") is invalid: ${error.message}`);
   }
 });
 
 const publicKeysSuiBytes: number[][] = publicKeys.map((pk) => Array.from(pk.toSuiBytes()));
 
-const derivedAddress = deriveMultisigAddress(
-  publicKeys,
-  parsedWeights,
-  parsedThreshold,
-);
+const derivedAddress = deriveMultisigAddress(publicKeys, parsedWeights, parsedThreshold);
 
 if (derivedAddress !== address) {
   throw new Error(
@@ -120,8 +109,6 @@ console.debug(`- Threshold: ${JSON.stringify(MULTISIG_CONFIG.threshold)}`);
 console.debug("- Signer Details:");
 MULTISIG_CONFIG.publicKeys.forEach((pk, i) => {
   const scheme = SIGNATURE_FLAG_TO_SCHEME[pk.flag() as keyof typeof SIGNATURE_FLAG_TO_SCHEME];
-  console.debug(
-    `  - Signer ${i + 1} (${scheme}): ${pk.toSuiAddress()}`,
-  );
+  console.debug(`  - Signer ${i + 1} (${scheme}): ${pk.toSuiAddress()}`);
 });
 console.debug(`- Sui Public Key Bytes (for transactions): `, MULTISIG_CONFIG.publicKeysSuiBytes);
