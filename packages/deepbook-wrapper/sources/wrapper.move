@@ -197,8 +197,7 @@ public fun withdraw_protocol_fee<CoinType>(
     }
 }
 
-/// Withdraw a specified amount of DEEP coins from the wrapper's reserves verifying that the sender is the expected
-/// multi-sig address
+/// Withdraw a specified amount of DEEP coins from the wrapper's reserves
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
