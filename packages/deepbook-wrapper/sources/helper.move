@@ -33,6 +33,7 @@ const EInvalidDeepFromReserves: u64 = 8;
 const EZeroOriginalQuantity: u64 = 9;
 /// Error when the executed quantity exceeds the original quantity
 const EExecutedQuantityExceedsOriginal: u64 = 10;
+const EInvalidSuiPerDeep: u64 = 11;
 
 // === Constants ===
 /// Current version of the package. Update during upgrades
@@ -208,11 +209,15 @@ public(package) fun get_sui_per_deep<ReferenceBaseAsset, ReferenceQuoteAsset>(
     let reference_sui_per_deep = get_sui_per_deep_from_reference_pool(reference_pool, clock);
 
     // Choose maximum (best for wrapper - users pay more SUI for DEEP)
-    if (oracle_sui_per_deep > reference_sui_per_deep) {
+    let sui_per_deep = if (oracle_sui_per_deep > reference_sui_per_deep) {
         oracle_sui_per_deep
     } else {
         reference_sui_per_deep
-    }
+    };
+
+    assert!(sui_per_deep > 0, EInvalidSuiPerDeep);
+
+    sui_per_deep
 }
 
 /// Gets the SUI per DEEP price from a reference pool, normalizing the price regardless of token order
