@@ -140,9 +140,9 @@ public fun update_pool_specific_fees_ticket_type(): u8 { UPDATE_POOL_SPECIFIC_FE
 // === Package Functions ===
 /// Consumes the ticket, should be called after validation.
 public(package) fun destroy_ticket(ticket: AdminTicket, clock: &Clock) {
-    let AdminTicket { id, ticket_type, .. } = ticket;
-
     let is_expired = is_ticket_expired(&ticket, clock);
+
+    let AdminTicket { id, ticket_type, .. } = ticket;
 
     event::emit(TicketDestroyed {
         ticket_id: id.to_inner(),
