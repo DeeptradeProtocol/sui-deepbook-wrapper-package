@@ -19,10 +19,17 @@ use token::deep::DEEP;
 // === Errors ===
 /// Error when the user has not enough DEEP to cover the deepbook and protocol fees
 const ENotEnoughFee: u64 = 1;
+/// Error when the new protocol fee for pool creation is out of the allowed range
+const EPoolCreationFeeOutOfRange: u64 = 3;
 
 // === Constants ===
+const DEEP_SCALING_FACTOR: u64 = 1_000_000;
 // Default protocol fee for creating a pool
-const DEFAULT_POOL_CREATION_PROTOCOL_FEE: u64 = 100 * 1_000_000; // 100 DEEP
+const DEFAULT_POOL_CREATION_PROTOCOL_FEE: u64 = 100 * DEEP_SCALING_FACTOR; // 100 DEEP
+// Minimum protocol fee for creating a pool
+const MIN_POOL_CREATION_PROTOCOL_FEE: u64 = 0; // 0 DEEP
+// Maximum protocol fee for creating a pool
+const MAX_POOL_CREATION_PROTOCOL_FEE: u64 = 500 * DEEP_SCALING_FACTOR; // 500 DEEP
 
 // === Structs ===
 /// Pool creation configuration object that stores the protocol fee
@@ -32,12 +39,30 @@ public struct PoolCreationConfig has key, store {
     protocol_fee: u64,
 }
 
+// === Events ===
 /// Pool created event emitted when a pool is created with help of the wrapper
-public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop, store {
+public struct PoolCreated<phantom BaseAsset, phantom QuoteAsset> has copy, drop {
     pool_id: ID,
     tick_size: u64,
     lot_size: u64,
     min_size: u64,
+}
+
+/// Event emitted when the protocol fee for creating a pool is updated
+public struct PoolCreationProtocolFeeUpdated has copy, drop {
+    config_id: ID,
+    old_fee: u64,
+    new_fee: u64,
+}
+
+/// Initialize the pool creation config object
+fun init(ctx: &mut TxContext) {
+    let config = PoolCreationConfig {
+        id: object::new(ctx),
+        protocol_fee: DEFAULT_POOL_CREATION_PROTOCOL_FEE,
+    };
+
+    transfer::share_object(config);
 }
 
 // === Public-Mutative Functions ===
@@ -115,12 +140,13 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
     pool_id
 }
 
-/// Update the protocol fee for the pool creation config. Performs timelock validation using an admin ticket.
+/// Update the protocol fee for creating a pool
+/// Performs timelock validation using an admin ticket
 ///
 /// Parameters:
 /// - config: Pool creation configuration object
 /// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - protocol_fee: The new protocol fee
+/// - protocol_fee: The new protocol fee for creating a pool
 /// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for sender verification
 ///
@@ -133,27 +159,26 @@ public fun update_pool_creation_protocol_fee(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    validate_ticket(&ticket, update_pool_creation_protocol_fee_ticket_type(), clock, ctx);
+    assert!(
+        protocol_fee >= MIN_POOL_CREATION_PROTOCOL_FEE && protocol_fee <= MAX_POOL_CREATION_PROTOCOL_FEE,
+        EPoolCreationFeeOutOfRange,
+    );
 
-    // Consume ticket after successful validation
+    validate_ticket(&ticket, update_pool_creation_protocol_fee_ticket_type(), clock, ctx);
     destroy_ticket(ticket);
 
+    let old_fee = config.protocol_fee;
     config.protocol_fee = protocol_fee;
+
+    event::emit(PoolCreationProtocolFeeUpdated {
+        config_id: config.id.to_inner(),
+        old_fee,
+        new_fee: protocol_fee,
+    });
 }
 
 // === Public-View Functions ===
 /// Get the current protocol fee for creating a pool
 public fun pool_creation_protocol_fee(config: &PoolCreationConfig): u64 {
     config.protocol_fee
-}
-
-// === Private Functions ===
-/// Initialize the pool module
-fun init(ctx: &mut TxContext) {
-    let config = PoolCreationConfig {
-        id: object::new(ctx),
-        protocol_fee: DEFAULT_POOL_CREATION_PROTOCOL_FEE,
-    };
-
-    transfer::share_object(config);
 }

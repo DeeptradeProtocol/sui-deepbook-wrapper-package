@@ -7,8 +7,8 @@ export enum TicketType {
   WithdrawProtocolFee = "WithdrawProtocolFee",
   WithdrawCoverageFee = "WithdrawCoverageFee",
   UpdatePoolCreationProtocolFee = "UpdatePoolCreationProtocolFee",
-  UpdateDeepFeeTypeRate = "UpdateDeepFeeTypeRate",
-  UpdateInputCoinProtocolFeeMultiplier = "UpdateInputCoinProtocolFeeMultiplier",
+  UpdateDefaultFees = "UpdateDefaultFees",
+  UpdatePoolSpecificFees = "UpdatePoolSpecificFees",
 }
 
 export interface CreateTicketParams {
@@ -57,10 +57,10 @@ function getTicketTypeHelperFunction(ticketType: TicketType): string {
       return "withdraw_coverage_fee_ticket_type";
     case TicketType.UpdatePoolCreationProtocolFee:
       return "update_pool_creation_protocol_fee_ticket_type";
-    case TicketType.UpdateDeepFeeTypeRate:
-      return "update_deep_fee_type_rate_ticket_type";
-    case TicketType.UpdateInputCoinProtocolFeeMultiplier:
-      return "update_input_coin_protocol_fee_multiplier_ticket_type";
+    case TicketType.UpdateDefaultFees:
+      return "update_default_fees_ticket_type";
+    case TicketType.UpdatePoolSpecificFees:
+      return "update_pool_specific_fees_ticket_type";
     default:
       throw new Error(`Unknown ticket type: ${ticketType}`);
   }
