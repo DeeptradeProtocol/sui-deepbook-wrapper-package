@@ -102,8 +102,7 @@ public fun deposit_into_reserves(wrapper: &mut Wrapper, deep_coin: Coin<DEEP>) {
     wrapper.deep_reserves.join(deep_coin.into_balance());
 }
 
-/// Withdraw deep reserves coverage fees for a specific coin type verifying that the sender is the expected
-/// multi-sig address
+/// Withdraw deep reserves coverage fees for a specific coin type
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
@@ -150,7 +149,7 @@ public fun withdraw_deep_reserves_coverage_fee<CoinType>(
     }
 }
 
-/// Withdraw protocol fees for a specific coin type verifying that the sender is the expected multi-sig address
+/// Withdraw protocol fees for a specific coin type
 ///
 /// Parameters:
 /// - wrapper: Wrapper object
