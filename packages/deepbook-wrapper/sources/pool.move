@@ -146,7 +146,7 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
 /// Parameters:
 /// - config: Pool creation configuration object
 /// - ticket: Admin ticket for timelock validation (consumed on execution)
-/// - protocol_fee: The new protocol fee for creating a pool
+/// - new_fee: The new fee for creating a pool
 /// - clock: Clock for timestamp validation
 /// - ctx: Mutable transaction context for sender verification
 ///
@@ -155,12 +155,12 @@ public fun create_permissionless_pool<BaseAsset, QuoteAsset>(
 public fun update_pool_creation_protocol_fee(
     config: &mut PoolCreationConfig,
     ticket: AdminTicket,
-    protocol_fee: u64,
+    new_fee: u64,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
     assert!(
-        protocol_fee >= MIN_POOL_CREATION_PROTOCOL_FEE && protocol_fee <= MAX_POOL_CREATION_PROTOCOL_FEE,
+        new_fee >= MIN_POOL_CREATION_PROTOCOL_FEE && new_fee <= MAX_POOL_CREATION_PROTOCOL_FEE,
         EPoolCreationFeeOutOfRange,
     );
 
@@ -168,12 +168,12 @@ public fun update_pool_creation_protocol_fee(
     destroy_ticket(ticket, clock);
 
     let old_fee = config.protocol_fee;
-    config.protocol_fee = protocol_fee;
+    config.protocol_fee = new_fee;
 
     event::emit(PoolCreationProtocolFeeUpdated {
         config_id: config.id.to_inner(),
         old_fee,
-        new_fee: protocol_fee,
+        new_fee,
     });
 }
 
