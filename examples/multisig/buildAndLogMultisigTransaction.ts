@@ -12,10 +12,15 @@ export async function buildAndLogMultisigTransaction(
   tx: Transaction,
   sender = MULTISIG_CONFIG.address,
   gasPrice = GAS_PRICE,
+  forceUseAddressBalanceForGas = true,
 ): Promise<void> {
   tx.setSender(sender);
   tx.setGasPrice(gasPrice);
   tx.setGasPayment([]);
+
+  if (forceUseAddressBalanceForGas) {
+    tx.setGasPayment([]);
+  }
 
   const transactionBytes = await tx.build({ client: provider });
   const base64TxBytes = toBase64(transactionBytes);
