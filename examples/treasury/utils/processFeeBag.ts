@@ -14,6 +14,9 @@ type DynamicFieldsPage = {
   >;
 };
 
+// gRPC may return 0x2 or the full 0x000…002 address form.
+const BALANCE_TYPE_RE = /0x0*2::balance::Balance<(.+)>$/;
+
 // Process fees from a specific bag
 export async function processFeesBag(bagId: string): Promise<{
   coinsMapByCoinType: CoinsMapByCoinType;
@@ -37,23 +40,20 @@ export async function processFeesBag(bagId: string): Promise<{
         continue;
       }
 
-      const objectType = field.value.type;
+      const match = field.value.type.match(BALANCE_TYPE_RE);
+      if (!match) {
+        continue;
+      }
 
-      if (objectType.includes("0x2::balance::Balance<")) {
-        const coinType = objectType.substring(
-          objectType.indexOf("0x2::balance::Balance<") + "0x2::balance::Balance<".length,
-          objectType.length - 1,
-        );
+      const coinType = match[1];
+      const balance = bcs.u64().parse(field.value.bcs);
 
-        const balance = bcs.u64().parse(field.value.bcs);
+      // Add to summary
+      coinsMapByCoinType[coinType] = (coinsMapByCoinType[coinType] || BigInt(0)) + BigInt(balance);
 
-        // Add to summary
-        coinsMapByCoinType[coinType] = (coinsMapByCoinType[coinType] || BigInt(0)) + BigInt(balance);
-
-        // Fetch coin metadata if we haven't already
-        if (!coinsMetadataMapByCoinType[coinType]) {
-          coinsMetadataMapByCoinType[coinType] = await getCoinMetadata(coinType);
-        }
+      // Fetch coin metadata if we haven't already
+      if (!coinsMetadataMapByCoinType[coinType]) {
+        coinsMetadataMapByCoinType[coinType] = await getCoinMetadata(coinType);
       }
     }
 
