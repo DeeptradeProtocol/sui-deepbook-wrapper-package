@@ -16,7 +16,6 @@ export async function buildAndLogMultisigTransaction(
 ): Promise<void> {
   tx.setSender(sender);
   tx.setGasPrice(gasPrice);
-  tx.setGasPayment([]);
 
   if (forceUseAddressBalanceForGas) {
     tx.setGasPayment([]);
