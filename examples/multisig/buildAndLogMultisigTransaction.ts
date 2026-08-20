@@ -15,9 +15,7 @@ export async function buildAndLogMultisigTransaction(
 ): Promise<void> {
   tx.setSender(sender);
   tx.setGasPrice(gasPrice);
-  // TODO: Use addressBalance option (once mainnet supports it)
-  // to pay for the transaction gas to avoid gas coin objects version conflicts.
-  // tx.setGasPayment([]);
+  tx.setGasPayment([]);
 
   const transactionBytes = await tx.build({ client: provider });
   const base64TxBytes = toBase64(transactionBytes);
