@@ -11,7 +11,8 @@
     "skipLibCheck": true,
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
-    "allowJs": true
+    "allowJs": true,
+    "types": ["node"]
   },
   "compileOnSave": true,
   "include": ["examples", "tsconfig.json"]
