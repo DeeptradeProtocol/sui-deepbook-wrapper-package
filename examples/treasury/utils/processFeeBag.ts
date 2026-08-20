@@ -36,13 +36,16 @@ export async function processFeesBag(bagId: string): Promise<{
     });
 
     for (const field of page.dynamicFields) {
+      // Fee bags are expected to only store Balance values; missing value or unexpected type is a contract/API bug.
       if (!field.value) {
-        continue;
+        throw new Error(`Dynamic field ${field.fieldId} in bag ${bagId} has no value (expected Balance)`);
       }
 
       const match = field.value.type.match(BALANCE_TYPE_RE);
       if (!match) {
-        continue;
+        throw new Error(
+          `Unexpected dynamic field type in fee bag ${bagId}: ${field.value.type} (expected 0x2::balance::Balance<...>)`,
+        );
       }
 
       const coinType = match[1];
