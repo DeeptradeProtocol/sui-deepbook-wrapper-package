@@ -17,6 +17,9 @@ jobs:
       # Destination address to send coins to
       DESTINATION_ADDRESS: ${{ vars.DESTINATION_ADDRESS }}
 
+      # Optional source address to send coins from (defaults to MULTISIG_ADDRESS if not set)
+      SOURCE_ADDRESS: ${{ vars.SOURCE_ADDRESS }}
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
