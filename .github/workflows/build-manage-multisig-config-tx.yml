@@ -1,41 +1,41 @@
 name: Build Multisig Config Transaction
 
 on:
-    workflow_dispatch:
-        inputs:
-            action_type:
-                description: "Select action"
-                type: choice
-                options:
-                    - Initialize Multisig Config
-                    - Update Multisig Config
+  workflow_dispatch:
+    inputs:
+      action_type:
+        description: "Select action"
+        type: choice
+        options:
+          - Initialize Multisig Config
+          - Update Multisig Config
 
 jobs:
-    build-multisig-config-tx:
-        runs-on: ubuntu-latest
-        env:
-            # Multisig config (from repo vars — the target state)
-            MULTISIG_ADDRESS: ${{ vars.MULTISIG_ADDRESS }}
-            MULTISIG_SIGNERS_BASE64_PUBKEYS: ${{ vars.MULTISIG_SIGNERS_BASE64_PUBKEYS }}
-            MULTISIG_THRESHOLD: ${{ vars.MULTISIG_THRESHOLD }}
-            MULTISIG_WEIGHTS: ${{ vars.MULTISIG_WEIGHTS }}
-            MULTISIG_ADMIN_CAP_HOLDER_ADDRESS: ${{ vars.MULTISIG_ADMIN_CAP_HOLDER_ADDRESS }}
-        steps:
-            - name: Checkout Code
-              uses: actions/checkout@v4
+  build-multisig-config-tx:
+    runs-on: ubuntu-latest
+    env:
+      # Multisig config (from repo vars — the target state)
+      MULTISIG_ADDRESS: ${{ vars.MULTISIG_ADDRESS }}
+      MULTISIG_SIGNERS_BASE64_PUBKEYS: ${{ vars.MULTISIG_SIGNERS_BASE64_PUBKEYS }}
+      MULTISIG_THRESHOLD: ${{ vars.MULTISIG_THRESHOLD }}
+      MULTISIG_WEIGHTS: ${{ vars.MULTISIG_WEIGHTS }}
+      MULTISIG_ADMIN_CAP_HOLDER_ADDRESS: ${{ vars.MULTISIG_ADMIN_CAP_HOLDER_ADDRESS }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 20
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
 
-            - name: Install Dependencies
-              run: npm ci
+      - name: Install Dependencies
+        run: npm ci
 
-            - name: Build Initialize Multisig Config Transaction
-              if: ${{ inputs.action_type == 'Initialize Multisig Config' }}
-              run: npx tsx examples/multisig/initialize-multisig-config.ts
+      - name: Build Initialize Multisig Config Transaction
+        if: ${{ inputs.action_type == 'Initialize Multisig Config' }}
+        run: npx tsx examples/multisig/initialize-multisig-config.ts
 
-            - name: Build Update Multisig Config Transaction
-              if: ${{ inputs.action_type == 'Update Multisig Config' }}
-              run: npx tsx examples/multisig/update-multisig-config.ts
+      - name: Build Update Multisig Config Transaction
+        if: ${{ inputs.action_type == 'Update Multisig Config' }}
+        run: npx tsx examples/multisig/update-multisig-config.ts

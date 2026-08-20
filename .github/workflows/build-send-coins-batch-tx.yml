@@ -17,14 +17,17 @@ jobs:
       # Destination address to send coins to
       DESTINATION_ADDRESS: ${{ vars.DESTINATION_ADDRESS }}
 
+      # Optional source address to send coins from (defaults to MULTISIG_ADDRESS if not set)
+      SOURCE_ADDRESS: ${{ vars.SOURCE_ADDRESS }}
+
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install Dependencies
         run: npm ci

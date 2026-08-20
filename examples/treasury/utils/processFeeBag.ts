@@ -1,6 +1,18 @@
+import { bcs } from "@mysten/sui/bcs";
+import type { SuiClientTypes } from "@mysten/sui/client";
 import { CoinsMapByCoinType, CoinsMetadataMapByCoinType } from "./types";
 import { provider } from "../../provider";
 import { getCoinMetadata } from "./getCoinMetadata";
+
+type DynamicFieldsPage = {
+  hasNextPage: boolean;
+  cursor: string | null;
+  dynamicFields: Array<
+    SuiClientTypes.DynamicFieldEntry & {
+      value?: SuiClientTypes.DynamicFieldValue;
+    }
+  >;
+};
 
 // Process fees from a specific bag
 export async function processFeesBag(bagId: string): Promise<{
@@ -10,31 +22,30 @@ export async function processFeesBag(bagId: string): Promise<{
   const coinsMapByCoinType: CoinsMapByCoinType = {};
   const coinsMetadataMapByCoinType: CoinsMetadataMapByCoinType = {};
 
-  // Fetch all dynamic fields in the bag
-  const dynamicFields = await provider.getDynamicFields({ parentId: bagId });
+  let nextCursor: string | null | undefined = null;
+  let hasNextPage = true;
 
-  // Fetch each field's content
-  for (const field of dynamicFields.data) {
-    const fieldObject = await provider.getDynamicFieldObject({
+  while (hasNextPage) {
+    const page: DynamicFieldsPage = await provider.listDynamicFields({
       parentId: bagId,
-      name: field.name,
+      cursor: nextCursor,
+      include: { value: true },
     });
 
-    // Extract coin type and balance information
-    if (fieldObject.data?.content?.dataType === "moveObject") {
-      const objectType = fieldObject.data.content.type;
-      const fields = fieldObject.data.content.fields;
+    for (const field of page.dynamicFields) {
+      if (!field.value) {
+        continue;
+      }
 
-      // The dynamic field object contains the balance in its 'value' field
+      const objectType = field.value.type;
+
       if (objectType.includes("0x2::balance::Balance<")) {
-        // Extract the coin type from the object type
         const coinType = objectType.substring(
           objectType.indexOf("0x2::balance::Balance<") + "0x2::balance::Balance<".length,
-          objectType.length - 2,
+          objectType.length - 1,
         );
 
-        // Extract the balance from the 'value' field
-        const balance = (fields as any).value;
+        const balance = bcs.u64().parse(field.value.bcs);
 
         // Add to summary
         coinsMapByCoinType[coinType] = (coinsMapByCoinType[coinType] || BigInt(0)) + BigInt(balance);
@@ -45,6 +56,9 @@ export async function processFeesBag(bagId: string): Promise<{
         }
       }
     }
+
+    hasNextPage = page.hasNextPage;
+    nextCursor = page.cursor;
   }
 
   return { coinsMapByCoinType, coinsMetadataMapByCoinType };

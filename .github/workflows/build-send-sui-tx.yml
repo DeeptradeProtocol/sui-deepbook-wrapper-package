@@ -1,29 +1,29 @@
 name: Build Send SUI Transaction
 
 on:
-    workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
-    build-send-sui-tx:
-        runs-on: ubuntu-latest
-        env:
-            # Multisig specific config (can be secrets or vars)
-            MULTISIG_ADDRESS: ${{ vars.MULTISIG_ADDRESS }}
-            MULTISIG_SIGNERS_BASE64_PUBKEYS: ${{ vars.MULTISIG_SIGNERS_BASE64_PUBKEYS }}
-            MULTISIG_THRESHOLD: ${{ vars.MULTISIG_THRESHOLD }}
-            MULTISIG_WEIGHTS: ${{ vars.MULTISIG_WEIGHTS }}
-            MULTISIG_ADMIN_CAP_HOLDER_ADDRESS: ${{ vars.MULTISIG_ADMIN_CAP_HOLDER_ADDRESS }}
-        steps:
-            - name: Checkout Code
-              uses: actions/checkout@v4
+  build-send-sui-tx:
+    runs-on: ubuntu-latest
+    env:
+      # Multisig specific config (can be secrets or vars)
+      MULTISIG_ADDRESS: ${{ vars.MULTISIG_ADDRESS }}
+      MULTISIG_SIGNERS_BASE64_PUBKEYS: ${{ vars.MULTISIG_SIGNERS_BASE64_PUBKEYS }}
+      MULTISIG_THRESHOLD: ${{ vars.MULTISIG_THRESHOLD }}
+      MULTISIG_WEIGHTS: ${{ vars.MULTISIG_WEIGHTS }}
+      MULTISIG_ADMIN_CAP_HOLDER_ADDRESS: ${{ vars.MULTISIG_ADMIN_CAP_HOLDER_ADDRESS }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 20
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
 
-            - name: Install Dependencies
-              run: npm ci
+      - name: Install Dependencies
+        run: npm ci
 
-            - name: Build Send SUI Transaction
-              run: npx tsx examples/send-coins/send-sui.ts
+      - name: Build Send SUI Transaction
+        run: npx tsx examples/send-coins/send-sui.ts
