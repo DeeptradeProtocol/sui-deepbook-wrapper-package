@@ -2,7 +2,7 @@ import { Transaction } from "@mysten/sui/transactions";
 import { SUI_COIN_TYPE } from "../constants";
 import { provider } from "../provider";
 import { MULTISIG_CONFIG } from "../multisig/multisig";
-import { formatBalance } from "../utils";
+import { formatBalance, extractCoinType, listAllCoins } from "../utils";
 import { CoinGroup } from "./types";
 import { buildAndLogMultisigTransaction } from "../multisig/buildAndLogMultisigTransaction";
 
@@ -40,32 +40,23 @@ if (!DESTINATION_ADDRESS) {
     owner: MULTISIG_CONFIG.address,
     coinType: SUI_COIN_TYPE,
   });
+  const initialSuiCoins = await listAllCoins(MULTISIG_CONFIG.address, SUI_COIN_TYPE);
 
-  console.log(`Initial SUI balance: ${formatBalance(initialSuiBalance.totalBalance)} SUI`);
-  console.log(`Initial SUI coin objects: ${initialSuiBalance.coinObjectCount}\n`);
+  console.log(`Initial SUI balance: ${formatBalance(initialSuiBalance.balance.balance)} SUI`);
+  console.log(`Initial SUI coin objects: ${initialSuiCoins.length}\n`);
 
   // Fetch all coins for the MULTISIG_CONFIG.address
   console.log(`Fetching all coins from sender...`);
 
   const coinGroups: Map<string, { objectIds: string[]; totalBalance: bigint }> = new Map();
-  let cursor: string | null | undefined = null;
-  let hasNextPage = true;
+  const allCoins = await listAllCoins(MULTISIG_CONFIG.address);
 
-  while (hasNextPage) {
-    const response = await provider.getAllCoins({
-      owner: MULTISIG_CONFIG.address,
-      cursor,
-    });
-
-    for (const coin of response.data) {
-      const existing = coinGroups.get(coin.coinType) || { objectIds: [], totalBalance: 0n };
-      existing.objectIds.push(coin.coinObjectId);
-      existing.totalBalance += BigInt(coin.balance);
-      coinGroups.set(coin.coinType, existing);
-    }
-
-    cursor = response.nextCursor;
-    hasNextPage = response.hasNextPage;
+  for (const coin of allCoins) {
+    const coinType = extractCoinType(coin.type);
+    const existing = coinGroups.get(coinType) || { objectIds: [], totalBalance: 0n };
+    existing.objectIds.push(coin.objectId);
+    existing.totalBalance += BigInt(coin.balance);
+    coinGroups.set(coinType, existing);
   }
 
   console.log(`Found ${coinGroups.size} unique coin types.\n`);
@@ -87,7 +78,7 @@ if (!DESTINATION_ADDRESS) {
   }
 
   // Calculate SUI transfer amount based on buffer
-  const totalSuiBalance = BigInt(initialSuiBalance.totalBalance);
+  const totalSuiBalance = BigInt(initialSuiBalance.balance.balance);
   const suiBuffer = BigInt(BUFFER_IN_MIST);
   const amountSuiToSend = totalSuiBalance > suiBuffer ? totalSuiBalance - suiBuffer : 0n;
 

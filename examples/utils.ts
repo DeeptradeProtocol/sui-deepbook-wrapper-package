@@ -1,3 +1,5 @@
+import { provider } from "./provider";
+
 /**
  * Add two numbers.
  * @param {string} hexStr String as an input.
@@ -52,4 +54,46 @@ export function formatBalance(balance: string | number | bigint, decimals: numbe
   const balanceBigInt = BigInt(balance);
   const amount = Number(balanceBigInt) / 10 ** decimals;
   return amount.toFixed(decimals).replace(/\.?0+$/, "");
+}
+
+/** Extract inner coin type from a `0x2::coin::Coin<T>` object type string. */
+export function extractCoinType(coinObjectType: string): string {
+  const prefix = "0x2::coin::Coin<";
+  if (coinObjectType.startsWith(prefix) && coinObjectType.endsWith(">")) {
+    return coinObjectType.slice(prefix.length, -1);
+  }
+  return coinObjectType;
+}
+
+/** Paginate through all coins owned by an address. */
+export async function listAllCoins(
+  owner: string,
+  coinType?: string,
+): Promise<
+  Array<{
+    objectId: string;
+    version: string;
+    digest: string;
+    type: string;
+    balance: string;
+  }>
+> {
+  const coins: Array<{
+    objectId: string;
+    version: string;
+    digest: string;
+    type: string;
+    balance: string;
+  }> = [];
+  let cursor: string | null | undefined = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const response = await provider.listCoins({ owner, coinType, cursor });
+    coins.push(...response.objects);
+    cursor = response.cursor;
+    hasNextPage = response.hasNextPage;
+  }
+
+  return coins;
 }

@@ -4,11 +4,11 @@ import { CoinMetadata } from "./types";
 // Fetch coin metadata for a specific coin type
 export async function getCoinMetadata(coinType: string): Promise<CoinMetadata> {
   try {
-    const metadata = await provider.getCoinMetadata({ coinType });
-    if (metadata) {
+    const { coinMetadata } = await provider.getCoinMetadata({ coinType });
+    if (coinMetadata) {
       return {
-        symbol: metadata.symbol,
-        decimals: metadata.decimals,
+        symbol: coinMetadata.symbol,
+        decimals: coinMetadata.decimals,
       };
     }
   } catch (error) {

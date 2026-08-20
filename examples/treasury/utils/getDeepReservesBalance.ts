@@ -11,25 +11,28 @@ export async function getDeepReservesBalance() {
     arguments: [tx.object(TREASURY_OBJECT_ID)],
   });
 
-  const res = await provider.devInspectTransactionBlock({
-    sender: DUMMY_PLACEHOLDER_ADDRESS,
-    transactionBlock: tx,
+  tx.setSender(DUMMY_PLACEHOLDER_ADDRESS);
+
+  const res = await provider.simulateTransaction({
+    transaction: tx,
+    checksEnabled: false,
+    include: { commandResults: true },
   });
 
-  const { results } = res;
+  const { commandResults } = res;
 
-  if (!results || results.length !== 1) {
+  if (!commandResults || commandResults.length !== 1) {
     throw new Error("[getDeepReservesBalanceInfo] No results found");
   }
 
-  const { returnValues } = results[0];
+  const { returnValues } = commandResults[0];
 
   if (!returnValues || returnValues.length !== 1) {
     throw new Error("[getDeepReservesBalanceInfo] No return values found");
   }
 
-  const deepReservesValueRaw = returnValues[0][0];
-  const deepReservesValueDecoded = bcs.u64().parse(new Uint8Array(deepReservesValueRaw));
+  const deepReservesValueRaw = returnValues[0].bcs;
+  const deepReservesValueDecoded = bcs.u64().parse(deepReservesValueRaw);
   const deepReservesValue = +deepReservesValueDecoded / 10 ** DEEP_DECIMALS;
 
   return {
