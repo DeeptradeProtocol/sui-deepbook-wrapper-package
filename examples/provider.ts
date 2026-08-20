@@ -1,10 +1,26 @@
-import { SuiGrpcClient } from "@mysten/sui/grpc";
+import { GrpcWebFetchTransport, SuiGrpcClient } from "@mysten/sui/grpc";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 
-export const suiProviderUrl = "https://fullnode.mainnet.sui.io:443";
+// Optional custom RPC config: when provided, we use it instead of the default fullnode.
+const CUSTOM_SUI_RPC_URL = process.env.CUSTOM_SUI_RPC_URL;
+const CUSTOM_SUI_RPC_TOKEN = process.env.CUSTOM_SUI_RPC_TOKEN;
+const CUSTOM_SUI_RPC_AUTH_HEADER: string | undefined =
+  process.env.CUSTOM_SUI_RPC_AUTH_HEADER && typeof process.env.CUSTOM_SUI_RPC_AUTH_HEADER === "string"
+    ? process.env.CUSTOM_SUI_RPC_AUTH_HEADER
+    : undefined;
+
+const baseUrl = CUSTOM_SUI_RPC_URL || "https://fullnode.mainnet.sui.io:443";
+
+export const suiProviderUrl = baseUrl;
 export const provider = new SuiGrpcClient({
   network: "mainnet",
-  baseUrl: suiProviderUrl,
+  transport: new GrpcWebFetchTransport({
+    baseUrl,
+    meta:
+      CUSTOM_SUI_RPC_TOKEN && CUSTOM_SUI_RPC_AUTH_HEADER
+        ? { [CUSTOM_SUI_RPC_AUTH_HEADER]: CUSTOM_SUI_RPC_TOKEN }
+        : undefined,
+  }),
 });
 
 /**
