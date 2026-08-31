@@ -10,7 +10,9 @@ on:
       - main
     paths:
       - ".github/workflows/move_test.yml"
-      - "packages/deeptrade-core/**.move"
+      # Match pull_request: dependency/manifest changes must run build + test on main,
+      # not only *.move files (Move.toml / Move.lock / mvr.config.json were previously skipped).
+      - "packages/deeptrade-core/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
